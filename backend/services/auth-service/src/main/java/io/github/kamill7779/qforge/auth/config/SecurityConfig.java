@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.auth.config;
 import io.github.kamill7779.qforge.auth.security.JwtAuthenticationFilter;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -16,15 +17,20 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 
+    @Value("${security.swagger-public:false}")
+    private boolean swaggerPublic;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter) throws Exception {
         List<String> publicPaths = new ArrayList<>();
         publicPaths.add("/auth/login");
         publicPaths.add("/actuator/health");
         publicPaths.add("/public/**");
-        publicPaths.add("/v3/**");
-        publicPaths.add("/swagger-ui/**");
-        publicPaths.add("/swagger-ui.html");
+        if (swaggerPublic) {
+            publicPaths.add("/v3/**");
+            publicPaths.add("/swagger-ui/**");
+            publicPaths.add("/swagger-ui.html");
+        }
 
         http
                 .csrf(csrf -> csrf.disable())
