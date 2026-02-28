@@ -41,3 +41,11 @@ replay_pid*
 .env.*
 !.env.example
 
+# Local worktrees
+.worktrees/
+worktrees/
+
+# Local AI runtime data
+ollama-data/
+ocr-test.png
+
