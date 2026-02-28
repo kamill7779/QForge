@@ -1,0 +1,67 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: qforge-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4
+    container_name: qforge-redis
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: qforge-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  dev-container:
+    image: maven:3.9.9-eclipse-temurin-17
+    container_name: qforge-dev-container
+    working_dir: /workspace/backend
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
+      AUTH_SERVICE_URL: http://localhost:8088
+    volumes:
+      - ./:/workspace/backend
+      - maven-repo:/root/.m2
+    command: bash -lc "bash scripts/dev-start.sh"
+    ports:
+      - "8080:8080"
+      - "8088:8088"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+
+volumes:
+  maven-repo:
+

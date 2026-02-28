@@ -1,0 +1,24 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: qforge-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+    ports:
+      - "3306:3306"
+
+  redis:
+    image: redis:7.4
+    container_name: qforge-redis
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: qforge-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
