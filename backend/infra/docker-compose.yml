@@ -22,3 +22,12 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+
+  nacos:
+    image: nacos/nacos-server:v2.4.1
+    container_name: qforge-nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "8848:8848"

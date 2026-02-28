@@ -28,6 +28,15 @@ services:
       - "5672:5672"
       - "15672:15672"
 
+  nacos:
+    image: nacos/nacos-server:v2.4.1
+    container_name: qforge-nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "8848:8848"
+
   auth-service:
     build:
       context: .
@@ -48,6 +57,7 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
     ports:
       - "8088:8088"
@@ -57,6 +67,8 @@ services:
       redis:
         condition: service_started
       rabbitmq:
+        condition: service_started
+      nacos:
         condition: service_started
 
   gateway-service:
@@ -74,8 +86,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
-      AUTH_SERVICE_URL: http://auth-service:8088
     ports:
       - "8080:8080"
     depends_on:
@@ -84,4 +96,6 @@ services:
       redis:
         condition: service_started
       rabbitmq:
+        condition: service_started
+      nacos:
         condition: service_started

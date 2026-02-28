@@ -28,6 +28,15 @@ services:
       - "5672:5672"
       - "15672:15672"
 
+  nacos:
+    image: nacos/nacos-server:v2.4.1
+    container_name: qforge-nacos
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "8848:8848"
+
   dev-container:
     image: maven:3.9.9-eclipse-temurin-17
     container_name: qforge-dev-container
@@ -45,8 +54,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
-      AUTH_SERVICE_URL: http://localhost:8088
     volumes:
       - ./:/workspace/backend
       - maven-repo:/root/.m2
@@ -61,7 +70,8 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_started
+      nacos:
+        condition: service_started
 
 volumes:
   maven-repo:
-

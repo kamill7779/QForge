@@ -1,8 +1,9 @@
 # Services Overview
 
 ## `gateway-service`
-- Entry point for frontend requests.
+- Spring Cloud Gateway entry point for frontend requests.
 - Performs JWT validation and centralizes API access concerns.
+- Routes `/api/auth/**` to `auth-service` through Nacos discovery.
 
 ## `auth-service`
 - Username/password login.

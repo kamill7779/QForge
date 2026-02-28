@@ -4,7 +4,7 @@ This backend is designed as multiple microservices, not a monolith.
 
 ## Services
 
-- `gateway-service`: single client entry and JWT validation.
+- `gateway-service`: real API gateway (Spring Cloud Gateway), unified entry, JWT validation, route forwarding.
 - `auth-service`: username/password login and JWT token issuing.
 
 ## Shared Library
@@ -17,6 +17,7 @@ This backend is designed as multiple microservices, not a monolith.
 - MySQL (`qforge` single shared database)
 - Redis
 - RabbitMQ
+- Nacos (service registry/discovery)
 - `docker-compose.yml`: full stack for current MVP (infra + auth + gateway)
 - `infra/docker-compose.yml`: infra-only stack
 
@@ -27,6 +28,7 @@ This backend is designed as multiple microservices, not a monolith.
 - Shared MySQL
 - RabbitMQ for async events
 - Redis for cache/session needs
+- Nacos for service discovery (Spring Cloud Alibaba)
 - Swagger (springdoc) on each service
 
 ## Quick Start (Image Build Mode)
@@ -40,17 +42,20 @@ docker compose up --build
 This starts:
 - `gateway-service` on `http://localhost:8080`
 - `auth-service` on `http://localhost:8088`
-- MySQL, Redis, RabbitMQ
+- MySQL, Redis, RabbitMQ, Nacos
 
 ## JWT Login (MVP)
 
-- Login endpoint: `POST http://localhost:8088/auth/login`
+- Unified login endpoint (through gateway): `POST http://localhost:8080/api/auth/login`
 - Default account:
 - username: `admin`
 - password: `admin123`
 - Protected test endpoint:
-- `GET http://localhost:8088/auth/me` (with `Authorization: Bearer <token>`)
+- `GET http://localhost:8080/api/auth/me` (with `Authorization: Bearer <token>`)
 - `GET http://localhost:8080/gateway/ping` (with `Authorization: Bearer <token>`)
+
+Gateway routing rule:
+- `/api/auth/**` -> `auth-service` (`StripPrefix=1`, so `/api/auth/login` forwards to `/auth/login`)
 
 ## Swagger
 
@@ -68,7 +73,7 @@ docker compose -f docker-compose.dev.yml up -d
 ```
 
 This starts:
-- infra (`mysql`, `redis`, `rabbitmq`)
+- infra (`mysql`, `redis`, `rabbitmq`, `nacos`)
 - one `dev-container` that runs `auth-service` + `gateway-service` from source with `spring-boot:run`
 
 Characteristics:
