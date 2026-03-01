@@ -1,0 +1,15 @@
+{
+  "name": "qforge-electron-demo",
+  "version": "0.1.0",
+  "description": "QForge Electron demo for full OCR question workflow",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "katex": "^0.16.11"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7"
+  }
+}

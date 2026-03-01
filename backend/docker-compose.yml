@@ -93,6 +93,78 @@ services:
     depends_on:
       auth-service:
         condition: service_started
+      question-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      nacos:
+        condition: service_started
+
+  question-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: question-service
+    container_name: question-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      OCR_SERVICE_BASE_URL: http://ocr-service:8090
+    ports:
+      - "8089:8089"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      nacos:
+        condition: service_started
+
+  ocr-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: ocr-service
+    container_name: ocr-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
+      GLM_OCR_MODEL: glm-ocr
+      GLM_OCR_API_KEY: 7f254e118e2c4882b9a305afdee63a43.x0fNWcsy11zEMyUK
+    ports:
+      - "8090:8090"
+    depends_on:
+      mysql:
+        condition: service_healthy
       redis:
         condition: service_started
       rabbitmq:

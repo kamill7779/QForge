@@ -15,6 +15,8 @@
         <module>libs/common-contract</module>
         <module>services/gateway-service</module>
         <module>services/auth-service</module>
+        <module>services/question-service</module>
+        <module>services/ocr-service</module>
     </modules>
 
     <properties>

@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: question-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:qforge}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${MYSQL_USER:qforge}
+    password: ${MYSQL_PASSWORD:qforge}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+server:
+  port: 8089
+
+security:
+  swagger-public: false
+
+clients:
+  ocr:
+    base-url: ${OCR_SERVICE_BASE_URL:http://localhost:8090}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true

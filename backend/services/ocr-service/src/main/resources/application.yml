@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: ocr-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:qforge}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${MYSQL_USER:qforge}
+    password: ${MYSQL_PASSWORD:qforge}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+server:
+  port: 8090
+
+security:
+  swagger-public: false
+
+ocr:
+  provider:
+    glm:
+      endpoint: ${GLM_OCR_ENDPOINT:https://api.z.ai/api/paas/v4/layout_parsing}
+      model: ${GLM_OCR_MODEL:glm-ocr}
+      api-key: ${GLM_OCR_API_KEY:}
+      image-mime-type: ${GLM_OCR_IMAGE_MIME_TYPE:image/png}
+      timeout-seconds: ${GLM_OCR_TIMEOUT_SECONDS:60}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true

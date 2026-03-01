@@ -56,6 +56,10 @@ services:
       RABBITMQ_PASSWORD: guest
       NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
+      OCR_SERVICE_BASE_URL: http://localhost:8090
+      GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
+      GLM_OCR_MODEL: glm-ocr
+      GLM_OCR_API_KEY: 7f254e118e2c4882b9a305afdee63a43.x0fNWcsy11zEMyUK
     volumes:
       - ./:/workspace/backend
       - maven-repo:/root/.m2
@@ -63,6 +67,8 @@ services:
     ports:
       - "8080:8080"
       - "8088:8088"
+      - "8089:8089"
+      - "8090:8090"
     depends_on:
       mysql:
         condition: service_healthy

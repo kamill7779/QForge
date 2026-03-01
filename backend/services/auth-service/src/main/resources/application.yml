@@ -13,9 +13,6 @@ spring:
     hibernate:
       ddl-auto: none
     open-in-view: false
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
   data:
     redis:
       host: ${REDIS_HOST:localhost}

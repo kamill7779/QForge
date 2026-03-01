@@ -39,6 +39,12 @@ From `backend/`:
 docker compose up --build
 ```
 
+Before first startup, initialize MySQL schema manually (Flyway is not used):
+
+```bash
+mysql --default-character-set=utf8mb4 -h127.0.0.1 -P3306 -uqforge -pqforge qforge < sql/init-schema.sql
+```
+
 This starts:
 - `gateway-service` on `http://localhost:8080`
 - `auth-service` on `http://localhost:8088`

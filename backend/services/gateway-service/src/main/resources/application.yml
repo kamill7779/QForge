@@ -15,6 +15,14 @@ spring:
                 - Path=/api/auth/**
               filters:
                 - StripPrefix=1
+            - id: question-service-route
+              uri: lb://question-service
+              predicates:
+                - Path=/api/questions/**,/api/ocr-tasks/**,/api/tags/**
+            - id: question-service-ws-route
+              uri: lb:ws://question-service
+              predicates:
+                - Path=/ws/questions/**
   data:
     redis:
       host: ${REDIS_HOST:localhost}

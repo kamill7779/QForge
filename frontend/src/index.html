@@ -1,0 +1,220 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QForge 录题助手</title>
+    <link rel="stylesheet" href="../node_modules/katex/dist/katex.min.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="login-screen" class="login-wrap">
+      <div class="login-card">
+        <div class="brand-line">
+          <div class="brand-icon">Q</div>
+          <div>
+            <h1>QForge</h1>
+            <p>录题助手 Electron Demo</p>
+          </div>
+        </div>
+        <form id="login-form" class="login-form">
+          <label>用户名<input id="login-username" type="text" placeholder="admin" required /></label>
+          <label>密码<input id="login-password" type="password" placeholder="admin123" required /></label>
+          <label class="remember-line"><input id="remember-password" type="checkbox" />记住密码</label>
+          <button class="btn btn-primary" type="submit">登录</button>
+          <div class="login-hint">默认账号: admin / admin123</div>
+          <div id="login-error" class="error-text"></div>
+        </form>
+      </div>
+    </div>
+
+    <div id="app-shell" class="app-shell hidden">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="logo-mark">Q</div>
+          <div class="product-title">QForge</div>
+          <div class="product-sub">录题任务中心</div>
+        </div>
+        <div class="topbar-right">
+          <button id="screenshot-trigger-btn" class="btn btn-primary">截图录题</button>
+          <span id="ws-indicator" class="ws-status disconnected">未连接</span>
+          <span id="current-user" class="user-pill"></span>
+          <button id="logout-button" class="btn btn-ghost">退出</button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <aside class="left-pane">
+          <section class="card">
+            <h3>创建录题任务</h3>
+            <div class="row">
+              <button id="create-task-btn" class="btn btn-primary">新建任务</button>
+            </div>
+            <div class="quick-hint">快捷截图录题: <span id="screenshot-shortcut-label">-</span></div>
+            <div class="row batch-row">
+              <input id="batch-count" type="number" min="2" max="20" value="5" />
+              <button id="create-batch-btn" class="btn">批量创建</button>
+            </div>
+          </section>
+
+          <section class="card task-list-card">
+            <div class="task-filters" id="task-filters">
+              <button class="filter-btn active" data-stage="PENDING_STEM">待题干确认</button>
+              <button class="filter-btn" data-stage="PENDING_ANSWER">待录答案</button>
+              <button class="filter-btn" data-stage="COMPLETED">已完成</button>
+            </div>
+            <div id="entry-list" class="entry-list"></div>
+          </section>
+
+          <section class="card logs-card">
+            <h3>系统消息</h3>
+            <ul id="event-log" class="event-log"></ul>
+          </section>
+        </aside>
+
+        <main class="right-pane">
+          <section class="card detail-head compact-head">
+            <h2>任务详情</h2>
+            <div class="meta-grid">
+              <div>题目ID: <span id="detail-question-uuid">-</span></div>
+              <div>阶段: <span id="detail-stage-tag" class="tag neutral">-</span></div>
+              <div>后端状态: <span id="detail-question-status">-</span></div>
+              <div>答案数: <span id="detail-answer-count">0</span></div>
+              <div>主标签: <span id="detail-main-tags">未分类 / 未分类</span></div>
+              <div>副标签: <span id="detail-secondary-tags">-</span></div>
+            </div>
+          </section>
+
+          <section id="split-workspace" class="split-workspace single-pane">
+            <article id="stem-work-card" class="card work-card">
+              <div class="work-head">
+                <h3>题干确认区</h3>
+                <span id="stem-stage-hint" class="tag neutral">待题干确认</span>
+              </div>
+              <div class="focus-layout">
+                <aside class="support-rail">
+                  <div class="block-title rail-title">OCR 与标签</div>
+                  <div class="row rail-row">
+                    <input id="ocr-image-input" type="file" accept="image/*" />
+                  </div>
+                  <div class="row rail-row rail-actions">
+                    <button id="start-ocr-btn" class="btn btn-primary">发起 OCR</button>
+                    <button id="use-ocr-result-btn" class="btn">填充识别结果</button>
+                    <button id="render-stem-btn" class="btn">渲染 LaTeX</button>
+                    <button id="confirm-stem-btn" class="btn btn-primary">确认题干</button>
+                  </div>
+                  <div id="stem-tag-edit-panel" class="tag-edit-panel">
+                    <div class="block-title">主标签与副标签（题干确认时保存）</div>
+                    <div id="stem-main-tag-container"></div>
+                    <div class="row">
+                      <label class="tag-edit-label">副标签（空格分隔）</label>
+                      <input id="stem-secondary-tags-input" type="text" placeholder="例如 微积分 定积分 高考真题" />
+                    </div>
+                  </div>
+                  <div class="meta-line">OCR任务: <span id="detail-ocr-task">-</span> <span id="detail-ocr-status" class="tag neutral">-</span></div>
+                </aside>
+
+                <section class="focus-canvas">
+                  <div class="editor-preview-grid focus-editor-grid">
+                    <div>
+                      <div class="block-title">题干编辑（核心）</div>
+                      <textarea id="stem-textarea" rows="16" placeholder="等待 OCR 结果，或手动编辑后确认"></textarea>
+                    </div>
+                    <div>
+                      <div class="block-title">题干渲染预览（核心）</div>
+                      <div id="stem-preview" class="latex-preview">题干 LaTeX 预览区域</div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </article>
+
+            <article id="answer-work-card" class="card work-card">
+              <div class="work-head">
+                <h3>答案录入区</h3>
+                <span id="answer-stage-hint" class="tag warn">等待题干确认</span>
+              </div>
+              <div class="focus-layout">
+                <aside class="support-rail">
+                  <div class="block-title rail-title">答案操作</div>
+                  <div class="readonly-stem-panel">
+                    <div class="block-title">题干（只读渲染）</div>
+                    <div id="answer-stem-preview" class="latex-preview compact">题干 LaTeX 只读预览区域</div>
+                  </div>
+                  <div class="row rail-row rail-actions">
+                    <button id="answer-ocr-btn" class="btn" disabled>答案 OCR (暂未支持)</button>
+                    <button id="render-answer-btn" class="btn">渲染 LaTeX</button>
+                    <button id="add-answer-btn" class="btn btn-primary">添加答案</button>
+                    <button id="complete-btn" class="btn btn-primary">完成入库(READY)</button>
+                  </div>
+                  <div id="answer-lock-tip" class="lock-tip hidden">请先在左侧完成题干确认，当前不可录入答案。</div>
+                </aside>
+
+                <section class="focus-canvas">
+                  <div id="answer-edit-layout" class="editor-preview-grid focus-editor-grid">
+                    <div id="answer-edit-panel">
+                      <div class="block-title">答案编辑（核心）</div>
+                      <textarea id="answer-textarea" rows="16" placeholder="输入答案 LaTeX，例如 $$x=1$$"></textarea>
+                    </div>
+                    <div id="answer-draft-preview-panel">
+                      <div class="block-title">答案渲染预览（核心）</div>
+                      <div id="answer-preview" class="latex-preview">答案 LaTeX 预览区域</div>
+                    </div>
+                  </div>
+                  <div class="readonly-answer-panel">
+                    <div class="block-title">答案（只读渲染，支持多答案）</div>
+                    <div id="answer-history" class="answer-history"></div>
+                  </div>
+                </section>
+              </div>
+            </article>
+
+            <article id="completed-work-card" class="card work-card hidden">
+              <div class="work-head">
+                <h3>试卷预览</h3>
+                <span class="tag success">已完成</span>
+              </div>
+              <div class="exam-sheet">
+                <section class="exam-stem">
+                  <div class="paper-title">题干</div>
+                  <div id="completed-stem-preview" class="latex-paper">题干渲染区</div>
+                </section>
+                <section class="exam-answer">
+                  <div class="paper-title-row">
+                    <div class="paper-title">答案</div>
+                    <div class="answer-pager">
+                      <button id="completed-prev-answer" class="btn btn-ghost btn-mini">上一解</button>
+                      <span id="completed-answer-page" class="pager-text">1 / 1</span>
+                      <button id="completed-next-answer" class="btn btn-ghost btn-mini">下一解</button>
+                    </div>
+                  </div>
+                  <div id="completed-answer-tabs" class="answer-tabs"></div>
+                  <div id="completed-answer-preview" class="latex-paper answer-paper">答案渲染区</div>
+                </section>
+              </div>
+            </article>
+          </section>
+        </main>
+      </div>
+
+      <footer class="status-bar">
+        <div class="status-left">
+          <span id="status-connection" class="status-chip disconnected">连接: 未连接</span>
+          <span id="status-stage-summary" class="status-text">未选择任务</span>
+        </div>
+        <div class="status-right">
+          <span id="status-shortcut" class="status-text">截图快捷键: -</span>
+          <span id="status-user" class="status-text">访客</span>
+        </div>
+      </footer>
+    </div>
+
+    <div id="entry-context-menu" class="context-menu hidden">
+      <button id="entry-delete-action" class="context-menu-item danger">删除该未完成题目</button>
+    </div>
+
+    <script defer src="../node_modules/katex/dist/katex.min.js"></script>
+    <script defer src="../node_modules/katex/dist/contrib/auto-render.min.js"></script>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

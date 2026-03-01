@@ -1,0 +1,25 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QForge Screenshot</title>
+    <link rel="stylesheet" href="./screenshot.css" />
+  </head>
+  <body>
+    <canvas id="shot-canvas"></canvas>
+
+    <div id="capture-box" class="capture-box">
+      <div id="capture-drag-bar" class="capture-drag-bar">题干截图框（拖动）</div>
+      <div id="capture-resize-handle" class="capture-resize-handle"></div>
+    </div>
+
+    <div class="toolbar">
+      <span id="tip" class="tip-text">把截图框覆盖题干区域，Enter确认，Esc取消</span>
+      <button id="confirm-btn" class="tool-btn primary">确认截取</button>
+      <button id="cancel-btn" class="tool-btn">取消</button>
+    </div>
+
+    <script src="./screenshot.js"></script>
+  </body>
+</html>
