@@ -6,7 +6,9 @@ import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
+import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
+import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
 import java.util.List;
 
 public interface QuestionCommandService {
@@ -26,4 +28,13 @@ public interface QuestionCommandService {
     void deleteDraftQuestion(String questionUuid, String requestUser);
 
     List<QuestionOverviewResponse> listUserQuestions(String requestUser);
+
+    /** Replaces all secondary tags for a question. */
+    QuestionStatusResponse updateTags(String questionUuid, UpdateTagsRequest request, String requestUser);
+
+    /** Updates the difficulty P-value for a question. */
+    QuestionStatusResponse updateDifficulty(String questionUuid, UpdateDifficultyRequest request, String requestUser);
+
+    /** Triggers async AI analysis for tags + difficulty. */
+    void requestAiAnalysis(String questionUuid, String requestUser);
 }

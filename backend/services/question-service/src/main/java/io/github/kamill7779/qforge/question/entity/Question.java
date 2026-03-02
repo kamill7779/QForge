@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @TableName("q_question")
@@ -29,7 +30,7 @@ public class Question {
 
     private String visibility;
 
-    private String difficulty;
+    private BigDecimal difficulty;
 
     @TableLogic
     private Boolean deleted;
@@ -96,11 +97,11 @@ public class Question {
         this.visibility = visibility;
     }
 
-    public String getDifficulty() {
+    public BigDecimal getDifficulty() {
         return difficulty;
     }
 
-    public void setDifficulty(String difficulty) {
+    public void setDifficulty(BigDecimal difficulty) {
         this.difficulty = difficulty;
     }
 

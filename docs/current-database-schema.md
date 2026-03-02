@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS q_question (
     stem_image_id BIGINT NULL COMMENT '题干配图，指向 q_question_asset.id',
     status VARCHAR(32) NOT NULL,
     visibility VARCHAR(32) NOT NULL DEFAULT 'PRIVATE',
-    difficulty VARCHAR(32) NULL,
+    difficulty DECIMAL(3,2) NULL COMMENT 'P-value difficulty coefficient 0.00-1.00',
     deleted BOOLEAN NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
