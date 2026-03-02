@@ -3,15 +3,15 @@ package io.github.kamill7779.qforge.question.service;
 import io.github.kamill7779.qforge.question.client.OcrServiceClient;
 import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
 import io.github.kamill7779.qforge.question.dto.AnswerOverviewResponse;
+import io.github.kamill7779.qforge.question.dto.BatchCreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
-import io.github.kamill7779.qforge.question.dto.MainTagSelectionRequest;
-import io.github.kamill7779.qforge.question.dto.OcrConfirmRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionMainTagResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
+import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.entity.Answer;
 import io.github.kamill7779.qforge.question.entity.Question;
 import io.github.kamill7779.qforge.question.entity.QuestionOcrTask;
@@ -86,6 +86,10 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         Question question = new Question();
         question.setQuestionUuid(UUID.randomUUID().toString());
         question.setOwnerUser(requestUser);
+        // 【关键修改点】createDraft 传入 stemText 时强制 XML 校验
+        if (request.getStemText() != null && !request.getStemText().isBlank()) {
+            stemXmlValidator.validate(request.getStemText());
+        }
         question.setStemText(request.getStemText());
         question.setStatus("DRAFT");
         question.setVisibility("PRIVATE");
@@ -93,27 +97,71 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
+    /**
+     * 【新增接口】独立更新题干 XML 文本。
+     * <p>
+     * 客户端在收到 OCR 结果（通过 WebSocket 推送）后，由用户确认/修正，
+     * 最终将符合 XML 规范的题干文本通过此接口传递给服务端。
+     * 服务端强制执行 XML 格式校验，校验失败返回明确错误信息。
+     * 同时自动将该题目关联的最近一条 QUESTION_STEM OCR 任务标记为 CONFIRMED。
+     */
     @Override
     @Transactional
-    public QuestionStatusResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
+    public QuestionStatusResponse updateStem(String questionUuid, UpdateStemRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        Answer answer = new Answer();
-        answer.setAnswerUuid(UUID.randomUUID().toString());
-        answer.setQuestionId(question.getId());
-        answer.setAnswerType("LATEX_TEXT");
-        answer.setLatexText(request.getLatexText());
-        answer.setSortOrder((int) answerRepository.countByQuestionId(question.getId()) + 1);
-        answer.setOfficial(false);
-        answerRepository.save(answer);
+
+        // 【关键修改点】服务端对接收到的题干文本强制 XML 规范校验
+        stemXmlValidator.validate(request.getStemXml());
+
+        question.setStemText(request.getStemXml());
+        questionRepository.save(question);
+
+        // 内部自动将最近一条 QUESTION_STEM OCR 任务标记为 CONFIRMED（客户端无需感知）
+        autoConfirmLatestOcrTask(questionUuid, "QUESTION_STEM", request.getStemXml(), requestUser);
+
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
     @Override
     @Transactional
-    public OcrTaskAcceptedResponse submitQuestionStemOcr(String questionUuid, OcrTaskSubmitRequest request, String requestUser) {
+    public QuestionStatusResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        saveOneAnswer(question, request.getLatexText(), "MANUAL");
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    /**
+     * 【新增接口】批量添加答案。
+     * <p>
+     * 兼容两种场景：
+     * 1. OCR 识别结果：客户端收到答案 OCR 结果后批量传入
+     * 2. 手动输入多个答案：用户一次性填写多条答案
+     * 每条答案带有 source 字段标识来源（MANUAL / OCR），便于后续审计追溯。
+     */
+    @Override
+    @Transactional
+    public QuestionStatusResponse batchAddAnswers(String questionUuid, BatchCreateAnswerRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        for (BatchCreateAnswerRequest.AnswerItem item : request.getAnswers()) {
+            String source = item.getSource() == null || item.getSource().isBlank() ? "MANUAL" : item.getSource();
+            saveOneAnswer(question, item.getLatexText(), source);
+        }
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    /**
+     * 【重构接口】统一 OCR 任务提交，支持 QUESTION_STEM 和 ANSWER_CONTENT。
+     * <p>
+     * bizType 由客户端在请求体中指定，服务端根据 bizType 分发给 ocr-service，
+     * OCR 完成后通过 MQ → WebSocket 推送结果给客户端。
+     * 客户端仅接收结果，不需要调用任何"确认"接口。
+     */
+    @Override
+    @Transactional
+    public OcrTaskAcceptedResponse submitOcrTask(String questionUuid, OcrTaskSubmitRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         OcrTaskAcceptedResponse response = ocrServiceClient.createTask(new OcrServiceCreateTaskRequest(
-                "QUESTION_STEM",
+                request.getBizType(),
                 questionUuid,
                 request.getImageBase64(),
                 requestUser
@@ -122,45 +170,12 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         QuestionOcrTask task = new QuestionOcrTask();
         task.setTaskUuid(response.taskUuid());
         task.setQuestionUuid(question.getQuestionUuid());
-        task.setBizType("QUESTION_STEM");
+        task.setBizType(request.getBizType());
         task.setStatus(response.status());
         task.setRequestUser(requestUser);
         questionOcrTaskRepository.save(task);
 
         return response;
-    }
-
-    @Override
-    @Transactional
-    public QuestionStatusResponse confirmOcrTask(String taskUuid, OcrConfirmRequest request, String requestUser) {
-        QuestionOcrTask task = questionOcrTaskRepository.findByTaskUuid(taskUuid)
-                .orElseThrow(() -> new BusinessValidationException(
-                        "OCR_TASK_NOT_FOUND",
-                        "OCR task not found",
-                        Map.of("taskUuid", taskUuid),
-                        HttpStatus.NOT_FOUND
-                ));
-        if (!task.getRequestUser().equals(requestUser)) {
-            throw new BusinessValidationException(
-                    "OCR_TASK_FORBIDDEN",
-                    "Current user has no permission for this OCR task",
-                    Map.of("taskUuid", taskUuid, "requestUser", requestUser),
-                    HttpStatus.FORBIDDEN
-            );
-        }
-
-        Question question = findQuestionOwnedByUser(task.getQuestionUuid(), requestUser);
-        if ("QUESTION_STEM".equals(task.getBizType())) {
-            stemXmlValidator.validate(request.getConfirmedText());
-            question.setStemText(request.getConfirmedText());
-            questionRepository.save(question);
-            applyStemTagsOnFirstConfirm(question, request, requestUser);
-        }
-
-        task.setStatus("CONFIRMED");
-        task.setConfirmedText(request.getConfirmedText());
-        questionOcrTaskRepository.save(task);
-        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
     @Override
@@ -256,52 +271,56 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 .toList();
     }
 
-    private void applyStemTagsOnFirstConfirm(Question question, OcrConfirmRequest request, String requestUser) {
+    /**
+     * 内部方法：保存单条答案。
+     */
+    private void saveOneAnswer(Question question, String latexText, String source) {
+        Answer answer = new Answer();
+        answer.setAnswerUuid(UUID.randomUUID().toString());
+        answer.setQuestionId(question.getId());
+        answer.setAnswerType("LATEX_TEXT");
+        answer.setLatexText(latexText);
+        answer.setSortOrder((int) answerRepository.countByQuestionId(question.getId()) + 1);
+        answer.setOfficial(false);
+        answerRepository.save(answer);
+    }
+
+    /**
+     * 内部方法：当客户端通过 updateStem 设置题干时，自动将最近一条对应 bizType 的 OCR 任务标记为 CONFIRMED。
+     * 这是一个内部簿记操作，客户端无需感知。
+     */
+    private void autoConfirmLatestOcrTask(String questionUuid, String bizType, String confirmedText, String requestUser) {
+        questionOcrTaskRepository.findLatestByQuestionUuidAndBizType(questionUuid, bizType)
+                .ifPresent(task -> {
+                    if (!"CONFIRMED".equals(task.getStatus())) {
+                        task.setStatus("CONFIRMED");
+                        task.setConfirmedText(confirmedText);
+                        questionOcrTaskRepository.save(task);
+                    }
+                });
+    }
+
+    /**
+     * 【解耦后的标签方法】将标签初始化逻辑独立出来，不再依赖 OcrConfirmRequest。
+     * 在首次设置题干时自动用默认标签初始化（若尚未设置标签）。
+     */
+    private void applyDefaultTagsIfAbsent(Question question, String requestUser) {
         if (questionTagRelRepository.countByQuestionId(question.getId()) > 0) {
             return;
         }
 
         List<TagCategory> mainCategories = tagCategoryRepository.findEnabledMainCategories();
-        Map<String, String> requestedMainTags = normalizeMainTagSelection(request.getMainTags());
-
         for (TagCategory category : mainCategories) {
             String categoryCode = category.getCategoryCode();
-            String tagCode = requestedMainTags.getOrDefault(categoryCode, TAG_CODE_UNCATEGORIZED);
-            Tag resolvedTag = tagRepository.findSystemTagByCategoryAndCode(categoryCode, tagCode)
-                    .orElseThrow(() -> new BusinessValidationException(
-                            "QUESTION_TAG_NOT_ALLOWED",
-                            "Main tag code is not in allowed range",
-                            Map.of("categoryCode", categoryCode, "tagCode", tagCode)
-                    ));
-            saveQuestionTagRel(question.getId(), resolvedTag.getId(), categoryCode, requestUser);
-        }
-
-        for (String secondaryTagText : parseSecondaryTags(request.getSecondaryTagsText())) {
-            String code = toCustomTagCode(secondaryTagText);
-            Tag customTag = tagRepository.findUserTagByCategoryAndCode(requestUser, CATEGORY_SECONDARY_CUSTOM, code)
-                    .orElseGet(() -> createUserCustomTag(requestUser, secondaryTagText));
-            saveQuestionTagRel(question.getId(), customTag.getId(), CATEGORY_SECONDARY_CUSTOM, requestUser);
-        }
-    }
-
-    private Map<String, String> normalizeMainTagSelection(List<MainTagSelectionRequest> rawSelections) {
-        if (rawSelections == null || rawSelections.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<String, String> result = new LinkedHashMap<>();
-        for (MainTagSelectionRequest selection : rawSelections) {
-            if (selection == null) {
-                continue;
+            Tag resolvedTag = tagRepository.findSystemTagByCategoryAndCode(categoryCode, TAG_CODE_UNCATEGORIZED)
+                    .orElseGet(() -> {
+                        List<Tag> options = tagRepository.findSystemTagsByCategory(categoryCode);
+                        return options.isEmpty() ? null : options.get(0);
+                    });
+            if (resolvedTag != null) {
+                saveQuestionTagRel(question.getId(), resolvedTag.getId(), categoryCode, requestUser);
             }
-            String categoryCode = safeUpper(selection.getCategoryCode());
-            String tagCode = safeUpper(selection.getTagCode());
-            if (categoryCode.isBlank() || tagCode.isBlank()) {
-                continue;
-            }
-            result.put(categoryCode, tagCode);
         }
-        return result;
     }
 
     private String safeUpper(String value) {

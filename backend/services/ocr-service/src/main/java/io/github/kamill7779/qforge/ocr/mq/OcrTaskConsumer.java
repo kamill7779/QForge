@@ -56,12 +56,21 @@ public class OcrTaskConsumer {
 
         try {
             String ocrText = glmOcrClient.recognizeText(task.getImageBase64());
-            String stemXml = stemXmlConverter.convertToStemXml(ocrText);
+
+            // 【关键修改点】仅对 QUESTION_STEM 类型调用 StemXmlConverter，
+            // ANSWER_CONTENT 类型直接返回 OCR 纯文本（LaTeX 格式），不做 XML 转换。
+            String resultText;
+            if ("QUESTION_STEM".equals(task.getBizType())) {
+                resultText = stemXmlConverter.convertToStemXml(ocrText);
+            } else {
+                resultText = ocrText;
+            }
+
             task.setStatus("SUCCESS");
-            task.setRecognizedText(stemXml);
+            task.setRecognizedText(resultText);
             task.setErrorMsg(null);
             ocrTaskRepository.save(task);
-            publishResult(task, "SUCCESS", stemXml, null, null);
+            publishResult(task, "SUCCESS", resultText, null, null);
         } catch (Exception ex) {
             task.setStatus("FAILED");
             task.setErrorMsg(ex.getMessage());

@@ -18,6 +18,17 @@ public interface QuestionOcrTaskRepository extends BaseMapper<QuestionOcrTask> {
         return Optional.ofNullable(task);
     }
 
+    default Optional<QuestionOcrTask> findLatestByQuestionUuidAndBizType(String questionUuid, String bizType) {
+        QuestionOcrTask task = this.selectOne(
+                Wrappers.<QuestionOcrTask>lambdaQuery()
+                        .eq(QuestionOcrTask::getQuestionUuid, questionUuid)
+                        .eq(QuestionOcrTask::getBizType, bizType)
+                        .orderByDesc(QuestionOcrTask::getId)
+                        .last("LIMIT 1")
+        );
+        return Optional.ofNullable(task);
+    }
+
     default QuestionOcrTask save(QuestionOcrTask entity) {
         if (entity.getId() == null) {
             this.insert(entity);
