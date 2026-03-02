@@ -1,7 +1,9 @@
 package io.github.kamill7779.qforge.question.service;
 
+import io.github.kamill7779.qforge.common.contract.AiAnalysisTaskCreatedEvent;
 import io.github.kamill7779.qforge.question.client.OcrServiceClient;
 import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
+import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.dto.AnswerOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
@@ -11,7 +13,9 @@ import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionMainTagResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
+import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
+import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
 import io.github.kamill7779.qforge.question.entity.Answer;
 import io.github.kamill7779.qforge.question.entity.Question;
 import io.github.kamill7779.qforge.question.entity.QuestionOcrTask;
@@ -37,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +62,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     private final QuestionTagRelRepository questionTagRelRepository;
     private final OcrServiceClient ocrServiceClient;
     private final StemXmlValidator stemXmlValidator;
+    private final RabbitTemplate rabbitTemplate;
 
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
@@ -67,7 +73,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             TagCategoryRepository tagCategoryRepository,
             QuestionTagRelRepository questionTagRelRepository,
             OcrServiceClient ocrServiceClient,
-            StemXmlValidator stemXmlValidator
+            StemXmlValidator stemXmlValidator,
+            RabbitTemplate rabbitTemplate
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
@@ -78,6 +85,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         this.questionTagRelRepository = questionTagRelRepository;
         this.ocrServiceClient = ocrServiceClient;
         this.stemXmlValidator = stemXmlValidator;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -262,6 +270,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                             question.getStemText(),
                             tagSnapshot.mainTags(),
                             tagSnapshot.secondaryTags(),
+                            question.getDifficulty(),
                             answerCountMap.getOrDefault(question.getId(), 0L),
                             answersByQuestionId.getOrDefault(question.getId(), List.of()),
                             question.getUpdatedAt()
@@ -465,6 +474,78 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                         Map.of("questionUuid", questionUuid, "requestUser", requestUser),
                         HttpStatus.NOT_FOUND
                 ));
+    }
+
+    @Override
+    @Transactional
+    public QuestionStatusResponse updateTags(String questionUuid, UpdateTagsRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+
+        // Remove existing secondary tags
+        List<QuestionTagRel> existingRels = questionTagRelRepository.findByQuestionIds(List.of(question.getId()));
+        for (QuestionTagRel rel : existingRels) {
+            if (CATEGORY_SECONDARY_CUSTOM.equals(rel.getCategoryCode())) {
+                questionTagRelRepository.deleteById(rel.getId());
+            }
+        }
+
+        // Create or find tags and create relations
+        TagCategory secondaryCategory = tagCategoryRepository.findEnabledByCode(CATEGORY_SECONDARY_CUSTOM)
+                .orElse(null);
+        if (secondaryCategory != null && request.getTags() != null) {
+            for (String tagText : request.getTags()) {
+                if (tagText == null || tagText.isBlank()) {
+                    continue;
+                }
+                String normalizedCode = toCustomTagCode(tagText);
+                Tag tag = tagRepository.findUserTagByCategoryAndCode(requestUser, CATEGORY_SECONDARY_CUSTOM, normalizedCode)
+                        .orElseGet(() -> createUserCustomTag(requestUser, tagText));
+                saveQuestionTagRel(question.getId(), tag.getId(), CATEGORY_SECONDARY_CUSTOM, requestUser);
+            }
+        }
+
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public QuestionStatusResponse updateDifficulty(String questionUuid, UpdateDifficultyRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        question.setDifficulty(request.getDifficulty());
+        questionRepository.save(question);
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public void requestAiAnalysis(String questionUuid, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+
+        if (question.getStemText() == null || question.getStemText().isBlank()) {
+            throw new BusinessValidationException(
+                    "AI_ANALYSIS_MISSING_STEM",
+                    "Stem text is required for AI analysis",
+                    Map.of("questionUuid", questionUuid)
+            );
+        }
+
+        List<Answer> answers = answerRepository.findByQuestionIds(List.of(question.getId()));
+        List<String> answerTexts = answers.stream()
+                .map(Answer::getLatexText)
+                .toList();
+
+        AiAnalysisTaskCreatedEvent event = new AiAnalysisTaskCreatedEvent(
+                questionUuid,
+                requestUser,
+                question.getStemText(),
+                answerTexts
+        );
+
+        rabbitTemplate.convertAndSend(
+                RabbitTopologyConfig.AI_EXCHANGE,
+                RabbitTopologyConfig.ROUTING_AI_ANALYSIS_CREATED,
+                event
+        );
     }
 
     private record TagSnapshot(

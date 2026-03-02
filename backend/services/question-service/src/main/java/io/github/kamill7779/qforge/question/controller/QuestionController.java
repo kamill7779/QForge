@@ -7,7 +7,9 @@ import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
+import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
+import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
 import io.github.kamill7779.qforge.question.service.QuestionCommandService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -119,5 +121,32 @@ public class QuestionController {
     ) {
         questionCommandService.deleteDraftQuestion(questionUuid, requestUser);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{questionUuid}/tags")
+    public ResponseEntity<QuestionStatusResponse> updateTags(
+            @PathVariable("questionUuid") String questionUuid,
+            @Valid @RequestBody UpdateTagsRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.updateTags(questionUuid, request, requestUser));
+    }
+
+    @PutMapping("/{questionUuid}/difficulty")
+    public ResponseEntity<QuestionStatusResponse> updateDifficulty(
+            @PathVariable("questionUuid") String questionUuid,
+            @Valid @RequestBody UpdateDifficultyRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.updateDifficulty(questionUuid, request, requestUser));
+    }
+
+    @PostMapping("/{questionUuid}/ai-analysis")
+    public ResponseEntity<Void> requestAiAnalysis(
+            @PathVariable("questionUuid") String questionUuid,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        questionCommandService.requestAiAnalysis(questionUuid, requestUser);
+        return ResponseEntity.accepted().build();
     }
 }

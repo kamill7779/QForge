@@ -322,7 +322,7 @@ textarea {
 
 .task-filters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 8px;
 }
@@ -796,6 +796,346 @@ textarea {
   background: #fdecec;
 }
 
+/* ==================== Main Tabs ==================== */
+.main-tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.tab-btn {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  background: #eaf0ff;
+  color: var(--primary);
+}
+
+.tab-btn.active {
+  background: #e5eeff;
+  color: var(--primary);
+  font-weight: 600;
+  border-color: var(--primary);
+}
+
+/* ==================== Bank View ==================== */
+.bank-workspace {
+  grid-template-columns: 360px 1fr;
+}
+
+.bank-toolbar h3 {
+  margin: 0 0 8px;
+}
+
+.bank-stats {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.bank-detail-card {
+  padding: 18px;
+  min-height: 600px;
+}
+
+.bank-detail-empty {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.bank-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.bank-detail-head h2 {
+  margin: 0;
+}
+
+.bank-section {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bank-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.bank-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.bank-inline-editor {
+  margin-top: 8px;
+}
+
+.bank-inline-editor textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.bank-inline-editor .row {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+/* ==================== Tag Input (capsule) ==================== */
+.bank-tag-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.bank-tag-row:last-child {
+  margin-bottom: 0;
+}
+
+.bank-tag-label {
+  min-width: 56px;
+  font-size: 13px;
+  color: var(--muted);
+  padding-top: 6px;
+  flex-shrink: 0;
+}
+
+.bank-tag-values {
+  font-size: 13px;
+  color: var(--text);
+  padding-top: 6px;
+}
+
+.tag-input-wrap {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c9d6ed;
+  border-radius: 10px;
+  padding: 6px 8px;
+  background: #fbfdff;
+  min-height: 38px;
+  cursor: text;
+}
+
+.tag-input-wrap:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
+}
+
+.tag-capsules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 2px 8px 2px 10px;
+  background: #e8efff;
+  color: #2a4f99;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.tag-capsule-x {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(45, 108, 223, 0.15);
+  color: #3f6ec2;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.tag-capsule-x:hover {
+  background: rgba(45, 108, 223, 0.3);
+}
+
+.tag-input-field {
+  flex: 1;
+  min-width: 100px;
+  border: none !important;
+  padding: 4px 0 !important;
+  background: transparent !important;
+  outline: none;
+  box-shadow: none !important;
+  font-size: 13px;
+}
+
+/* ==================== Difficulty ==================== */
+.bank-difficulty-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.difficulty-badge {
+  display: inline-block;
+  min-width: 56px;
+  text-align: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.difficulty-badge.d-easy {
+  background: #ddf4e8;
+  color: #176b3d;
+}
+
+.difficulty-badge.d-medium-easy {
+  background: #e8f5cc;
+  color: #3d6b17;
+}
+
+.difficulty-badge.d-medium {
+  background: #fff1d6;
+  color: #8c6306;
+}
+
+.difficulty-badge.d-hard {
+  background: #fde3e3;
+  color: #af3535;
+}
+
+.difficulty-badge.d-very-hard {
+  background: #f3e0fa;
+  color: #7a2ea0;
+}
+
+.difficulty-slider {
+  flex: 1;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #2fa85e 0%, #88c840 25%, #f0b840 50%, #e05050 75%, #9040c8 100%);
+  outline: none;
+}
+
+.difficulty-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.difficulty-value {
+  min-width: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+/* ==================== AI Analysis Button ==================== */
+.btn-ai {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  border-color: transparent;
+}
+
+.btn-ai:hover {
+  filter: brightness(1.08);
+}
+
+.btn-ai:disabled {
+  background: #c4b5fd;
+  cursor: not-allowed;
+}
+
+.btn-ai.loading {
+  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.bank-ai-status {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.bank-ai-status.ai-loading {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d8b4fe;
+}
+
+.bank-ai-status.ai-success {
+  background: var(--success-bg);
+  color: var(--success-tx);
+  border: 1px solid #b6e1c8;
+}
+
+.bank-ai-status.ai-error {
+  background: var(--fail-bg);
+  color: var(--fail-tx);
+  border: 1px solid #efc4c4;
+}
+
+.ai-suggestion-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ai-suggestion-row .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* ==================== Bank list item enriched ==================== */
+.entry-item .entry-difficulty {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
 @media (max-width: 1580px) {
   .focus-layout {
     grid-template-columns: 280px 1fr;
@@ -814,6 +1154,10 @@ textarea {
 
 @media (max-width: 1240px) {
   .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-workspace {
     grid-template-columns: 1fr;
   }
 
