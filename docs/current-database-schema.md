@@ -1,8 +1,7 @@
-# QForge 当前真实数据库表结构（main 分支）
+# QForge 当前真实数据库表结构
 
 **更新时间**: 2026-03-02  
-**分支**: `main`  
-**基线提交**: `f0a2cfb`  
+**分支**: `feat/xml-stem-storage-schema`  
 **数据库**: MySQL 8.4（schema: `qforge`）
 
 ## 1. 真实性校验依据
@@ -13,6 +12,7 @@
 2. 服务迁移脚本：
    - `backend/services/auth-service/src/main/resources/db/migration/V1__init_auth.sql`
    - `backend/services/question-service/src/main/resources/db/migration/V1__init_question_bank.sql`
+   - `backend/services/question-service/src/main/resources/db/migration/V2__xml_stem_storage.sql`
    - `backend/services/ocr-service/src/main/resources/db/migration/V1__init_ocr.sql`
 3. 实体与仓储/业务代码：
    - `auth-service` JPA 实体 `UserAccount`
@@ -38,9 +38,11 @@ CREATE TABLE IF NOT EXISTS q_question (
     question_uuid CHAR(36) NOT NULL UNIQUE,
     owner_user VARCHAR(128) NOT NULL,
     stem_text LONGTEXT NULL,
+    stem_image_id BIGINT NULL COMMENT '题干配图，指向 q_question_asset.id',
     status VARCHAR(32) NOT NULL,
     visibility VARCHAR(32) NOT NULL DEFAULT 'PRIVATE',
     difficulty VARCHAR(32) NULL,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_q_question_owner_status (owner_user, status, visibility, updated_at)
@@ -83,11 +85,28 @@ CREATE TABLE IF NOT EXISTS q_answer (
     latex_text LONGTEXT NULL,
     sort_order INT NOT NULL DEFAULT 1,
     is_official BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_q_answer_question_order (question_id, sort_order),
     CONSTRAINT fk_q_answer_question FOREIGN KEY (question_id) REFERENCES q_question(id)
 );
+
+CREATE TABLE IF NOT EXISTS q_question_asset (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    asset_uuid  CHAR(36)      NOT NULL UNIQUE,
+    question_id BIGINT        NOT NULL,
+    asset_type  VARCHAR(32)   NOT NULL  COMMENT 'STEM_IMAGE / CHOICE_IMAGE',
+    image_data  LONGTEXT      NOT NULL  COMMENT '图片 base64 编码数据',
+    file_name   VARCHAR(255)  NULL      COMMENT '原始文件名',
+    mime_type   VARCHAR(128)  NULL      COMMENT 'image/png, image/jpeg 等',
+    deleted     BOOLEAN       NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_q_asset_question (question_id, asset_type),
+    INDEX idx_q_asset_deleted (deleted),
+    CONSTRAINT fk_q_asset_question FOREIGN KEY (question_id) REFERENCES q_question(id)
+) COMMENT '题目关联资源（图片 base64 存储）';
 
 CREATE TABLE IF NOT EXISTS q_question_tag_rel (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -189,6 +208,8 @@ WHERE NOT EXISTS (
 
 - `q_tag.category_code` -> `q_tag_category.category_code`
 - `q_answer.question_id` -> `q_question.id`
+- `q_question.stem_image_id` -> `q_question_asset.id`（ON DELETE SET NULL）
+- `q_question_asset.question_id` -> `q_question.id`
 - `q_question_tag_rel.question_id` -> `q_question.id`
 - `q_question_tag_rel.tag_id` -> `q_tag.id`
 - `q_question_tag_rel.category_code` -> `q_tag_category.category_code`

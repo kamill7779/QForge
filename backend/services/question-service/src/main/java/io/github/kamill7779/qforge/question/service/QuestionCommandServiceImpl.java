@@ -20,11 +20,13 @@ import io.github.kamill7779.qforge.question.entity.Tag;
 import io.github.kamill7779.qforge.question.entity.TagCategory;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.question.repository.AnswerRepository;
+import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionOcrTaskRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionTagRelRepository;
 import io.github.kamill7779.qforge.question.repository.TagCategoryRepository;
 import io.github.kamill7779.qforge.question.repository.TagRepository;
+import io.github.kamill7779.qforge.question.validation.StemXmlValidator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -48,28 +50,34 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
+    private final QuestionAssetRepository questionAssetRepository;
     private final QuestionOcrTaskRepository questionOcrTaskRepository;
     private final TagRepository tagRepository;
     private final TagCategoryRepository tagCategoryRepository;
     private final QuestionTagRelRepository questionTagRelRepository;
     private final OcrServiceClient ocrServiceClient;
+    private final StemXmlValidator stemXmlValidator;
 
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
             AnswerRepository answerRepository,
+            QuestionAssetRepository questionAssetRepository,
             QuestionOcrTaskRepository questionOcrTaskRepository,
             TagRepository tagRepository,
             TagCategoryRepository tagCategoryRepository,
             QuestionTagRelRepository questionTagRelRepository,
-            OcrServiceClient ocrServiceClient
+            OcrServiceClient ocrServiceClient,
+            StemXmlValidator stemXmlValidator
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
+        this.questionAssetRepository = questionAssetRepository;
         this.questionOcrTaskRepository = questionOcrTaskRepository;
         this.tagRepository = tagRepository;
         this.tagCategoryRepository = tagCategoryRepository;
         this.questionTagRelRepository = questionTagRelRepository;
         this.ocrServiceClient = ocrServiceClient;
+        this.stemXmlValidator = stemXmlValidator;
     }
 
     @Override
@@ -143,6 +151,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
         Question question = findQuestionOwnedByUser(task.getQuestionUuid(), requestUser);
         if ("QUESTION_STEM".equals(task.getBizType())) {
+            stemXmlValidator.validate(request.getConfirmedText());
             question.setStemText(request.getConfirmedText());
             questionRepository.save(question);
             applyStemTagsOnFirstConfirm(question, request, requestUser);
@@ -200,6 +209,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         }
 
         questionOcrTaskRepository.deleteByQuestionUuid(question.getQuestionUuid());
+        questionAssetRepository.softDeleteByQuestionId(question.getId());
+        answerRepository.deleteById(question.getId());
         questionRepository.deleteById(question.getId());
     }
 

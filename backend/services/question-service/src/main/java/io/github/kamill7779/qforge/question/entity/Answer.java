@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.question.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 
 @TableName("q_answer")
@@ -28,6 +29,9 @@ public class Answer {
 
     @TableField("is_official")
     private boolean official;
+
+    @TableLogic
+    private Boolean deleted;
 
     public Long getId() {
         return id;
@@ -83,5 +87,13 @@ public class Answer {
 
     public void setOfficial(boolean official) {
         this.official = official;
+    }
+
+    public Boolean getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(Boolean deleted) {
+        this.deleted = deleted;
     }
 }

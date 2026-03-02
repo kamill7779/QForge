@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.question.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 
@@ -21,11 +22,17 @@ public class Question {
     @TableField("stem_text")
     private String stemText;
 
+    @TableField("stem_image_id")
+    private Long stemImageId;
+
     private String status;
 
     private String visibility;
 
     private String difficulty;
+
+    @TableLogic
+    private Boolean deleted;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
@@ -65,6 +72,14 @@ public class Question {
         this.stemText = stemText;
     }
 
+    public Long getStemImageId() {
+        return stemImageId;
+    }
+
+    public void setStemImageId(Long stemImageId) {
+        this.stemImageId = stemImageId;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -87,6 +102,14 @@ public class Question {
 
     public void setDifficulty(String difficulty) {
         this.difficulty = difficulty;
+    }
+
+    public Boolean getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(Boolean deleted) {
+        this.deleted = deleted;
     }
 
     public LocalDateTime getCreatedAt() {

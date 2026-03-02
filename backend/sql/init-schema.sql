@@ -19,9 +19,11 @@ CREATE TABLE IF NOT EXISTS q_question (
     question_uuid CHAR(36) NOT NULL UNIQUE,
     owner_user VARCHAR(128) NOT NULL,
     stem_text LONGTEXT NULL,
+    stem_image_id BIGINT NULL COMMENT '题干配图，指向 q_question_asset.id',
     status VARCHAR(32) NOT NULL,
     visibility VARCHAR(32) NOT NULL DEFAULT 'PRIVATE',
     difficulty VARCHAR(32) NULL,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_q_question_owner_status (owner_user, status, visibility, updated_at)
@@ -64,11 +66,33 @@ CREATE TABLE IF NOT EXISTS q_answer (
     latex_text LONGTEXT NULL,
     sort_order INT NOT NULL DEFAULT 1,
     is_official BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_q_answer_question_order (question_id, sort_order),
     CONSTRAINT fk_q_answer_question FOREIGN KEY (question_id) REFERENCES q_question(id)
 );
+
+CREATE TABLE IF NOT EXISTS q_question_asset (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    asset_uuid  CHAR(36)      NOT NULL UNIQUE,
+    question_id BIGINT        NOT NULL,
+    asset_type  VARCHAR(32)   NOT NULL  COMMENT 'STEM_IMAGE / CHOICE_IMAGE',
+    image_data  LONGTEXT      NOT NULL  COMMENT '图片 base64 编码数据',
+    file_name   VARCHAR(255)  NULL      COMMENT '原始文件名',
+    mime_type   VARCHAR(128)  NULL      COMMENT 'image/png, image/jpeg 等',
+    deleted     BOOLEAN       NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_q_asset_question (question_id, asset_type),
+    INDEX idx_q_asset_deleted (deleted),
+    CONSTRAINT fk_q_asset_question FOREIGN KEY (question_id) REFERENCES q_question(id)
+) COMMENT '题目关联资源（图片 base64 存储）';
+
+ALTER TABLE q_question
+    ADD CONSTRAINT fk_q_question_stem_image
+        FOREIGN KEY (stem_image_id) REFERENCES q_question_asset(id)
+        ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS q_question_tag_rel (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
