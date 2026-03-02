@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS user_account (
 );
 
 INSERT INTO user_account (username, password, enabled)
-SELECT 'admin', '{noop}admin123', TRUE
+SELECT 'admin', '{noop}admin', TRUE
 WHERE NOT EXISTS (SELECT 1 FROM user_account WHERE username = 'admin');

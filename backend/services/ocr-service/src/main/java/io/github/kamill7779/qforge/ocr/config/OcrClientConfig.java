@@ -13,10 +13,12 @@ public class OcrClientConfig {
 
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder, OcrProviderProperties properties) {
+        if (properties.isPreferIpv4()) {
+            System.setProperty("java.net.preferIPv4Stack", "true");
+        }
         return builder
                 .setConnectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
                 .setReadTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
                 .build();
     }
 }
-

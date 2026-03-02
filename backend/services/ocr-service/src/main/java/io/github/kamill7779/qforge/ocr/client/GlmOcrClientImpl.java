@@ -1,8 +1,15 @@
 package io.github.kamill7779.qforge.ocr.client;
 
 import io.github.kamill7779.qforge.ocr.config.OcrProviderProperties;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import javax.net.ssl.SSLException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -42,6 +49,21 @@ public class GlmOcrClientImpl implements GlmOcrClient {
             throw new RestClientException("GLM OCR apiKey is missing");
         }
 
+        int maxAttempts = Math.max(1, properties.getRetryMaxAttempts());
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return doRecognizeText(imageBase64);
+            } catch (RestClientException ex) {
+                if (!isRetriableNetworkException(ex) || attempt >= maxAttempts) {
+                    throw ex;
+                }
+                sleepBeforeRetry();
+            }
+        }
+        throw new RestClientException("GLM OCR request failed after retry attempts");
+    }
+
+    private String doRecognizeText(String imageBase64) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(properties.getApiKey());
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -74,6 +96,37 @@ public class GlmOcrClientImpl implements GlmOcrClient {
         }
 
         throw new RestClientException("GLM OCR response missing 'md_results' and 'layout_details' fields");
+    }
+
+    private boolean isRetriableNetworkException(Throwable throwable) {
+        Throwable cursor = throwable;
+        while (cursor != null) {
+            if (cursor instanceof NoRouteToHostException
+                    || cursor instanceof ConnectException
+                    || cursor instanceof SocketTimeoutException
+                    || cursor instanceof UnknownHostException
+                    || cursor instanceof SSLException
+                    || cursor instanceof SocketException) {
+                return true;
+            }
+            cursor = cursor.getCause();
+        }
+
+        String message = throwable.getMessage();
+        return message != null && message.toLowerCase(Locale.ROOT).contains("network is unreachable");
+    }
+
+    private void sleepBeforeRetry() {
+        long backoffMillis = Math.max(0L, properties.getRetryBackoffMillis());
+        if (backoffMillis == 0L) {
+            return;
+        }
+        try {
+            Thread.sleep(backoffMillis);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new RestClientException("GLM OCR retry interrupted", ex);
+        }
     }
 
     private String toLayoutParsingFile(String imageBase64) {

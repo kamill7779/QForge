@@ -3,13 +3,15 @@ FROM maven:3.9.9-eclipse-temurin-17 AS build
 ARG SERVICE_NAME
 WORKDIR /workspace
 
+COPY .mvn .mvn
 COPY pom.xml pom.xml
 COPY libs libs
 COPY services services
 
-RUN mvn -q -DskipTests package -pl services/${SERVICE_NAME} -am
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -q -s .mvn/settings-docker.xml -Dmaven.test.skip=true package -pl services/${SERVICE_NAME} -am
 
-FROM eclipse-temurin:17-jre
+FROM maven:3.9.9-eclipse-temurin-17
 
 ARG SERVICE_NAME
 WORKDIR /app

@@ -10,6 +10,9 @@ public class OcrProviderProperties {
     private String apiKey;
     private String imageMimeType;
     private int timeoutSeconds;
+    private int retryMaxAttempts = 3;
+    private long retryBackoffMillis = 1000;
+    private boolean preferIpv4 = true;
 
     public String getEndpoint() {
         return endpoint;
@@ -49,5 +52,29 @@ public class OcrProviderProperties {
 
     public void setTimeoutSeconds(int timeoutSeconds) {
         this.timeoutSeconds = timeoutSeconds;
+    }
+
+    public int getRetryMaxAttempts() {
+        return retryMaxAttempts;
+    }
+
+    public void setRetryMaxAttempts(int retryMaxAttempts) {
+        this.retryMaxAttempts = retryMaxAttempts;
+    }
+
+    public long getRetryBackoffMillis() {
+        return retryBackoffMillis;
+    }
+
+    public void setRetryBackoffMillis(long retryBackoffMillis) {
+        this.retryBackoffMillis = retryBackoffMillis;
+    }
+
+    public boolean isPreferIpv4() {
+        return preferIpv4;
+    }
+
+    public void setPreferIpv4(boolean preferIpv4) {
+        this.preferIpv4 = preferIpv4;
     }
 }

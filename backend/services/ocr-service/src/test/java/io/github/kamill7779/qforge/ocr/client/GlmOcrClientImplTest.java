@@ -1,18 +1,30 @@
 package io.github.kamill7779.qforge.ocr.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.net.SocketException;
+import java.util.Map;
+import javax.net.ssl.SSLHandshakeException;
 import io.github.kamill7779.qforge.ocr.config.OcrProviderProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
+import org.mockito.Mockito;
 
 class GlmOcrClientImplTest {
 
@@ -53,5 +65,69 @@ class GlmOcrClientImplTest {
 
         assertEquals("ok", result);
         server.verify();
+    }
+
+    @Test
+    void shouldRetryWhenNetworkIsUnreachableThenSucceed() throws Exception {
+        OcrProviderProperties properties = new OcrProviderProperties();
+        properties.setEndpoint("https://api.z.ai/api/paas/v4/layout_parsing");
+        properties.setModel("glm-ocr");
+        properties.setApiKey("test-api-key");
+        properties.setImageMimeType("image/png");
+        properties.setTimeoutSeconds(60);
+        properties.setRetryBackoffMillis(0);
+        properties.setRetryMaxAttempts(3);
+
+        RestTemplate restTemplate = Mockito.mock(RestTemplate.class);
+        ResponseEntity<Map> success = new ResponseEntity<>(Map.of("md_results", "ok"), HttpStatusCode.valueOf(200));
+        when(restTemplate.exchange(
+                eq("https://api.z.ai/api/paas/v4/layout_parsing"),
+                eq(HttpMethod.POST),
+                any(),
+                eq(Map.class)))
+                .thenThrow(new ResourceAccessException("I/O error on POST request", new SocketException("Network is unreachable")))
+                .thenReturn(success);
+
+        GlmOcrClient client = new GlmOcrClientImpl(restTemplate, properties);
+        String result = client.recognizeText("img-base64");
+
+        assertEquals("ok", result);
+        verify(restTemplate, times(2)).exchange(
+                eq("https://api.z.ai/api/paas/v4/layout_parsing"),
+                eq(HttpMethod.POST),
+                any(),
+                eq(Map.class));
+    }
+
+    @Test
+    void shouldRetryWhenTlsHandshakeIsTerminatedThenSucceed() throws Exception {
+        OcrProviderProperties properties = new OcrProviderProperties();
+        properties.setEndpoint("https://api.z.ai/api/paas/v4/layout_parsing");
+        properties.setModel("glm-ocr");
+        properties.setApiKey("test-api-key");
+        properties.setImageMimeType("image/png");
+        properties.setTimeoutSeconds(60);
+        properties.setRetryBackoffMillis(0);
+        properties.setRetryMaxAttempts(3);
+
+        RestTemplate restTemplate = Mockito.mock(RestTemplate.class);
+        ResponseEntity<Map> success = new ResponseEntity<>(Map.of("md_results", "ok"), HttpStatusCode.valueOf(200));
+        when(restTemplate.exchange(
+                eq("https://api.z.ai/api/paas/v4/layout_parsing"),
+                eq(HttpMethod.POST),
+                any(),
+                eq(Map.class)))
+                .thenThrow(new ResourceAccessException("I/O error on POST request", new SSLHandshakeException("Remote host terminated the handshake")))
+                .thenReturn(success);
+
+        GlmOcrClient client = new GlmOcrClientImpl(restTemplate, properties);
+        String result = client.recognizeText("img-base64");
+
+        assertEquals("ok", result);
+        verify(restTemplate, times(2)).exchange(
+                eq("https://api.z.ai/api/paas/v4/layout_parsing"),
+                eq(HttpMethod.POST),
+                any(),
+                eq(Map.class));
     }
 }

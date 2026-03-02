@@ -217,3 +217,35 @@ WHERE NOT EXISTS (
 ## 6. 使用建议
 
 本项目当前主分支数据库初始化建议以 `backend/sql/init-schema.sql` 为准；本文件作为面向研发与联调的“可读版真实结构文档”，与主脚本同步维护。
+
+## 7. 中文乱码排查与修复（重要）
+
+### 现象
+- `q_tag_category.category_name`、`q_tag.tag_name` 等中文字段显示为乱码或 `??`。
+
+### 根因
+- 在 Windows PowerShell 中使用 `Get-Content ... | docker exec ... mysql` 导入 SQL 时，可能发生控制台编码转换，导致 UTF-8 中文在进入 MySQL 前被破坏。
+
+### 推荐导入方式（避免乱码）
+1. 先把 SQL 文件复制进 MySQL 容器（保留原始 UTF-8 字节）。
+2. 在容器内用重定向执行，并显式指定字符集 `utf8mb4`。
+
+```bash
+# 在 backend 目录执行
+cd backend
+
+docker cp sql/init-schema.sql qforge-mysql:/tmp/init-schema.sql
+docker exec qforge-mysql sh -c "mysql --default-character-set=utf8mb4 -uroot -proot qforge < /tmp/init-schema.sql"
+```
+
+### 快速校验（推荐用 HEX）
+```sql
+SELECT category_code, HEX(category_name) FROM q_tag_category;
+SELECT category_code, tag_code, HEX(tag_name) FROM q_tag WHERE tag_code='UNCATEGORIZED';
+```
+
+预期：
+- 年级: `E5B9B4E7BAA7`
+- 知识点: `E79FA5E8AF86E782B9`
+- 副标签: `E589AFE6A087E7ADBE`
+- 未分类: `E69CAAE58886E7B1BB`

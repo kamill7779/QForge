@@ -5,6 +5,7 @@ networks:
 services:
   mysql:
     image: mysql:8.4
+    pull_policy: if_not_present
     container_name: qforge-mysql
     networks: [qforge-net]
     environment:
@@ -22,6 +23,7 @@ services:
 
   redis:
     image: redis:7.4
+    pull_policy: if_not_present
     container_name: qforge-redis
     networks: [qforge-net]
     ports:
@@ -29,6 +31,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13-management
+    pull_policy: if_not_present
     container_name: qforge-rabbitmq
     networks: [qforge-net]
     ports:
@@ -37,6 +40,7 @@ services:
 
   nacos:
     image: nacos/nacos-server:v2.4.1
+    pull_policy: if_not_present
     container_name: qforge-nacos
     networks: [qforge-net]
     environment:
@@ -46,9 +50,11 @@ services:
       - "8848:8848"
 
   auth-service:
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile
+      pull: false
       args:
         SERVICE_NAME: auth-service
     container_name: auth-service
@@ -81,9 +87,11 @@ services:
         condition: service_started
 
   gateway-service:
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile
+      pull: false
       args:
         SERVICE_NAME: gateway-service
     container_name: gateway-service
@@ -113,9 +121,11 @@ services:
         condition: service_started
 
   question-service:
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile
+      pull: false
       args:
         SERVICE_NAME: question-service
     container_name: question-service
@@ -148,9 +158,11 @@ services:
         condition: service_started
 
   ocr-service:
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile
+      pull: false
       args:
         SERVICE_NAME: ocr-service
     container_name: ocr-service
@@ -172,6 +184,8 @@ services:
       GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
       GLM_OCR_MODEL: glm-ocr
       GLM_OCR_API_KEY: 7f254e118e2c4882b9a305afdee63a43.x0fNWcsy11zEMyUK
+      GLM_OCR_PREFER_IPV4: "true"
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
       ZHIPUAI_API_KEY: 9d94bc7088374d1596120c5930bc13d7.jUWvkwd5OgTHrkfR
       ZHIPUAI_MODEL: glm-5
     ports:
