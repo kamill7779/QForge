@@ -24,7 +24,89 @@ function hideMenu(){const m=$("entry-context-menu");m.classList.add("hidden");m.
 function showMenu(x,y,qid){const m=$("entry-context-menu");$("entry-delete-action").dataset.questionUuid=qid;m.classList.remove("hidden");const r=m.getBoundingClientRect();m.style.left=`${Math.min(x,Math.max(8,window.innerWidth-r.width-8))}px`;m.style.top=`${Math.min(y,Math.max(8,window.innerHeight-r.height-8))}px`}
 function canDelete(e){const s=stageOf(e);return(s==="PENDING_STEM"||s==="PENDING_ANSWER")&&e.status==="DRAFT"&&Number(e.answerCount||0)===0}
 function setTag(node,text,css){node.textContent=text;node.className=`tag ${css}`}
-function renderLatexNode(node,text,placeholder){const c=(text||"").trim();if(!c){node.textContent=placeholder;return}node.textContent=c;if(typeof window.renderMathInElement==="function")try{window.renderMathInElement(node,{delimiters:KATEX_DELIMITERS,throwOnError:false,strict:"ignore"})}catch{}}
+function renderLatexNode(node,text,placeholder){
+  const c=(text||"").trim();
+  if(!c){node.textContent=placeholder;node.innerHTML='';return}
+  if(!c.startsWith("<stem")){
+    node.textContent=c;
+    if(typeof window.renderMathInElement==="function")try{window.renderMathInElement(node,{delimiters:KATEX_DELIMITERS,throwOnError:false,strict:"ignore"})}catch{}
+    return;
+  }
+  node.innerHTML="";
+  try {
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(c,"application/xml");
+    const errorNode=doc.querySelector("parsererror");
+    if(errorNode){node.textContent="[XML解析错误]: "+c;return}
+    const stemInfo=doc.querySelector("stem");
+    if(!stemInfo){node.textContent=c;return}
+    function processNode(xmlNode,parentEl){
+      if(xmlNode.nodeType===Node.TEXT_NODE){
+        parentEl.appendChild(document.createTextNode(xmlNode.nodeValue));
+        return;
+      }
+      if(xmlNode.nodeType!==Node.ELEMENT_NODE)return;
+      const tag=xmlNode.tagName.toLowerCase();
+      if(tag==="stem"){
+        Array.from(xmlNode.childNodes).forEach(n=>processNode(n,parentEl));
+      }else if(tag==="p"){
+        const p=document.createElement("p");
+        p.className="stem-p";
+        Array.from(xmlNode.childNodes).forEach(n=>processNode(n,p));
+        parentEl.appendChild(p);
+      }else if(tag==="image"){
+        const img=document.createElement("img");
+        const ref=xmlNode.getAttribute("ref")||"";
+        img.src=`data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="100%" height="100%" fill="%23f0f0f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="12" fill="%23999">Img: ${ref}</text></svg>`;
+        img.className="stem-image";
+        img.alt=`image-${ref}`;
+        parentEl.appendChild(img);
+      }else if(tag==="choices"){
+        const mode=xmlNode.getAttribute("mode")||"single";
+        const div=document.createElement("div");
+        div.className=`choices-container ${mode}`;
+        Array.from(xmlNode.childNodes).forEach(n=>processNode(n,div));
+        parentEl.appendChild(div);
+      }else if(tag==="choice"){
+        const key=xmlNode.getAttribute("key")||"";
+        const cdiv=document.createElement("div");
+        cdiv.className="choice-item";
+        const cspan=document.createElement("span");
+        cspan.className="choice-key";
+        cspan.textContent=key+". ";
+        cdiv.appendChild(cspan);
+        const cont=document.createElement("div");
+        cont.className="choice-content";
+        Array.from(xmlNode.childNodes).forEach(n=>processNode(n,cont));
+        cdiv.appendChild(cont);
+        parentEl.appendChild(cdiv);
+      }else if(tag==="blanks"){
+        const div=document.createElement("div");
+        div.className="blanks-container";
+        Array.from(xmlNode.childNodes).forEach(n=>processNode(n,div));
+        parentEl.appendChild(div);
+      }else if(tag==="blank"){
+        const span=document.createElement("span");
+        span.className="blank-item";
+        span.textContent=" ________ ";
+        parentEl.appendChild(span);
+      }else if(tag==="answer-area"){
+        const div=document.createElement("div");
+        div.className="answer-area";
+        div.textContent="[解答区]";
+        parentEl.appendChild(div);
+      }else{
+        Array.from(xmlNode.childNodes).forEach(n=>processNode(n,parentEl));
+      }
+    }
+    processNode(stemInfo,node);
+    if(typeof window.renderMathInElement==="function"){
+      try{window.renderMathInElement(node,{delimiters:KATEX_DELIMITERS,throwOnError:false,strict:"ignore"})}catch{}
+    }
+  }catch(err){
+    node.textContent="[结构解析异常]: "+c;
+  }
+}
 const renderLatex=(id,text,ph)=>renderLatexNode($(id),text,ph);
 function renderMainSelectors(entry,editable){const box=$("stem-main-tag-container");box.innerHTML="";if(!state.tagCatalog.mainCategories.length){box.innerHTML='<div class="empty-note">暂无主标签字典</div>';return}const map=new Map((entry.mainTags||[]).map(t=>[t.categoryCode,t]));for(const c of state.tagCatalog.mainCategories){const row=document.createElement("div");row.className="row";const lab=document.createElement("label");lab.className="tag-edit-label";lab.textContent=`${c.categoryName}主标签`;const sel=document.createElement("select");for(const o of c.options){const op=document.createElement("option");op.value=o.tagCode;op.textContent=o.tagName||o.tagCode;sel.appendChild(op)}const cur=map.get(c.categoryCode);sel.value=cur?.tagCode||c.options[0]?.tagCode||"UNCATEGORIZED";sel.disabled=!editable;sel.addEventListener("change",()=>{const opt=c.options.find(x=>x.tagCode===sel.value);const tags=[...(entry.mainTags||[])];const i=tags.findIndex(t=>t.categoryCode===c.categoryCode);const next={categoryCode:c.categoryCode,categoryName:c.categoryName,tagCode:sel.value,tagName:opt?.tagName||sel.value};if(i>=0)tags[i]=next;else tags.push(next);entry.mainTags=tags;entry.updatedAt=Date.now();state.entries.set(entry.questionUuid,entry);saveWorkspace();$("detail-main-tags").textContent=entry.mainTags.map(t=>`${t.categoryName}:${t.tagName}`).join(" / ")});row.appendChild(lab);row.appendChild(sel);box.appendChild(row)}}
 function renderHistory(entry){const b=$("answer-history");b.innerHTML="";if(!entry||!entry.answersLocal||!entry.answersLocal.length){b.innerHTML='<div class="empty-note">暂无已录入答案</div>';return}entry.answersLocal.forEach((ans,i)=>{const it=document.createElement("div");it.className="answer-history-item";const t=document.createElement("div");t.className="answer-history-index";t.textContent=`解法 #${i+1}`;const n=document.createElement("div");n.className="answer-history-latex";renderLatexNode(n,ans,"空答案");it.appendChild(t);it.appendChild(n);b.appendChild(it)})}

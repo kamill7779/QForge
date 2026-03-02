@@ -1121,6 +1121,82 @@ textarea {
   margin-top: 6px;
 }
 
+/* ==================== XML Stem Rendering ==================== */
+.stem-p {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+.stem-image {
+  max-width: 100%;
+  display: block;
+  margin: 10px 0;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.choices-container {
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.choices-container.single {
+  /* single choice specific styles if any */
+}
+
+.choices-container.multi {
+  /* multi choice specific styles if any */
+}
+
+.choice-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.choice-key {
+  font-weight: 600;
+  color: var(--text-color);
+  flex-shrink: 0;
+}
+
+.choice-content {
+  flex: 1;
+}
+
+.choice-content > p {
+  margin: 0;
+}
+
+.blanks-container {
+  margin: 10px 0;
+  padding: 10px;
+  background-color: var(--bg-body);
+  border-radius: 4px;
+  border: 1px dashed var(--border);
+}
+
+.blank-item {
+  display: inline-block;
+  min-width: 40px;
+  text-align: center;
+  border-bottom: 1px solid var(--text-color);
+  margin: 0 4px;
+  color: var(--text-muted);
+}
+
+.answer-area {
+  margin-top: 15px;
+  padding: 40px 10px 10px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  text-align: center;
+  background-color: var(--bg-surface);
+}
+
 .ai-suggestion-row .btn {
   padding: 4px 10px;
   font-size: 12px;
