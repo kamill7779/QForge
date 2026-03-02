@@ -14,6 +14,8 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class OcrTaskConsumer {
@@ -86,10 +88,24 @@ public class OcrTaskConsumer {
                 task.getRequestUser(),
                 Instant.now().toString()
         );
-        rabbitTemplate.convertAndSend(
-                RabbitTopologyConfig.OCR_EXCHANGE,
-                RabbitTopologyConfig.ROUTING_TASK_RESULT,
-                resultEvent
-        );
+        // Delay publishing until after the transaction commits to ensure DB changes are visible.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    rabbitTemplate.convertAndSend(
+                            RabbitTopologyConfig.OCR_EXCHANGE,
+                            RabbitTopologyConfig.ROUTING_TASK_RESULT,
+                            resultEvent
+                    );
+                }
+            });
+        } else {
+            rabbitTemplate.convertAndSend(
+                    RabbitTopologyConfig.OCR_EXCHANGE,
+                    RabbitTopologyConfig.ROUTING_TASK_RESULT,
+                    resultEvent
+            );
+        }
     }
 }
