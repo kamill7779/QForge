@@ -275,8 +275,23 @@
                   <button id="bank-edit-stem-btn" class="btn btn-mini btn-ghost">编辑</button>
                 </div>
                 <div id="bank-stem-display" class="latex-paper">题干渲染区</div>
+                <div id="bank-stem-image-section" class="bank-stem-image-section hidden">
+                  <div class="block-title">题干配图</div>
+                  <div id="bank-stem-image-display" class="bank-stem-image-display"></div>
+                </div>
                 <div id="bank-stem-editor" class="bank-inline-editor hidden">
-                  <textarea id="bank-stem-textarea" rows="10" placeholder="编辑题干 LaTeX"></textarea>
+                  <div class="stem-editor-toolbar">
+                    <button id="bank-add-paragraph-btn" class="btn btn-mini">+ 段落</button>
+                    <button id="bank-add-choices-btn" class="btn btn-mini">+ 选项</button>
+                    <button id="bank-add-blanks-btn" class="btn btn-mini">+ 填空</button>
+                    <button id="bank-add-answer-area-btn" class="btn btn-mini">+ 答题区</button>
+                    <button id="bank-add-image-btn" class="btn btn-mini">+ 配图</button>
+                  </div>
+                  <div id="bank-stem-structured-editor" class="stem-structured-editor"></div>
+                  <div class="bank-stem-preview-section">
+                    <div class="block-title">预览</div>
+                    <div id="bank-stem-edit-preview" class="latex-preview compact">预览区</div>
+                  </div>
                   <div class="row">
                     <button id="bank-stem-save" class="btn btn-primary btn-mini">保存</button>
                     <button id="bank-stem-cancel" class="btn btn-ghost btn-mini">取消</button>
