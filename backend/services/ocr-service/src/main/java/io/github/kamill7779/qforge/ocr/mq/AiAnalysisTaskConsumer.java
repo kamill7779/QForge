@@ -128,6 +128,12 @@ public class AiAnalysisTaskConsumer {
 
             log.info("AI analysis raw response for question={}: {}", event.questionUuid(), rawJson);
 
+            if (rawJson.isEmpty()) {
+                log.warn("AI analysis returned empty content for question={}, treating as failure", event.questionUuid());
+                publishResult(event, false, null, null, null, "AI model returned empty response");
+                return;
+            }
+
             JsonNode node = objectMapper.readTree(rawJson);
 
             List<String> tags = new ArrayList<>();
