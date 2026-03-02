@@ -96,6 +96,7 @@
               <div class="focus-layout">
                 <aside class="support-rail">
                   <div class="block-title rail-title">OCR 与标签</div>
+                  <div class="block-title">题干 OCR 图</div>
                   <div class="row rail-row">
                     <input id="ocr-image-input" type="file" accept="image/*" />
                   </div>
@@ -105,6 +106,22 @@
                     <button id="render-stem-btn" class="btn">渲染 LaTeX</button>
                     <button id="confirm-stem-btn" class="btn btn-primary">确认题干</button>
                   </div>
+                  <div class="block-title">题干结构工具</div>
+                  <div class="row rail-row rail-actions">
+                    <button id="insert-choice-btn" class="btn">添加选项</button>
+                    <button id="insert-blank-btn" class="btn">添加空</button>
+                    <button id="insert-answer-area-btn" class="btn">添加答题区</button>
+                    <button id="insert-image-tag-btn" class="btn">插入图片标签</button>
+                  </div>
+                  <div class="block-title">题干配图（预留）</div>
+                  <div class="row rail-row">
+                    <input id="stem-image-input" type="file" accept="image/*" />
+                  </div>
+                  <div class="row rail-row rail-actions">
+                    <button id="stem-image-shot-btn" class="btn">截图配图</button>
+                    <button id="stem-image-clear-btn" class="btn btn-ghost">清除配图</button>
+                  </div>
+                  <div id="stem-image-preview" class="stem-image-preview empty">未选择配图</div>
                   <div id="stem-tag-edit-panel" class="tag-edit-panel">
                     <div class="block-title">主标签与副标签（题干确认时保存）</div>
                     <div id="stem-main-tag-container"></div>
@@ -139,16 +156,22 @@
               <div class="focus-layout">
                 <aside class="support-rail">
                   <div class="block-title rail-title">答案操作</div>
+                  <div class="block-title">答案 OCR 图</div>
+                  <div class="row rail-row">
+                    <input id="answer-ocr-image-input" type="file" accept="image/*" />
+                  </div>
                   <div class="readonly-stem-panel">
                     <div class="block-title">题干（只读渲染）</div>
                     <div id="answer-stem-preview" class="latex-preview compact">题干 LaTeX 只读预览区域</div>
                   </div>
                   <div class="row rail-row rail-actions">
-                    <button id="answer-ocr-btn" class="btn" disabled>答案 OCR (暂未支持)</button>
+                    <button id="answer-ocr-btn" class="btn">发起答案 OCR</button>
+                    <button id="use-answer-ocr-result-btn" class="btn">填充识别答案</button>
                     <button id="render-answer-btn" class="btn">渲染 LaTeX</button>
                     <button id="add-answer-btn" class="btn btn-primary">添加答案</button>
                     <button id="complete-btn" class="btn btn-primary">完成入库(READY)</button>
                   </div>
+                  <div class="meta-line">答案OCR任务: <span id="detail-answer-ocr-task">-</span> <span id="detail-answer-ocr-status" class="tag neutral">-</span></div>
                   <div id="answer-lock-tip" class="lock-tip hidden">请先在左侧完成题干确认，当前不可录入答案。</div>
                 </aside>
 

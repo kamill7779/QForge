@@ -1,11 +1,34 @@
-(function (global) {
+﻿(function (global) {
+  const ALLOWED_TAG_NAMES = [
+    "stem",
+    "p",
+    "image",
+    "choices",
+    "choice",
+    "blanks",
+    "blank",
+    "answer-area"
+  ];
+
+  const ALLOWED_TAG_TOKEN_RE = new RegExp(
+    `<\\/?(?:${ALLOWED_TAG_NAMES.join("|")})\\b[^>]*\\/?>`,
+    "gi"
+  );
+
   function escapeXml(text) {
     return String(text)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
+      .replace(/\"/g, "&quot;")
       .replace(/'/g, "&apos;");
+  }
+
+  function escapeXmlTextPreserveEntities(text) {
+    return String(text)
+      .replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9A-Fa-f]+);)/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
   function decodeXml(text) {
@@ -89,18 +112,51 @@
     return { ok: true, root };
   }
 
+  function normalizeStemXmlForDom(input) {
+    const raw = String(input || "");
+    if (!raw) return raw;
+
+    const tokens = [...raw.matchAll(ALLOWED_TAG_TOKEN_RE)];
+    if (!tokens.length) return raw;
+
+    let result = "";
+    let cursor = 0;
+    for (const match of tokens) {
+      const token = match[0];
+      const index = match.index || 0;
+      const between = raw.slice(cursor, index);
+      result += escapeXmlTextPreserveEntities(between);
+      result += token;
+      cursor = index + token.length;
+    }
+    result += escapeXmlTextPreserveEntities(raw.slice(cursor));
+    return result.trim();
+  }
+
+  function parseStemXmlDocument(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return null;
+    if (typeof DOMParser === "undefined") return null;
+    if (!raw.startsWith("<stem")) return null;
+
+    const normalized = normalizeStemXmlForDom(raw);
+    try {
+      const doc = new DOMParser().parseFromString(normalized, "application/xml");
+      if (doc.querySelector("parsererror")) return null;
+      if (!doc.documentElement || doc.documentElement.tagName !== "stem") return null;
+      return doc;
+    } catch {
+      return null;
+    }
+  }
+
   function isValidStemXml(xml) {
     const raw = String(xml || "").trim();
     if (!raw) return false;
 
     if (typeof DOMParser !== "undefined") {
-      try {
-        const doc = new DOMParser().parseFromString(raw, "application/xml");
-        if (doc.querySelector("parsererror")) return false;
-        return Boolean(doc.documentElement) && doc.documentElement.tagName === "stem";
-      } catch {
-        return false;
-      }
+      const doc = parseStemXmlDocument(raw);
+      return Boolean(doc);
     }
 
     const parsed = parseTagSequence(raw);
@@ -110,13 +166,18 @@
   function toStemXmlPayload(input) {
     const raw = String(input || "").trim();
     if (!raw) return "";
-    if (isValidStemXml(raw)) return raw;
+    if (isValidStemXml(raw)) return normalizeStemXmlForDom(raw);
+
+    if (raw.startsWith("<stem")) {
+      const normalized = normalizeStemXmlForDom(raw);
+      if (isValidStemXml(normalized)) return normalized;
+    }
 
     const normalized = raw.replace(/\r\n/g, "\n");
     const lines = normalized.split(/\n+/).map((x) => x.trim()).filter(Boolean);
     const paragraphs = lines.length ? lines : [normalized.trim()];
     const body = paragraphs.map((line) => `<p>${escapeXml(line)}</p>`).join("");
-    return `<stem version="1">${body}</stem>`;
+    return `<stem version=\"1\">${body}</stem>`;
   }
 
   function textOfNode(node) {
@@ -126,8 +187,8 @@
 
     const name = String(node.tagName || "").toLowerCase();
     if (name === "blank") return "____";
-    if (name === "image") return "[图片]";
-    if (name === "answer-area") return "[解答区]";
+    if (name === "image") return "[image]";
+    if (name === "answer-area") return "[answer-area]";
 
     let out = "";
     for (const child of Array.from(node.childNodes || [])) {
@@ -139,46 +200,40 @@
   function toEditorStemText(input) {
     const raw = String(input || "").trim();
     if (!raw) return "";
-    if (!isValidStemXml(raw)) return raw;
 
-    if (typeof DOMParser !== "undefined") {
-      try {
-        const doc = new DOMParser().parseFromString(raw, "application/xml");
-        const root = doc.documentElement;
-        if (!root || root.tagName !== "stem") return raw;
-        const lines = [];
-        for (const child of Array.from(root.childNodes || [])) {
-          if (child.nodeType !== 1) continue;
-          const name = String(child.tagName || "").toLowerCase();
-          if (name === "p") {
-            const text = textOfNode(child).trim();
-            if (text) lines.push(text);
-            continue;
-          }
-          if (name === "choices") {
-            for (const option of Array.from(child.childNodes || [])) {
-              if (option.nodeType !== 1 || String(option.tagName || "").toLowerCase() !== "choice") continue;
-              const key = option.getAttribute("key") || "";
-              const text = textOfNode(option).trim();
-              lines.push(key ? `${key}. ${text}` : text);
-            }
-            continue;
-          }
-          const fallback = textOfNode(child).trim();
-          if (fallback) lines.push(fallback);
+    const doc = parseStemXmlDocument(raw);
+    if (doc) {
+      const root = doc.documentElement;
+      const lines = [];
+      for (const child of Array.from(root.childNodes || [])) {
+        if (child.nodeType !== 1) continue;
+        const name = String(child.tagName || "").toLowerCase();
+        if (name === "p") {
+          const text = textOfNode(child).trim();
+          if (text) lines.push(text);
+          continue;
         }
-        const merged = lines.filter(Boolean).join("\n").trim();
-        return merged || raw;
-      } catch {
-        return raw;
+        if (name === "choices") {
+          for (const option of Array.from(child.childNodes || [])) {
+            if (option.nodeType !== 1 || String(option.tagName || "").toLowerCase() !== "choice") continue;
+            const key = option.getAttribute("key") || "";
+            const text = textOfNode(option).trim();
+            lines.push(key ? `${key}. ${text}` : text);
+          }
+          continue;
+        }
+        const fallback = textOfNode(child).trim();
+        if (fallback) lines.push(fallback);
       }
+      const merged = lines.filter(Boolean).join("\n").trim();
+      return merged || raw;
     }
 
     const plain = raw
       .replace(/<blank\b[^>]*\/>/gi, "____")
-      .replace(/<answer-area\b[^>]*\/>/gi, "[解答区]")
-      .replace(/<image\b[^>]*\/>/gi, "[图片]")
-      .replace(/<choice\b[^>]*\bkey=['"]?([^'">\s]+)['"]?[^>]*>/gi, "$1. ")
+      .replace(/<answer-area\b[^>]*\/>/gi, "[answer-area]")
+      .replace(/<image\b[^>]*\/>/gi, "[image]")
+      .replace(/<choice\b[^>]*\bkey=['\"]?([^'\">\s]+)['\"]?[^>]*>/gi, "$1. ")
       .replace(/<\/choice>/gi, "\n")
       .replace(/<choices\b[^>]*>/gi, "")
       .replace(/<\/choices>/gi, "\n")
@@ -196,7 +251,9 @@
 
   const api = {
     toStemXmlPayload,
-    toEditorStemText
+    toEditorStemText,
+    parseStemXmlDocument,
+    normalizeStemXmlForDom
   };
 
   if (typeof module !== "undefined" && module.exports) {

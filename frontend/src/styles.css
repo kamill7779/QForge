@@ -504,6 +504,30 @@ textarea {
   margin-top: 4px;
 }
 
+.stem-image-preview {
+  border: 1px dashed #c8d7ef;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stem-image-preview.empty {
+  justify-content: flex-start;
+}
+
+.stem-image-preview img {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: 6px;
+  border: 1px solid #d0ddef;
+}
+
 .tag-edit-panel {
   border: 1px dashed #cedcef;
   border-radius: 10px;
@@ -1132,7 +1156,7 @@ textarea {
   display: block;
   margin: 10px 0;
   border-radius: 4px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line-strong);
 }
 
 .choices-container {
@@ -1158,7 +1182,7 @@ textarea {
 
 .choice-key {
   font-weight: 600;
-  color: var(--text-color);
+  color: var(--text);
   flex-shrink: 0;
 }
 
@@ -1173,28 +1197,42 @@ textarea {
 .blanks-container {
   margin: 10px 0;
   padding: 10px;
-  background-color: var(--bg-body);
+  background-color: #f8fbff;
   border-radius: 4px;
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--line-strong);
 }
 
 .blank-item {
   display: inline-block;
-  min-width: 40px;
+  min-width: 56px;
   text-align: center;
-  border-bottom: 1px solid var(--text-color);
+  border-bottom: 1px solid #395788;
   margin: 0 4px;
-  color: var(--text-muted);
+  color: #5472a5;
 }
 
 .answer-area {
   margin-top: 15px;
-  padding: 40px 10px 10px 10px;
-  border: 1px dashed var(--border);
+  padding: 12px 10px 10px 10px;
+  border: 1px dashed var(--line-strong);
   border-radius: 4px;
-  color: var(--text-muted);
-  text-align: center;
-  background-color: var(--bg-surface);
+  color: var(--muted);
+  background-color: #f7fbff;
+}
+
+.answer-area-label {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.answer-area-lines {
+  display: grid;
+  gap: 8px;
+}
+
+.answer-area-line {
+  height: 20px;
+  border-bottom: 1px dashed #90a9d2;
 }
 
 .ai-suggestion-row .btn {
