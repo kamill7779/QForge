@@ -1,4 +1,37 @@
+# =============================================================================
+# QForge DEV Docker Compose - cloud-native dev (one container per service)
+# =============================================================================
+# Usage:
+#   cd backend
+#   docker compose -f docker-compose.dev.yml up --build
+# =============================================================================
+
+x-service-base: &service-base
+  image: maven:3.9.9-eclipse-temurin-17
+  working_dir: /workspace
+  volumes:
+    - ./:/workspace
+    - maven-repo:/root/.m2
+  networks:
+    - qforge-net
+
+x-infra-env: &infra-env
+  SPRING_PROFILES_ACTIVE: dev
+  MYSQL_HOST: mysql
+  MYSQL_PORT: 3306
+  MYSQL_DB: qforge
+  MYSQL_USER: qforge
+  MYSQL_PASSWORD: qforge
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USER: guest
+  RABBITMQ_PASSWORD: guest
+  NACOS_SERVER_ADDR: nacos:8848
+
 services:
+  # ========================= Infrastructure =========================
   mysql:
     image: mysql:8.4
     container_name: qforge-mysql
@@ -14,12 +47,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - qforge-net
 
   redis:
     image: redis:7.4
     container_name: qforge-redis
     ports:
       - "6379:6379"
+    networks:
+      - qforge-net
 
   rabbitmq:
     image: rabbitmq:3.13-management
@@ -27,6 +64,8 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - qforge-net
 
   nacos:
     image: nacos/nacos-server:v2.4.1
@@ -36,40 +75,50 @@ services:
       NACOS_AUTH_ENABLE: "false"
     ports:
       - "8848:8848"
+    networks:
+      - qforge-net
 
-  dev-container:
-    image: maven:3.9.9-eclipse-temurin-17
-    container_name: qforge-dev-container
-    working_dir: /workspace/backend
+  # ========================= Microservices =========================
+
+  auth-service:
+    <<: *service-base
+    container_name: qforge-dev-auth
     environment:
-      SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DB: qforge
-      MYSQL_USER: qforge
-      MYSQL_PASSWORD: qforge
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: nacos:8848
+      <<: *infra-env
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
-      OCR_SERVICE_BASE_URL: http://localhost:8090
+    command: >
+      bash -c "
+        mvn -q -DskipTests -pl libs/common-contract install &&
+        mvn -DskipTests -pl services/auth-service spring-boot:run -am
+      "
+    ports:
+      - "8088:8088"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      nacos:
+        condition: service_started
+
+  ocr-service:
+    <<: *service-base
+    container_name: qforge-dev-ocr
+    environment:
+      <<: *infra-env
       GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
       GLM_OCR_MODEL: glm-ocr
-      GLM_OCR_API_KEY: 7f254e118e2c4882b9a305afdee63a43.x0fNWcsy11zEMyUK
-      ZHIPUAI_API_KEY: 9d94bc7088374d1596120c5930bc13d7.jUWvkwd5OgTHrkfR
+      GLM_OCR_API_KEY: ${GLM_OCR_API_KEY:-}
+      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
       ZHIPUAI_MODEL: glm-5
-    volumes:
-      - ./:/workspace/backend
-      - maven-repo:/root/.m2
-    command: bash -lc "bash scripts/dev-start.sh"
+    command: >
+      bash -c "
+        mvn -q -DskipTests -pl libs/common-contract install &&
+        mvn -DskipTests -pl services/ocr-service spring-boot:run -am
+      "
     ports:
-      - "8080:8080"
-      - "8088:8088"
-      - "8089:8089"
       - "8090:8090"
     depends_on:
       mysql:
@@ -80,6 +129,60 @@ services:
         condition: service_started
       nacos:
         condition: service_started
+
+  question-service:
+    <<: *service-base
+    container_name: qforge-dev-question
+    environment:
+      <<: *infra-env
+      OCR_SERVICE_BASE_URL: http://ocr-service:8090
+    command: >
+      bash -c "
+        mvn -q -DskipTests -pl libs/common-contract install &&
+        mvn -DskipTests -pl services/question-service spring-boot:run -am
+      "
+    ports:
+      - "8089:8089"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      nacos:
+        condition: service_started
+      ocr-service:
+        condition: service_started
+
+  gateway-service:
+    <<: *service-base
+    container_name: qforge-dev-gateway
+    environment:
+      <<: *infra-env
+      JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
+    command: >
+      bash -c "
+        mvn -q -DskipTests -pl libs/common-contract install &&
+        mvn -DskipTests -pl services/gateway-service spring-boot:run -am
+      "
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth-service:
+        condition: service_started
+      question-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      nacos:
+        condition: service_started
+
+networks:
+  qforge-net:
+    driver: bridge
 
 volumes:
   maven-repo:

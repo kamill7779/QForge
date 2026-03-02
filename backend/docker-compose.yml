@@ -1,7 +1,12 @@
+networks:
+  qforge-net:
+    driver: bridge
+
 services:
   mysql:
     image: mysql:8.4
     container_name: qforge-mysql
+    networks: [qforge-net]
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: qforge
@@ -18,12 +23,14 @@ services:
   redis:
     image: redis:7.4
     container_name: qforge-redis
+    networks: [qforge-net]
     ports:
       - "6379:6379"
 
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: qforge-rabbitmq
+    networks: [qforge-net]
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -31,6 +38,7 @@ services:
   nacos:
     image: nacos/nacos-server:v2.4.1
     container_name: qforge-nacos
+    networks: [qforge-net]
     environment:
       MODE: standalone
       NACOS_AUTH_ENABLE: "false"
@@ -44,6 +52,7 @@ services:
       args:
         SERVICE_NAME: auth-service
     container_name: auth-service
+    networks: [qforge-net]
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql
@@ -78,6 +87,7 @@ services:
       args:
         SERVICE_NAME: gateway-service
     container_name: gateway-service
+    networks: [qforge-net]
     environment:
       SPRING_PROFILES_ACTIVE: dev
       REDIS_HOST: redis
@@ -109,6 +119,7 @@ services:
       args:
         SERVICE_NAME: question-service
     container_name: question-service
+    networks: [qforge-net]
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql
@@ -143,6 +154,7 @@ services:
       args:
         SERVICE_NAME: ocr-service
     container_name: ocr-service
+    networks: [qforge-net]
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql
