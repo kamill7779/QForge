@@ -4,18 +4,17 @@ server:
 spring:
   application:
     name: ai-service
-  ai:
-    zhipuai:
-      # 智谱 AI API Key（格式 id.secret，Spring AI 会自动签名 JWT）
-      # 生产环境请用环境变量 ZHIPUAI_API_KEY 覆盖
-      api-key: ${ZHIPUAI_API_KEY:9d94bc7088374d1596120c5930bc13d7.jUWvkwd5OgTHrkfR}
-      chat:
-        options:
-          # 已验证可用的免费模型；如需 GLM-5 请在智谱 AI 控制台开通权限
-          # 开通后改为 glm-4-5 / glm-4-5-flash / glm-4-5-air 等
-          model: glm-4-flash
-          temperature: 0.7
-          max-tokens: 1024
+
+# ZhipuAI 官方 SDK 配置
+zhipuai:
+  # 格式：id.secret （官方 SDK 内部自动签名 JWT）
+  # 生产环境请改用环境变量 ZHIPUAI_API_KEY 覆盖
+  api-key: ${ZHIPUAI_API_KEY:9d94bc7088374d1596120c5930bc13d7.jUWvkwd5OgTHrkfR}
+  model: glm-5
+  temperature: 0.7
+  max-tokens: 1024
+  # 请求超时（毫秒）
+  timeout: 30000
 
 management:
   endpoints:

@@ -13,27 +13,29 @@
 
     <artifactId>ai-service</artifactId>
     <name>ai-service</name>
-    <description>Spring AI 探索 Demo / ZhipuAI GLM integration</description>
+    <description>ZhipuAI GLM official SDK demo — 后续功能迭代基础</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <zai-sdk.version>0.3.3</zai-sdk.version>
     </properties>
 
     <dependencies>
-        <!-- Spring Web -->
+        <!-- Spring Web (Servlet) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Spring AI ZhipuAI Starter（Spring AI 1.0.0 新命名规范） -->
+        <!-- ZhipuAI 官方 Java SDK -->
         <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-zhipuai</artifactId>
+            <groupId>ai.z.openapi</groupId>
+            <artifactId>zai-sdk</artifactId>
+            <version>${zai-sdk.version}</version>
         </dependency>
 
-        <!-- Actuator（健康检查） -->
+        <!-- Actuator -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
