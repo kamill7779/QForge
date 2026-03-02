@@ -6,6 +6,7 @@ import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
+import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.service.QuestionCommandService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -52,6 +54,15 @@ public class QuestionController {
                 .body(response);
     }
 
+    @PutMapping("/{questionUuid}/stem")
+    public ResponseEntity<QuestionStatusResponse> updateStem(
+            @PathVariable("questionUuid") String questionUuid,
+            @Valid @RequestBody UpdateStemRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.updateStem(questionUuid, request, requestUser));
+    }
+
     @PostMapping("/{questionUuid}/complete")
     public ResponseEntity<QuestionStatusResponse> complete(
             @PathVariable("questionUuid") String questionUuid,
@@ -70,13 +81,13 @@ public class QuestionController {
     }
 
     @PostMapping("/{questionUuid}/ocr-tasks")
-    public ResponseEntity<OcrTaskAcceptedResponse> submitQuestionOcr(
+    public ResponseEntity<OcrTaskAcceptedResponse> submitOcrTask(
             @PathVariable("questionUuid") String questionUuid,
             @Valid @RequestBody OcrTaskSubmitRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         return ResponseEntity.accepted().body(
-                questionCommandService.submitQuestionStemOcr(questionUuid, request, requestUser)
+                questionCommandService.submitOcrTask(questionUuid, request, requestUser)
         );
     }
 

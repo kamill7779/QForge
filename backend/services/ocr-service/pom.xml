@@ -59,6 +59,12 @@
             <artifactId>common-contract</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- ZhipuAI 官方 Java SDK（GLM-5 后处理） -->
+        <dependency>
+            <groupId>ai.z.openapi</groupId>
+            <artifactId>zai-sdk</artifactId>
+            <version>0.3.3</version>
+        </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

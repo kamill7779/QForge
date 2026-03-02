@@ -1,34 +1,20 @@
 package io.github.kamill7779.qforge.question.controller;
 
-import io.github.kamill7779.qforge.question.dto.OcrConfirmRequest;
-import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
-import io.github.kamill7779.qforge.question.service.QuestionCommandService;
-import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-@RestController
-@RequestMapping("/api/ocr-tasks")
+/**
+ * OCR 任务控制器。
+ * <p>
+ * 原有 /api/ocr-tasks/{taskUuid}/confirmations 接口已移除。
+ * OCR 任务确认现在是服务端内部自动管理的操作：
+ * - 客户端通过 WS 接收 OCR 结果
+ * - 客户端通过 PUT /api/questions/{uuid}/stem 提交最终题干文本
+ * - 服务端内部自动将关联 OCR 任务标记为 CONFIRMED
+ * <p>
+ * 此类保留为占位，后续可扩展 OCR 任务查询等只读接口。
+ */
+// @RestController
+// @RequestMapping("/api/ocr-tasks")
 public class OcrTaskController {
-
-    private final QuestionCommandService questionCommandService;
-
-    public OcrTaskController(QuestionCommandService questionCommandService) {
-        this.questionCommandService = questionCommandService;
-    }
-
-    @PostMapping("/{taskUuid}/confirmations")
-    public ResponseEntity<QuestionStatusResponse> confirmOcr(
-            @PathVariable("taskUuid") String taskUuid,
-            @Valid @RequestBody OcrConfirmRequest request,
-            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
-    ) {
-        return ResponseEntity.ok(questionCommandService.confirmOcrTask(taskUuid, request, requestUser));
-    }
+    // Intentionally empty after removing the confirm endpoint.
+    // OCR task lifecycle is now managed internally by the server.
 }
 

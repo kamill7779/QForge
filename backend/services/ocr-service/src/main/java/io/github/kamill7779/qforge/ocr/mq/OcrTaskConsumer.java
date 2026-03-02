@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.ocr.mq;
 import io.github.kamill7779.qforge.common.contract.OcrTaskCreatedEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
 import io.github.kamill7779.qforge.ocr.client.GlmOcrClient;
+import io.github.kamill7779.qforge.ocr.client.StemXmlConverter;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.ocr.entity.OcrTask;
 import io.github.kamill7779.qforge.ocr.repository.OcrTaskRepository;
@@ -13,21 +14,26 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class OcrTaskConsumer {
 
     private final OcrTaskRepository ocrTaskRepository;
     private final GlmOcrClient glmOcrClient;
+    private final StemXmlConverter stemXmlConverter;
     private final RabbitTemplate rabbitTemplate;
 
     public OcrTaskConsumer(
             OcrTaskRepository ocrTaskRepository,
             GlmOcrClient glmOcrClient,
+            StemXmlConverter stemXmlConverter,
             RabbitTemplate rabbitTemplate
     ) {
         this.ocrTaskRepository = ocrTaskRepository;
         this.glmOcrClient = glmOcrClient;
+        this.stemXmlConverter = stemXmlConverter;
         this.rabbitTemplate = rabbitTemplate;
     }
 
@@ -49,12 +55,22 @@ public class OcrTaskConsumer {
         ocrTaskRepository.save(task);
 
         try {
-            String recognizedText = glmOcrClient.recognizeText(task.getImageBase64());
+            String ocrText = glmOcrClient.recognizeText(task.getImageBase64());
+
+            // 【关键修改点】仅对 QUESTION_STEM 类型调用 StemXmlConverter，
+            // ANSWER_CONTENT 类型直接返回 OCR 纯文本（LaTeX 格式），不做 XML 转换。
+            String resultText;
+            if ("QUESTION_STEM".equals(task.getBizType())) {
+                resultText = stemXmlConverter.convertToStemXml(ocrText);
+            } else {
+                resultText = ocrText;
+            }
+
             task.setStatus("SUCCESS");
-            task.setRecognizedText(recognizedText);
+            task.setRecognizedText(resultText);
             task.setErrorMsg(null);
             ocrTaskRepository.save(task);
-            publishResult(task, "SUCCESS", recognizedText, null, null);
+            publishResult(task, "SUCCESS", resultText, null, null);
         } catch (Exception ex) {
             task.setStatus("FAILED");
             task.setErrorMsg(ex.getMessage());
@@ -81,10 +97,24 @@ public class OcrTaskConsumer {
                 task.getRequestUser(),
                 Instant.now().toString()
         );
-        rabbitTemplate.convertAndSend(
-                RabbitTopologyConfig.OCR_EXCHANGE,
-                RabbitTopologyConfig.ROUTING_TASK_RESULT,
-                resultEvent
-        );
+        // Delay publishing until after the transaction commits to ensure DB changes are visible.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    rabbitTemplate.convertAndSend(
+                            RabbitTopologyConfig.OCR_EXCHANGE,
+                            RabbitTopologyConfig.ROUTING_TASK_RESULT,
+                            resultEvent
+                    );
+                }
+            });
+        } else {
+            rabbitTemplate.convertAndSend(
+                    RabbitTopologyConfig.OCR_EXCHANGE,
+                    RabbitTopologyConfig.ROUTING_TASK_RESULT,
+                    resultEvent
+            );
+        }
     }
 }

@@ -10,12 +10,14 @@ import io.github.kamill7779.qforge.question.client.OcrServiceClient;
 import io.github.kamill7779.qforge.question.entity.Question;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.question.repository.AnswerRepository;
+import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionOcrTaskRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionTagRelRepository;
 import io.github.kamill7779.qforge.question.repository.TagCategoryRepository;
 import io.github.kamill7779.qforge.question.repository.TagRepository;
 import io.github.kamill7779.qforge.question.service.QuestionCommandServiceImpl;
+import io.github.kamill7779.qforge.question.validation.StemXmlValidator;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +35,9 @@ class QuestionDeleteRuleServiceTest {
     private AnswerRepository answerRepository;
 
     @Mock
+    private QuestionAssetRepository questionAssetRepository;
+
+    @Mock
     private QuestionOcrTaskRepository questionOcrTaskRepository;
 
     @Mock
@@ -46,6 +51,9 @@ class QuestionDeleteRuleServiceTest {
 
     @Mock
     private OcrServiceClient ocrServiceClient;
+
+    @Mock
+    private StemXmlValidator stemXmlValidator;
 
     @InjectMocks
     private QuestionCommandServiceImpl questionCommandService;

@@ -5,13 +5,12 @@ import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
 import io.github.kamill7779.qforge.question.dto.AnswerOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
-import io.github.kamill7779.qforge.question.dto.MainTagSelectionRequest;
-import io.github.kamill7779.qforge.question.dto.OcrConfirmRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionMainTagResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
+import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.entity.Answer;
 import io.github.kamill7779.qforge.question.entity.Question;
 import io.github.kamill7779.qforge.question.entity.QuestionOcrTask;
@@ -20,11 +19,13 @@ import io.github.kamill7779.qforge.question.entity.Tag;
 import io.github.kamill7779.qforge.question.entity.TagCategory;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.question.repository.AnswerRepository;
+import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionOcrTaskRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionTagRelRepository;
 import io.github.kamill7779.qforge.question.repository.TagCategoryRepository;
 import io.github.kamill7779.qforge.question.repository.TagRepository;
+import io.github.kamill7779.qforge.question.validation.StemXmlValidator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -48,28 +49,34 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
+    private final QuestionAssetRepository questionAssetRepository;
     private final QuestionOcrTaskRepository questionOcrTaskRepository;
     private final TagRepository tagRepository;
     private final TagCategoryRepository tagCategoryRepository;
     private final QuestionTagRelRepository questionTagRelRepository;
     private final OcrServiceClient ocrServiceClient;
+    private final StemXmlValidator stemXmlValidator;
 
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
             AnswerRepository answerRepository,
+            QuestionAssetRepository questionAssetRepository,
             QuestionOcrTaskRepository questionOcrTaskRepository,
             TagRepository tagRepository,
             TagCategoryRepository tagCategoryRepository,
             QuestionTagRelRepository questionTagRelRepository,
-            OcrServiceClient ocrServiceClient
+            OcrServiceClient ocrServiceClient,
+            StemXmlValidator stemXmlValidator
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
+        this.questionAssetRepository = questionAssetRepository;
         this.questionOcrTaskRepository = questionOcrTaskRepository;
         this.tagRepository = tagRepository;
         this.tagCategoryRepository = tagCategoryRepository;
         this.questionTagRelRepository = questionTagRelRepository;
         this.ocrServiceClient = ocrServiceClient;
+        this.stemXmlValidator = stemXmlValidator;
     }
 
     @Override
@@ -78,9 +85,23 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         Question question = new Question();
         question.setQuestionUuid(UUID.randomUUID().toString());
         question.setOwnerUser(requestUser);
+        if (request.getStemText() != null && !request.getStemText().isBlank()) {
+            stemXmlValidator.validate(request.getStemText());
+        }
         question.setStemText(request.getStemText());
         question.setStatus("DRAFT");
         question.setVisibility("PRIVATE");
+        questionRepository.save(question);
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    /** Validates stem XML then persists it. */
+    @Override
+    @Transactional
+    public QuestionStatusResponse updateStem(String questionUuid, UpdateStemRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        stemXmlValidator.validate(request.getStemXml());
+        question.setStemText(request.getStemXml());
         questionRepository.save(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
@@ -89,23 +110,17 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     @Transactional
     public QuestionStatusResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        Answer answer = new Answer();
-        answer.setAnswerUuid(UUID.randomUUID().toString());
-        answer.setQuestionId(question.getId());
-        answer.setAnswerType("LATEX_TEXT");
-        answer.setLatexText(request.getLatexText());
-        answer.setSortOrder((int) answerRepository.countByQuestionId(question.getId()) + 1);
-        answer.setOfficial(false);
-        answerRepository.save(answer);
+        saveOneAnswer(question, request.getLatexText());
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
+    /** Submits an OCR task; bizType must be QUESTION_STEM or ANSWER_CONTENT. */
     @Override
     @Transactional
-    public OcrTaskAcceptedResponse submitQuestionStemOcr(String questionUuid, OcrTaskSubmitRequest request, String requestUser) {
+    public OcrTaskAcceptedResponse submitOcrTask(String questionUuid, OcrTaskSubmitRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         OcrTaskAcceptedResponse response = ocrServiceClient.createTask(new OcrServiceCreateTaskRequest(
-                "QUESTION_STEM",
+                request.getBizType(),
                 questionUuid,
                 request.getImageBase64(),
                 requestUser
@@ -114,44 +129,12 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         QuestionOcrTask task = new QuestionOcrTask();
         task.setTaskUuid(response.taskUuid());
         task.setQuestionUuid(question.getQuestionUuid());
-        task.setBizType("QUESTION_STEM");
+        task.setBizType(request.getBizType());
         task.setStatus(response.status());
         task.setRequestUser(requestUser);
         questionOcrTaskRepository.save(task);
 
         return response;
-    }
-
-    @Override
-    @Transactional
-    public QuestionStatusResponse confirmOcrTask(String taskUuid, OcrConfirmRequest request, String requestUser) {
-        QuestionOcrTask task = questionOcrTaskRepository.findByTaskUuid(taskUuid)
-                .orElseThrow(() -> new BusinessValidationException(
-                        "OCR_TASK_NOT_FOUND",
-                        "OCR task not found",
-                        Map.of("taskUuid", taskUuid),
-                        HttpStatus.NOT_FOUND
-                ));
-        if (!task.getRequestUser().equals(requestUser)) {
-            throw new BusinessValidationException(
-                    "OCR_TASK_FORBIDDEN",
-                    "Current user has no permission for this OCR task",
-                    Map.of("taskUuid", taskUuid, "requestUser", requestUser),
-                    HttpStatus.FORBIDDEN
-            );
-        }
-
-        Question question = findQuestionOwnedByUser(task.getQuestionUuid(), requestUser);
-        if ("QUESTION_STEM".equals(task.getBizType())) {
-            question.setStemText(request.getConfirmedText());
-            questionRepository.save(question);
-            applyStemTagsOnFirstConfirm(question, request, requestUser);
-        }
-
-        task.setStatus("CONFIRMED");
-        task.setConfirmedText(request.getConfirmedText());
-        questionOcrTaskRepository.save(task);
-        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
     @Override
@@ -200,6 +183,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         }
 
         questionOcrTaskRepository.deleteByQuestionUuid(question.getQuestionUuid());
+        questionAssetRepository.softDeleteByQuestionId(question.getId());
+        answerRepository.deleteById(question.getId());
         questionRepository.deleteById(question.getId());
     }
 
@@ -245,52 +230,35 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 .toList();
     }
 
-    private void applyStemTagsOnFirstConfirm(Question question, OcrConfirmRequest request, String requestUser) {
+    private void saveOneAnswer(Question question, String latexText) {
+        Answer answer = new Answer();
+        answer.setAnswerUuid(UUID.randomUUID().toString());
+        answer.setQuestionId(question.getId());
+        answer.setAnswerType("LATEX_TEXT");
+        answer.setLatexText(latexText);
+        answer.setSortOrder((int) answerRepository.countByQuestionId(question.getId()) + 1);
+        answer.setOfficial(false);
+        answerRepository.save(answer);
+    }
+
+    /** Initialises default tags for a question if none have been set yet. */
+    private void applyDefaultTagsIfAbsent(Question question, String requestUser) {
         if (questionTagRelRepository.countByQuestionId(question.getId()) > 0) {
             return;
         }
 
         List<TagCategory> mainCategories = tagCategoryRepository.findEnabledMainCategories();
-        Map<String, String> requestedMainTags = normalizeMainTagSelection(request.getMainTags());
-
         for (TagCategory category : mainCategories) {
             String categoryCode = category.getCategoryCode();
-            String tagCode = requestedMainTags.getOrDefault(categoryCode, TAG_CODE_UNCATEGORIZED);
-            Tag resolvedTag = tagRepository.findSystemTagByCategoryAndCode(categoryCode, tagCode)
-                    .orElseThrow(() -> new BusinessValidationException(
-                            "QUESTION_TAG_NOT_ALLOWED",
-                            "Main tag code is not in allowed range",
-                            Map.of("categoryCode", categoryCode, "tagCode", tagCode)
-                    ));
-            saveQuestionTagRel(question.getId(), resolvedTag.getId(), categoryCode, requestUser);
-        }
-
-        for (String secondaryTagText : parseSecondaryTags(request.getSecondaryTagsText())) {
-            String code = toCustomTagCode(secondaryTagText);
-            Tag customTag = tagRepository.findUserTagByCategoryAndCode(requestUser, CATEGORY_SECONDARY_CUSTOM, code)
-                    .orElseGet(() -> createUserCustomTag(requestUser, secondaryTagText));
-            saveQuestionTagRel(question.getId(), customTag.getId(), CATEGORY_SECONDARY_CUSTOM, requestUser);
-        }
-    }
-
-    private Map<String, String> normalizeMainTagSelection(List<MainTagSelectionRequest> rawSelections) {
-        if (rawSelections == null || rawSelections.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<String, String> result = new LinkedHashMap<>();
-        for (MainTagSelectionRequest selection : rawSelections) {
-            if (selection == null) {
-                continue;
+            Tag resolvedTag = tagRepository.findSystemTagByCategoryAndCode(categoryCode, TAG_CODE_UNCATEGORIZED)
+                    .orElseGet(() -> {
+                        List<Tag> options = tagRepository.findSystemTagsByCategory(categoryCode);
+                        return options.isEmpty() ? null : options.get(0);
+                    });
+            if (resolvedTag != null) {
+                saveQuestionTagRel(question.getId(), resolvedTag.getId(), categoryCode, requestUser);
             }
-            String categoryCode = safeUpper(selection.getCategoryCode());
-            String tagCode = safeUpper(selection.getTagCode());
-            if (categoryCode.isBlank() || tagCode.isBlank()) {
-                continue;
-            }
-            result.put(categoryCode, tagCode);
         }
-        return result;
     }
 
     private String safeUpper(String value) {
