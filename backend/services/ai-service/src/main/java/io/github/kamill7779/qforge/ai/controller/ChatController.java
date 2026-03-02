@@ -80,7 +80,7 @@ public class ChatController {
      * 最简调用（直接使用底层 ChatModel）：GET /ai/chat/simple?q=你好
      */
     @GetMapping("/simple")
-    public String simpleChat(@RequestParam(defaultValue = "你好！请用一句话介绍你自己。") String q) {
+    public String simpleChat(@RequestParam(name = "q", defaultValue = "你好！请用一句话介绍你自己。") String q) {
         Prompt prompt = new Prompt(new UserMessage(q));
         return chatModel.call(prompt).getResult().getOutput().getText();
     }
