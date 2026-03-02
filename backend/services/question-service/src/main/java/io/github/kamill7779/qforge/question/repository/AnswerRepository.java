@@ -6,6 +6,7 @@ import io.github.kamill7779.qforge.question.entity.Answer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
@@ -17,6 +18,16 @@ public interface AnswerRepository extends BaseMapper<Answer> {
                         .eq(Answer::getQuestionId, questionId)
         );
         return count == null ? 0 : count;
+    }
+
+    default Optional<Answer> findByAnswerUuidAndQuestionId(String answerUuid, Long questionId) {
+        Answer answer = this.selectOne(
+                Wrappers.<Answer>lambdaQuery()
+                        .eq(Answer::getAnswerUuid, answerUuid)
+                        .eq(Answer::getQuestionId, questionId)
+                        .last("LIMIT 1")
+        );
+        return Optional.ofNullable(answer);
     }
 
     default Answer save(Answer entity) {

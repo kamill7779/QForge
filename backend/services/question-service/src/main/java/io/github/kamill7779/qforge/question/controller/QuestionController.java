@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.question.controller;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
+import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
@@ -78,6 +79,26 @@ public class QuestionController {
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         return ResponseEntity.status(201).body(questionCommandService.addAnswer(questionUuid, request, requestUser));
+    }
+
+    @PutMapping("/{questionUuid}/answers/{answerUuid}")
+    public ResponseEntity<QuestionStatusResponse> updateAnswer(
+            @PathVariable("questionUuid") String questionUuid,
+            @PathVariable("answerUuid") String answerUuid,
+            @Valid @RequestBody UpdateAnswerRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.updateAnswer(questionUuid, answerUuid, request, requestUser));
+    }
+
+    @DeleteMapping("/{questionUuid}/answers/{answerUuid}")
+    public ResponseEntity<Void> deleteAnswer(
+            @PathVariable("questionUuid") String questionUuid,
+            @PathVariable("answerUuid") String answerUuid,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        questionCommandService.deleteAnswer(questionUuid, answerUuid, requestUser);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{questionUuid}/ocr-tasks")

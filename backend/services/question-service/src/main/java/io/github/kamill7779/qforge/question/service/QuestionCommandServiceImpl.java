@@ -5,6 +5,7 @@ import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
 import io.github.kamill7779.qforge.question.dto.AnswerOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
+import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionMainTagResponse;
@@ -111,6 +112,45 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     public QuestionStatusResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         saveOneAnswer(question, request.getLatexText());
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public QuestionStatusResponse updateAnswer(String questionUuid, String answerUuid, UpdateAnswerRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        Answer answer = answerRepository.findByAnswerUuidAndQuestionId(answerUuid, question.getId())
+                .orElseThrow(() -> new BusinessValidationException(
+                        "ANSWER_NOT_FOUND",
+                        "Answer not found",
+                        Map.of("questionUuid", questionUuid, "answerUuid", answerUuid),
+                        HttpStatus.NOT_FOUND
+                ));
+        answer.setLatexText(request.getLatexText());
+        answerRepository.save(answer);
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public QuestionStatusResponse deleteAnswer(String questionUuid, String answerUuid, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        Answer answer = answerRepository.findByAnswerUuidAndQuestionId(answerUuid, question.getId())
+                .orElseThrow(() -> new BusinessValidationException(
+                        "ANSWER_NOT_FOUND",
+                        "Answer not found",
+                        Map.of("questionUuid", questionUuid, "answerUuid", answerUuid),
+                        HttpStatus.NOT_FOUND
+                ));
+        long answerCount = answerRepository.countByQuestionId(question.getId());
+        if (answerCount <= 1) {
+            throw new BusinessValidationException(
+                    "ANSWER_DELETE_LAST_NOT_ALLOWED",
+                    "Cannot delete the last answer; at least one answer must remain",
+                    Map.of("questionUuid", questionUuid, "answerUuid", answerUuid, "answerCount", answerCount)
+            );
+        }
+        answerRepository.deleteById(answer.getId());
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
