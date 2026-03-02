@@ -1,0 +1,21 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: ai-service
+  ai:
+    zhipuai:
+      # 智谱 AI API Key（用于探索 demo，生产环境请改用环境变量注入）
+      api-key: ${ZHIPUAI_API_KEY:9d94bc7088374d1596120c5930bc13d7.jUWvkwd5OgTHrkfR}
+      chat:
+        options:
+          model: glm-4-5          # GLM-4.5 模型
+          temperature: 0.7
+          max-tokens: 1024
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
