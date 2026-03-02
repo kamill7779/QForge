@@ -34,7 +34,9 @@ public class OcrResultConsumer {
             throw new ImmediateRequeueAmqpException("Question OCR task mapping not ready yet");
         }
 
-        task.setStatus(event.status());
+        // Transition to CONFIRMED when OCR succeeds; retain FAILED otherwise.
+        String localStatus = "SUCCESS".equals(event.status()) ? "CONFIRMED" : event.status();
+        task.setStatus(localStatus);
         task.setRecognizedText(event.recognizedText());
         task.setErrorMsg(event.errorMessage());
         questionOcrTaskRepository.save(task);

@@ -1,6 +1,5 @@
 package io.github.kamill7779.qforge.question.controller;
 
-import io.github.kamill7779.qforge.question.dto.BatchCreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
@@ -55,11 +54,6 @@ public class QuestionController {
                 .body(response);
     }
 
-    /**
-     * 【新增】更新题干 XML 文本。
-     * 客户端收到 OCR 结果后，用户确认/修正，最终将 XML 题干文本通过此接口传递。
-     * 服务端强制执行 XML 规范校验。
-     */
     @PutMapping("/{questionUuid}/stem")
     public ResponseEntity<QuestionStatusResponse> updateStem(
             @PathVariable("questionUuid") String questionUuid,
@@ -86,23 +80,6 @@ public class QuestionController {
         return ResponseEntity.status(201).body(questionCommandService.addAnswer(questionUuid, request, requestUser));
     }
 
-    /**
-     * 【新增】批量添加答案。
-     * 兼容 OCR 识别结果和手动输入多答案场景。
-     */
-    @PostMapping("/{questionUuid}/answers/batch")
-    public ResponseEntity<QuestionStatusResponse> batchAddAnswers(
-            @PathVariable("questionUuid") String questionUuid,
-            @Valid @RequestBody BatchCreateAnswerRequest request,
-            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
-    ) {
-        return ResponseEntity.status(201).body(questionCommandService.batchAddAnswers(questionUuid, request, requestUser));
-    }
-
-    /**
-     * 【重构】统一 OCR 任务提交，bizType 由请求体指定。
-     * 支持 QUESTION_STEM（题干 OCR）和 ANSWER_CONTENT（答案 OCR）。
-     */
     @PostMapping("/{questionUuid}/ocr-tasks")
     public ResponseEntity<OcrTaskAcceptedResponse> submitOcrTask(
             @PathVariable("questionUuid") String questionUuid,

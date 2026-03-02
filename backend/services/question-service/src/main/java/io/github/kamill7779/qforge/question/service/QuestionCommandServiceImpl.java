@@ -3,7 +3,6 @@ package io.github.kamill7779.qforge.question.service;
 import io.github.kamill7779.qforge.question.client.OcrServiceClient;
 import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
 import io.github.kamill7779.qforge.question.dto.AnswerOverviewResponse;
-import io.github.kamill7779.qforge.question.dto.BatchCreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
@@ -86,7 +85,6 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         Question question = new Question();
         question.setQuestionUuid(UUID.randomUUID().toString());
         question.setOwnerUser(requestUser);
-        // 【关键修改点】createDraft 传入 stemText 时强制 XML 校验
         if (request.getStemText() != null && !request.getStemText().isBlank()) {
             stemXmlValidator.validate(request.getStemText());
         }
@@ -97,28 +95,14 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
-    /**
-     * 【新增接口】独立更新题干 XML 文本。
-     * <p>
-     * 客户端在收到 OCR 结果（通过 WebSocket 推送）后，由用户确认/修正，
-     * 最终将符合 XML 规范的题干文本通过此接口传递给服务端。
-     * 服务端强制执行 XML 格式校验，校验失败返回明确错误信息。
-     * 同时自动将该题目关联的最近一条 QUESTION_STEM OCR 任务标记为 CONFIRMED。
-     */
+    /** Validates stem XML then persists it. */
     @Override
     @Transactional
     public QuestionStatusResponse updateStem(String questionUuid, UpdateStemRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-
-        // 【关键修改点】服务端对接收到的题干文本强制 XML 规范校验
         stemXmlValidator.validate(request.getStemXml());
-
         question.setStemText(request.getStemXml());
         questionRepository.save(question);
-
-        // 内部自动将最近一条 QUESTION_STEM OCR 任务标记为 CONFIRMED（客户端无需感知）
-        autoConfirmLatestOcrTask(questionUuid, "QUESTION_STEM", request.getStemXml(), requestUser);
-
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -126,36 +110,11 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     @Transactional
     public QuestionStatusResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        saveOneAnswer(question, request.getLatexText(), "MANUAL");
+        saveOneAnswer(question, request.getLatexText());
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
-    /**
-     * 【新增接口】批量添加答案。
-     * <p>
-     * 兼容两种场景：
-     * 1. OCR 识别结果：客户端收到答案 OCR 结果后批量传入
-     * 2. 手动输入多个答案：用户一次性填写多条答案
-     * 每条答案带有 source 字段标识来源（MANUAL / OCR），便于后续审计追溯。
-     */
-    @Override
-    @Transactional
-    public QuestionStatusResponse batchAddAnswers(String questionUuid, BatchCreateAnswerRequest request, String requestUser) {
-        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        for (BatchCreateAnswerRequest.AnswerItem item : request.getAnswers()) {
-            String source = item.getSource() == null || item.getSource().isBlank() ? "MANUAL" : item.getSource();
-            saveOneAnswer(question, item.getLatexText(), source);
-        }
-        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
-    }
-
-    /**
-     * 【重构接口】统一 OCR 任务提交，支持 QUESTION_STEM 和 ANSWER_CONTENT。
-     * <p>
-     * bizType 由客户端在请求体中指定，服务端根据 bizType 分发给 ocr-service，
-     * OCR 完成后通过 MQ → WebSocket 推送结果给客户端。
-     * 客户端仅接收结果，不需要调用任何"确认"接口。
-     */
+    /** Submits an OCR task; bizType must be QUESTION_STEM or ANSWER_CONTENT. */
     @Override
     @Transactional
     public OcrTaskAcceptedResponse submitOcrTask(String questionUuid, OcrTaskSubmitRequest request, String requestUser) {
@@ -271,10 +230,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 .toList();
     }
 
-    /**
-     * 内部方法：保存单条答案。
-     */
-    private void saveOneAnswer(Question question, String latexText, String source) {
+    private void saveOneAnswer(Question question, String latexText) {
         Answer answer = new Answer();
         answer.setAnswerUuid(UUID.randomUUID().toString());
         answer.setQuestionId(question.getId());
@@ -285,25 +241,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         answerRepository.save(answer);
     }
 
-    /**
-     * 内部方法：当客户端通过 updateStem 设置题干时，自动将最近一条对应 bizType 的 OCR 任务标记为 CONFIRMED。
-     * 这是一个内部簿记操作，客户端无需感知。
-     */
-    private void autoConfirmLatestOcrTask(String questionUuid, String bizType, String confirmedText, String requestUser) {
-        questionOcrTaskRepository.findLatestByQuestionUuidAndBizType(questionUuid, bizType)
-                .ifPresent(task -> {
-                    if (!"CONFIRMED".equals(task.getStatus())) {
-                        task.setStatus("CONFIRMED");
-                        task.setConfirmedText(confirmedText);
-                        questionOcrTaskRepository.save(task);
-                    }
-                });
-    }
-
-    /**
-     * 【解耦后的标签方法】将标签初始化逻辑独立出来，不再依赖 OcrConfirmRequest。
-     * 在首次设置题干时自动用默认标签初始化（若尚未设置标签）。
-     */
+    /** Initialises default tags for a question if none have been set yet. */
     private void applyDefaultTagsIfAbsent(Question question, String requestUser) {
         if (questionTagRelRepository.countByQuestionId(question.getId()) > 0) {
             return;
