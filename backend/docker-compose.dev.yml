@@ -60,6 +60,8 @@ services:
       GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
       GLM_OCR_MODEL: glm-ocr
       GLM_OCR_API_KEY: 7f254e118e2c4882b9a305afdee63a43.x0fNWcsy11zEMyUK
+      ZHIPUAI_API_KEY: 9d94bc7088374d1596120c5930bc13d7.jUWvkwd5OgTHrkfR
+      ZHIPUAI_MODEL: glm-5
     volumes:
       - ./:/workspace/backend
       - maven-repo:/root/.m2

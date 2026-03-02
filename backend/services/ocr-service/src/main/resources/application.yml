@@ -34,6 +34,13 @@ ocr:
       image-mime-type: ${GLM_OCR_IMAGE_MIME_TYPE:image/png}
       timeout-seconds: ${GLM_OCR_TIMEOUT_SECONDS:60}
 
+# ZhipuAI GLM 模型（OCR 后处理：文本转 stem XML）
+zhipuai:
+  api-key: ${ZHIPUAI_API_KEY:}
+  model: ${ZHIPUAI_MODEL:glm-5}
+  temperature: 0.1
+  max-tokens: 2048
+
 springdoc:
   api-docs:
     path: /v3/api-docs

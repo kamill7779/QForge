@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.ocr.mq;
 import io.github.kamill7779.qforge.common.contract.OcrTaskCreatedEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
 import io.github.kamill7779.qforge.ocr.client.GlmOcrClient;
+import io.github.kamill7779.qforge.ocr.client.StemXmlConverter;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.ocr.entity.OcrTask;
 import io.github.kamill7779.qforge.ocr.repository.OcrTaskRepository;
@@ -19,15 +20,18 @@ public class OcrTaskConsumer {
 
     private final OcrTaskRepository ocrTaskRepository;
     private final GlmOcrClient glmOcrClient;
+    private final StemXmlConverter stemXmlConverter;
     private final RabbitTemplate rabbitTemplate;
 
     public OcrTaskConsumer(
             OcrTaskRepository ocrTaskRepository,
             GlmOcrClient glmOcrClient,
+            StemXmlConverter stemXmlConverter,
             RabbitTemplate rabbitTemplate
     ) {
         this.ocrTaskRepository = ocrTaskRepository;
         this.glmOcrClient = glmOcrClient;
+        this.stemXmlConverter = stemXmlConverter;
         this.rabbitTemplate = rabbitTemplate;
     }
 
@@ -49,12 +53,13 @@ public class OcrTaskConsumer {
         ocrTaskRepository.save(task);
 
         try {
-            String recognizedText = glmOcrClient.recognizeText(task.getImageBase64());
+            String ocrText = glmOcrClient.recognizeText(task.getImageBase64());
+            String stemXml = stemXmlConverter.convertToStemXml(ocrText);
             task.setStatus("SUCCESS");
-            task.setRecognizedText(recognizedText);
+            task.setRecognizedText(stemXml);
             task.setErrorMsg(null);
             ocrTaskRepository.save(task);
-            publishResult(task, "SUCCESS", recognizedText, null, null);
+            publishResult(task, "SUCCESS", stemXml, null, null);
         } catch (Exception ex) {
             task.setStatus("FAILED");
             task.setErrorMsg(ex.getMessage());
