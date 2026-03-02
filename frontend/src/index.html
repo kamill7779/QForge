@@ -33,7 +33,10 @@
         <div class="topbar-left">
           <div class="logo-mark">Q</div>
           <div class="product-title">QForge</div>
-          <div class="product-sub">录题任务中心</div>
+          <nav class="main-tabs">
+            <button class="tab-btn active" data-tab="entry">录题中心</button>
+            <button class="tab-btn" data-tab="bank">题库</button>
+          </nav>
         </div>
         <div class="topbar-right">
           <button id="screenshot-trigger-btn" class="btn btn-primary">截图录题</button>
@@ -43,7 +46,7 @@
         </div>
       </header>
 
-      <div class="workspace">
+      <div id="entry-view" class="workspace">
         <aside class="left-pane">
           <section class="card">
             <h3>创建录题任务</h3>
@@ -61,7 +64,6 @@
             <div class="task-filters" id="task-filters">
               <button class="filter-btn active" data-stage="PENDING_STEM">待题干确认</button>
               <button class="filter-btn" data-stage="PENDING_ANSWER">待录答案</button>
-              <button class="filter-btn" data-stage="COMPLETED">已完成</button>
             </div>
             <div id="entry-list" class="entry-list"></div>
           </section>
@@ -193,6 +195,102 @@
                 </section>
               </div>
             </article>
+          </section>
+        </main>
+      </div>
+
+      <div id="bank-view" class="workspace bank-workspace hidden">
+        <aside class="left-pane">
+          <section class="card bank-toolbar">
+            <h3>题库筛选</h3>
+            <div class="row">
+              <input id="bank-search" type="text" placeholder="搜索题目内容…" />
+            </div>
+            <div class="row">
+              <select id="bank-grade-filter"><option value="">全部年级</option></select>
+              <select id="bank-knowledge-filter"><option value="">全部知识点</option></select>
+            </div>
+            <div class="row">
+              <select id="bank-difficulty-filter">
+                <option value="">全部难度</option>
+                <option value="easy">简单 (P≥0.70)</option>
+                <option value="medium-easy">中等偏易 (0.50≤P&lt;0.70)</option>
+                <option value="medium">中等 (0.30≤P&lt;0.50)</option>
+                <option value="hard">较难 (0.15≤P&lt;0.30)</option>
+                <option value="very-hard">极难 (P&lt;0.15)</option>
+              </select>
+            </div>
+            <div class="bank-stats">共 <span id="bank-count">0</span> 道题</div>
+          </section>
+
+          <section class="card task-list-card">
+            <div id="bank-list" class="entry-list"></div>
+          </section>
+        </aside>
+
+        <main class="right-pane">
+          <section id="bank-detail" class="card bank-detail-card">
+            <div class="bank-detail-empty">请在左侧选择一道题目</div>
+
+            <div id="bank-detail-content" class="hidden">
+              <div class="bank-detail-head">
+                <h2 id="bank-detail-title">题目详情</h2>
+                <button id="bank-ai-btn" class="btn btn-ai">AI 分析标签 &amp; 难度</button>
+              </div>
+
+              <div id="bank-ai-status" class="bank-ai-status hidden"></div>
+
+              <section class="bank-section">
+                <div class="bank-section-head">
+                  <div class="block-title">题干</div>
+                  <button id="bank-edit-stem-btn" class="btn btn-mini btn-ghost">编辑</button>
+                </div>
+                <div id="bank-stem-display" class="latex-paper">题干渲染区</div>
+                <div id="bank-stem-editor" class="bank-inline-editor hidden">
+                  <textarea id="bank-stem-textarea" rows="10" placeholder="编辑题干 LaTeX"></textarea>
+                  <div class="row">
+                    <button id="bank-stem-save" class="btn btn-primary btn-mini">保存</button>
+                    <button id="bank-stem-cancel" class="btn btn-ghost btn-mini">取消</button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="bank-section">
+                <div class="bank-section-head">
+                  <div class="block-title">答案</div>
+                </div>
+                <div id="bank-answer-tabs" class="answer-tabs"></div>
+                <div id="bank-answer-display" class="latex-paper answer-paper">暂无答案</div>
+              </section>
+
+              <section class="bank-section">
+                <div class="bank-section-head">
+                  <div class="block-title">标签</div>
+                </div>
+                <div class="bank-tag-row">
+                  <span class="bank-tag-label">主标签</span>
+                  <span id="bank-main-tags" class="bank-tag-values">-</span>
+                </div>
+                <div class="bank-tag-row">
+                  <span class="bank-tag-label">副标签</span>
+                  <div id="bank-secondary-tags" class="tag-input-wrap">
+                    <div id="bank-tag-capsules" class="tag-capsules"></div>
+                    <input id="bank-tag-input" type="text" class="tag-input-field" placeholder="输入标签后按回车" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="bank-section">
+                <div class="bank-section-head">
+                  <div class="block-title">难度 (P-value)</div>
+                </div>
+                <div class="bank-difficulty-row">
+                  <span id="bank-difficulty-badge" class="difficulty-badge">-</span>
+                  <input id="bank-difficulty-slider" type="range" min="0" max="100" value="50" class="difficulty-slider" />
+                  <span id="bank-difficulty-value" class="difficulty-value">-</span>
+                </div>
+              </section>
+            </div>
           </section>
         </main>
       </div>
