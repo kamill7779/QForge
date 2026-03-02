@@ -17,6 +17,7 @@ x-service-base: &service-base
 
 x-infra-env: &infra-env
   SPRING_PROFILES_ACTIVE: dev
+  LOG_PATH: /workspace/.dev-logs
   MYSQL_HOST: mysql
   MYSQL_PORT: 3306
   MYSQL_DB: qforge
@@ -83,6 +84,10 @@ services:
   auth-service:
     <<: *service-base
     container_name: qforge-dev-auth
+    volumes:
+      - ./:/workspace
+      - maven-repo:/root/.m2
+      - ./.dev-logs:/workspace/.dev-logs
     environment:
       <<: *infra-env
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
@@ -106,6 +111,10 @@ services:
   ocr-service:
     <<: *service-base
     container_name: qforge-dev-ocr
+    volumes:
+      - ./:/workspace
+      - maven-repo:/root/.m2
+      - ./.dev-logs:/workspace/.dev-logs
     environment:
       <<: *infra-env
       GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
@@ -135,6 +144,10 @@ services:
   question-service:
     <<: *service-base
     container_name: qforge-dev-question
+    volumes:
+      - ./:/workspace
+      - maven-repo:/root/.m2
+      - ./.dev-logs:/workspace/.dev-logs
     environment:
       <<: *infra-env
       OCR_SERVICE_BASE_URL: http://ocr-service:8090
@@ -160,6 +173,10 @@ services:
   gateway-service:
     <<: *service-base
     container_name: qforge-dev-gateway
+    volumes:
+      - ./:/workspace
+      - maven-repo:/root/.m2
+      - ./.dev-logs:/workspace/.dev-logs
     environment:
       <<: *infra-env
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890

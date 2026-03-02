@@ -59,6 +59,8 @@ services:
         SERVICE_NAME: auth-service
     container_name: auth-service
     networks: [qforge-net]
+    volumes:
+      - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql
@@ -96,6 +98,8 @@ services:
         SERVICE_NAME: gateway-service
     container_name: gateway-service
     networks: [qforge-net]
+    volumes:
+      - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
       REDIS_HOST: redis
@@ -130,6 +134,8 @@ services:
         SERVICE_NAME: question-service
     container_name: question-service
     networks: [qforge-net]
+    volumes:
+      - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql
@@ -167,6 +173,8 @@ services:
         SERVICE_NAME: ocr-service
     container_name: ocr-service
     networks: [qforge-net]
+    volumes:
+      - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql
@@ -183,10 +191,10 @@ services:
       NACOS_SERVER_ADDR: nacos:8848
       GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
       GLM_OCR_MODEL: glm-ocr
-      GLM_OCR_API_KEY: 7f254e118e2c4882b9a305afdee63a43.x0fNWcsy11zEMyUK
+      GLM_OCR_API_KEY: ${GLM_OCR_API_KEY}
       GLM_OCR_PREFER_IPV4: "true"
       JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
-      ZHIPUAI_API_KEY: 9d94bc7088374d1596120c5930bc13d7.jUWvkwd5OgTHrkfR
+      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY}
       ZHIPUAI_MODEL: glm-5
     ports:
       - "8090:8090"

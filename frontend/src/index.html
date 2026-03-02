@@ -126,8 +126,11 @@
                     <div class="block-title">主标签与副标签（题干确认时保存）</div>
                     <div id="stem-main-tag-container"></div>
                     <div class="row">
-                      <label class="tag-edit-label">副标签（空格分隔）</label>
-                      <input id="stem-secondary-tags-input" type="text" placeholder="例如 微积分 定积分 高考真题" />
+                      <label class="tag-edit-label">副标签（空格添加）</label>
+                      <div id="stem-secondary-tags" class="tag-input-wrap">
+                        <div id="stem-tag-capsules" class="tag-capsules"></div>
+                        <input id="stem-secondary-tags-input" type="text" class="tag-input-field" placeholder="输入标签后按空格" />
+                      </div>
                     </div>
                   </div>
                   <div class="meta-line">OCR任务: <span id="detail-ocr-task">-</span> <span id="detail-ocr-status" class="tag neutral">-</span></div>
@@ -137,7 +140,10 @@
                   <div class="editor-preview-grid focus-editor-grid">
                     <div>
                       <div class="block-title">题干编辑（核心）</div>
-                      <textarea id="stem-textarea" rows="16" placeholder="等待 OCR 结果，或手动编辑后确认"></textarea>
+                      <div id="stem-editor" class="stem-structured-editor"></div>
+                      <div class="stem-editor-add-bar">
+                        <button id="add-paragraph-btn" class="btn btn-mini">+ 段落</button>
+                      </div>
                     </div>
                     <div>
                       <div class="block-title">题干渲染预览（核心）</div>

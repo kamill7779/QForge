@@ -10,17 +10,22 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import javax.net.ssl.SSLException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
 public class GlmOcrClientImpl implements GlmOcrClient {
+
+    private static final Logger log = LoggerFactory.getLogger(GlmOcrClientImpl.class);
 
     private static final String OCR_PROMPT = String.join("\n",
             "You are an OCR for Chinese Gaokao math problems.",
@@ -46,15 +51,24 @@ public class GlmOcrClientImpl implements GlmOcrClient {
     @Override
     public String recognizeText(String imageBase64) {
         if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
+            log.error("GLM OCR apiKey is missing or blank");
             throw new RestClientException("GLM OCR apiKey is missing");
         }
+
+        log.info("Starting OCR recognition (endpoint={}, model={}, imageLen={})",
+                properties.getEndpoint(), properties.getModel(),
+                imageBase64 != null ? imageBase64.length() : 0);
 
         int maxAttempts = Math.max(1, properties.getRetryMaxAttempts());
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                return doRecognizeText(imageBase64);
+                String result = doRecognizeText(imageBase64);
+                log.info("OCR recognition succeeded (resultLen={})", result != null ? result.length() : 0);
+                return result;
             } catch (RestClientException ex) {
+                log.warn("OCR attempt {}/{} failed: {}", attempt, maxAttempts, ex.getMessage());
                 if (!isRetriableNetworkException(ex) || attempt >= maxAttempts) {
+                    log.error("OCR recognition failed after {} attempts", attempt, ex);
                     throw ex;
                 }
                 sleepBeforeRetry();
@@ -73,13 +87,22 @@ public class GlmOcrClientImpl implements GlmOcrClient {
         payload.put("file", toLayoutParsingFile(imageBase64));
         payload.put("prompt", OCR_PROMPT);
 
-        ResponseEntity<Map> responseEntity = restTemplate.exchange(
-                properties.getEndpoint(),
-                HttpMethod.POST,
-                new HttpEntity<>(payload, headers),
-                Map.class
-        );
+        ResponseEntity<Map> responseEntity;
+        try {
+            responseEntity = restTemplate.exchange(
+                    properties.getEndpoint(),
+                    HttpMethod.POST,
+                    new HttpEntity<>(payload, headers),
+                    Map.class
+            );
+        } catch (HttpStatusCodeException httpEx) {
+            log.error("GLM OCR HTTP error: status={}, body={}",
+                    httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
+            throw httpEx;
+        }
         Map<?, ?> response = responseEntity.getBody();
+        log.debug("GLM OCR response status={}, body={}",
+                responseEntity.getStatusCode(), response);
 
         if (response == null) {
             throw new RestClientException("GLM OCR response body is null");

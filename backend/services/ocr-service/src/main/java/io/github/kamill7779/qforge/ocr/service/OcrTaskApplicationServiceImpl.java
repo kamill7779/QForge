@@ -8,12 +8,18 @@ import io.github.kamill7779.qforge.ocr.entity.OcrTask;
 import io.github.kamill7779.qforge.ocr.repository.OcrTaskRepository;
 import java.time.Instant;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class OcrTaskApplicationServiceImpl implements OcrTaskApplicationService {
+
+    private static final Logger log = LoggerFactory.getLogger(OcrTaskApplicationServiceImpl.class);
 
     private final OcrTaskRepository ocrTaskRepository;
     private final RabbitTemplate rabbitTemplate;
@@ -35,6 +41,8 @@ public class OcrTaskApplicationServiceImpl implements OcrTaskApplicationService 
         task.setStatus("PENDING");
         task.setProvider("GLM_OCR");
         ocrTaskRepository.save(task);
+        log.info("OCR task created: taskUuid={}, bizType={}, bizId={}",
+                task.getTaskUuid(), task.getBizType(), task.getBizId());
 
         OcrTaskCreatedEvent event = new OcrTaskCreatedEvent(
                 task.getTaskUuid(),
@@ -44,11 +52,20 @@ public class OcrTaskApplicationServiceImpl implements OcrTaskApplicationService 
                 task.getRequestUser(),
                 Instant.now().toString()
         );
-        rabbitTemplate.convertAndSend(
-                RabbitTopologyConfig.OCR_EXCHANGE,
-                RabbitTopologyConfig.ROUTING_TASK_CREATED,
-                event
-        );
+
+        // Publish MQ message AFTER the transaction commits to avoid race condition
+        // where consumer reads the message before DB row is visible.
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                rabbitTemplate.convertAndSend(
+                        RabbitTopologyConfig.OCR_EXCHANGE,
+                        RabbitTopologyConfig.ROUTING_TASK_CREATED,
+                        event
+                );
+                log.debug("OCR task MQ event published after commit: {}", task.getTaskUuid());
+            }
+        });
 
         return new OcrTaskAcceptedResponse(task.getTaskUuid(), task.getStatus());
     }
