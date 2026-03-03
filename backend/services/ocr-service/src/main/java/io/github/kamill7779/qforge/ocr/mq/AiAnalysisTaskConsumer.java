@@ -192,6 +192,41 @@ public class AiAnalysisTaskConsumer {
                     rawJson.length() > 200 ? rawJson.substring(0, 200) : rawJson,
                     rawJson.length());
 
+            // Validate rawJson is parseable JSON; if not (e.g. model returned LaTeX fragment),
+            // try to extract an embedded JSON object, or clear so Fallback 2 can fire.
+            if (!rawJson.isEmpty()) {
+                try {
+                    objectMapper.readTree(rawJson);
+                    // Valid JSON — proceed
+                } catch (Exception preCheckEx) {
+                    log.warn("rawJson is not valid JSON for question={}, preview='{}'; attempting embedded JSON extraction",
+                            event.questionUuid(),
+                            rawJson.length() > 80 ? rawJson.substring(0, 80) : rawJson);
+                    // Try to find {"tags":...} embedded anywhere in the raw content
+                    String embedded = extractJsonFromText(rawJson);
+                    if (embedded.isEmpty() && rawContentStr != null) {
+                        embedded = extractJsonFromText(rawContentStr);
+                    }
+                    if (!embedded.isEmpty()) {
+                        log.info("Salvaged embedded JSON from non-JSON rawJson for question={}", event.questionUuid());
+                        rawJson = embedded;
+                    } else {
+                        // Give up on rawJson; clear so the reasoning-based fallbacks can run
+                        log.warn("No embedded JSON found in rawJson for question={}, clearing for fallback", event.questionUuid());
+                        rawJson = "";
+                    }
+                }
+            }
+
+            // Fallback 3 (re-run): if rawJson was cleared by validation above, try reasoning again
+            if (rawJson.isEmpty() && reasoningContent != null && !reasoningContent.isBlank()) {
+                String recovered = buildFallbackJsonFromReasoning(reasoningContent);
+                if (!recovered.isEmpty()) {
+                    log.warn("Fallback 3: built JSON from reasoning after invalid rawJson for question={}", event.questionUuid());
+                    rawJson = recovered;
+                }
+            }
+
             if (rawJson.isEmpty()) {
                 // Dump the full message for diagnosis
                 String msgDump = "";
