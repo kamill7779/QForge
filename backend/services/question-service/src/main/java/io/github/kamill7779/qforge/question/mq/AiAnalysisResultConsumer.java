@@ -6,7 +6,6 @@ import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.entity.QuestionAiTask;
 import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +16,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AiAnalysisResultConsumer {
+
+    private static final int MAX_REASONING_LENGTH = 1024;
+    private static final int MAX_ERROR_MESSAGE_LENGTH = 2048;
 
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisResultConsumer.class);
 
@@ -46,10 +48,20 @@ public class AiAnalysisResultConsumer {
                                 event.suggestedTags() != null ? event.suggestedTags() : List.of()));
                     } catch (Exception ignored) {}
                     task.setSuggestedDifficulty(event.suggestedDifficulty());
-                    task.setReasoning(event.reasoning());
+                    task.setReasoning(trimToColumnSize(
+                            event.reasoning(),
+                            MAX_REASONING_LENGTH,
+                            "reasoning",
+                            event.taskUuid()
+                    ));
                 } else {
                     task.setStatus("FAILED");
-                    task.setErrorMsg(event.errorMessage());
+                    task.setErrorMsg(trimToColumnSize(
+                            event.errorMessage(),
+                            MAX_ERROR_MESSAGE_LENGTH,
+                            "error_msg",
+                            event.taskUuid()
+                    ));
                 }
                 questionAiTaskRepository.updateById(task);
                 log.info("Updated q_question_ai_task taskUuid={} status={}", task.getTaskUuid(), task.getStatus());
@@ -76,5 +88,14 @@ public class AiAnalysisResultConsumer {
             log.error("Failed to process AI analysis result for question={}, taskUuid={}: {}",
                     event.questionUuid(), event.taskUuid(), ex.getMessage(), ex);
         }
+    }
+
+    private String trimToColumnSize(String value, int maxLength, String columnName, String taskUuid) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        log.warn("Truncating {} for taskUuid={} from {} to {} characters",
+                columnName, taskUuid, value.length(), maxLength);
+        return value.substring(0, maxLength);
     }
 }
