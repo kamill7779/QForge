@@ -853,10 +853,16 @@ textarea {
 /* ==================== Bank View ==================== */
 .bank-workspace {
   grid-template-columns: 360px 1fr;
+  height: 100%;
+}
+
+.bank-workspace .left-pane {
+  overflow: hidden;
 }
 
 .bank-workspace .right-pane {
   overflow: hidden;
+  height: 100%;
 }
 
 .bank-toolbar h3 {
@@ -871,7 +877,6 @@ textarea {
 
 .bank-detail-card {
   padding: 18px;
-  min-height: 600px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -879,6 +884,7 @@ textarea {
 }
 
 #bank-detail-content {
+  flex: 1;
   min-height: 0;
   overflow: auto;
   padding-right: 2px;

@@ -97,19 +97,46 @@ public class AiAnalysisTaskConsumer {
             ChatCompletionResponse response = zhipuAiClient.chat().createChatCompletion(params);
 
             if (!response.isSuccess()) {
+                String errDetail = response.getMsg() != null ? response.getMsg() : "(no message)";
+                try {
+                    errDetail += " | code=" + response.getCode()
+                        + " | data=" + objectMapper.writeValueAsString(response.getData());
+                } catch (Exception ignored) {}
+                log.error("GLM API call failed for question={}: {}", event.questionUuid(), errDetail);
                 publishResult(event, false, null, null, null, "GLM API call failed: " + response.getMsg());
                 return;
             }
 
-            Object content = response.getData().getChoices().get(0).getMessage().getContent();
-            String rawJson = content != null ? content.toString().trim() : "";
+            if (response.getData() == null || response.getData().getChoices() == null
+                    || response.getData().getChoices().isEmpty()) {
+                log.error("GLM API returned no choices for question={}, data={}",
+                        event.questionUuid(), response.getData());
+                publishResult(event, false, null, null, null, "GLM API returned no choices");
+                return;
+            }
+
+            var choice = response.getData().getChoices().get(0);
+            String finishReason = choice.getFinishReason();
+            Object content = choice.getMessage().getContent();
+            String rawContentStr = content != null ? content.toString() : null;
+
+            log.info("AI analysis response for question={} finishReason={} contentType={} rawLen={}",
+                    event.questionUuid(),
+                    finishReason,
+                    content != null ? content.getClass().getSimpleName() : "null",
+                    rawContentStr != null ? rawContentStr.length() : -1);
+
+            String rawJson = rawContentStr != null ? rawContentStr.trim() : "";
             rawJson = stripCodeFences(rawJson);
 
             log.info("AI analysis raw response for question={}: {}", event.questionUuid(), rawJson);
 
             if (rawJson.isEmpty()) {
-                log.warn("AI analysis returned empty content for question={}, treating as failure", event.questionUuid());
-                publishResult(event, false, null, null, null, "AI model returned empty response");
+                String hint = "finish_reason=" + finishReason
+                    + "; content_class=" + (content != null ? content.getClass().getName() : "null");
+                log.warn("AI analysis returned empty content for question={}, hint={}", event.questionUuid(), hint);
+                publishResult(event, false, null, null, null,
+                        "AI model returned empty response (" + hint + ")");
                 return;
             }
 
