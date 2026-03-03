@@ -2,6 +2,9 @@ package io.github.kamill7779.qforge.question.controller;
 
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
+import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
+import io.github.kamill7779.qforge.question.dto.AiTaskResponse;
+import io.github.kamill7779.qforge.question.dto.ApplyAiRecommendationRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
@@ -142,11 +145,29 @@ public class QuestionController {
     }
 
     @PostMapping("/{questionUuid}/ai-analysis")
-    public ResponseEntity<Void> requestAiAnalysis(
+    public ResponseEntity<AiTaskAcceptedResponse> requestAiAnalysis(
             @PathVariable("questionUuid") String questionUuid,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
-        questionCommandService.requestAiAnalysis(questionUuid, requestUser);
-        return ResponseEntity.accepted().build();
+        AiTaskAcceptedResponse response = questionCommandService.requestAiAnalysis(questionUuid, requestUser);
+        return ResponseEntity.accepted().body(response);
+    }
+
+    @GetMapping("/{questionUuid}/ai-tasks")
+    public ResponseEntity<List<AiTaskResponse>> listAiTasks(
+            @PathVariable("questionUuid") String questionUuid,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.listAiTasks(questionUuid, requestUser));
+    }
+
+    @PutMapping("/{questionUuid}/ai-tasks/{taskUuid}/apply")
+    public ResponseEntity<QuestionStatusResponse> applyAiRecommendation(
+            @PathVariable("questionUuid") String questionUuid,
+            @PathVariable("taskUuid") String taskUuid,
+            @Valid @RequestBody ApplyAiRecommendationRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.applyAiRecommendation(questionUuid, taskUuid, request, requestUser));
     }
 }

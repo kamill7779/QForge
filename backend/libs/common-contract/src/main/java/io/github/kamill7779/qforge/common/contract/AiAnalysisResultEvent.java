@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public record AiAnalysisResultEvent(
+        String taskUuid,
         String questionUuid,
         String userId,
         boolean success,

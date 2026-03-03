@@ -27,6 +27,7 @@ html,
 body {
   margin: 0;
   height: 100%;
+  overflow: hidden;
   font-family: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", sans-serif;
   color: var(--text);
   background: radial-gradient(circle at 82% -8%, var(--bg-accent) 0, transparent 34%), var(--bg);
@@ -284,7 +285,7 @@ textarea {
 }
 
 .right-pane {
-  overflow: auto;
+  overflow: hidden;
   padding-right: 2px;
 }
 
@@ -443,12 +444,16 @@ textarea {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
+  flex: 1;
+  min-height: 0;
 }
 
 .work-card {
-  min-height: 620px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
 
 .work-head {
@@ -1550,4 +1555,51 @@ textarea {
   .focus-layout {
     grid-template-columns: 1fr;
   }
+}
+
+/* AI apply actions */
+.ai-apply-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.btn-success {
+  background: var(--success-tx);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-success:hover {
+  background: #0f5630;
+}
+
+.ai-status-box {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.ai-status-box.ai-loading {
+  background: var(--warn-bg);
+  color: var(--warn-tx);
+}
+
+.ai-status-box.ai-success {
+  background: var(--success-bg);
+  color: var(--success-tx);
+}
+
+.ai-status-box.ai-error {
+  background: var(--fail-bg);
+  color: var(--fail-tx);
 }

@@ -1,10 +1,15 @@
 package io.github.kamill7779.qforge.question.service;
 
 import io.github.kamill7779.qforge.common.contract.AiAnalysisTaskCreatedEvent;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.question.client.OcrServiceClient;
 import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
+import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
+import io.github.kamill7779.qforge.question.dto.AiTaskResponse;
 import io.github.kamill7779.qforge.question.dto.AnswerOverviewResponse;
+import io.github.kamill7779.qforge.question.dto.ApplyAiRecommendationRequest;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
@@ -18,12 +23,14 @@ import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
 import io.github.kamill7779.qforge.question.entity.Answer;
 import io.github.kamill7779.qforge.question.entity.Question;
+import io.github.kamill7779.qforge.question.entity.QuestionAiTask;
 import io.github.kamill7779.qforge.question.entity.QuestionOcrTask;
 import io.github.kamill7779.qforge.question.entity.QuestionTagRel;
 import io.github.kamill7779.qforge.question.entity.Tag;
 import io.github.kamill7779.qforge.question.entity.TagCategory;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.question.repository.AnswerRepository;
+import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionOcrTaskRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionRepository;
@@ -31,6 +38,8 @@ import io.github.kamill7779.qforge.question.repository.QuestionTagRelRepository;
 import io.github.kamill7779.qforge.question.repository.TagCategoryRepository;
 import io.github.kamill7779.qforge.question.repository.TagRepository;
 import io.github.kamill7779.qforge.question.validation.StemXmlValidator;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -57,35 +66,41 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     private final AnswerRepository answerRepository;
     private final QuestionAssetRepository questionAssetRepository;
     private final QuestionOcrTaskRepository questionOcrTaskRepository;
+    private final QuestionAiTaskRepository questionAiTaskRepository;
     private final TagRepository tagRepository;
     private final TagCategoryRepository tagCategoryRepository;
     private final QuestionTagRelRepository questionTagRelRepository;
     private final OcrServiceClient ocrServiceClient;
     private final StemXmlValidator stemXmlValidator;
     private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper;
 
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
             AnswerRepository answerRepository,
             QuestionAssetRepository questionAssetRepository,
             QuestionOcrTaskRepository questionOcrTaskRepository,
+            QuestionAiTaskRepository questionAiTaskRepository,
             TagRepository tagRepository,
             TagCategoryRepository tagCategoryRepository,
             QuestionTagRelRepository questionTagRelRepository,
             OcrServiceClient ocrServiceClient,
             StemXmlValidator stemXmlValidator,
-            RabbitTemplate rabbitTemplate
+            RabbitTemplate rabbitTemplate,
+            ObjectMapper objectMapper
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
         this.questionAssetRepository = questionAssetRepository;
         this.questionOcrTaskRepository = questionOcrTaskRepository;
+        this.questionAiTaskRepository = questionAiTaskRepository;
         this.tagRepository = tagRepository;
         this.tagCategoryRepository = tagCategoryRepository;
         this.questionTagRelRepository = questionTagRelRepository;
         this.ocrServiceClient = ocrServiceClient;
         this.stemXmlValidator = stemXmlValidator;
         this.rabbitTemplate = rabbitTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -518,7 +533,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     @Override
     @Transactional
-    public void requestAiAnalysis(String questionUuid, String requestUser) {
+    public AiTaskAcceptedResponse requestAiAnalysis(String questionUuid, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
 
         if (question.getStemText() == null || question.getStemText().isBlank()) {
@@ -529,12 +544,23 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             );
         }
 
+        String taskUuid = UUID.randomUUID().toString();
+
+        // Persist PENDING row
+        QuestionAiTask aiTask = new QuestionAiTask();
+        aiTask.setTaskUuid(taskUuid);
+        aiTask.setQuestionUuid(questionUuid);
+        aiTask.setStatus("PENDING");
+        aiTask.setRequestUser(requestUser);
+        questionAiTaskRepository.insert(aiTask);
+
         List<Answer> answers = answerRepository.findByQuestionIds(List.of(question.getId()));
         List<String> answerTexts = answers.stream()
                 .map(Answer::getLatexText)
                 .toList();
 
         AiAnalysisTaskCreatedEvent event = new AiAnalysisTaskCreatedEvent(
+                taskUuid,
                 questionUuid,
                 requestUser,
                 question.getStemText(),
@@ -545,6 +571,73 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 RabbitTopologyConfig.AI_EXCHANGE,
                 RabbitTopologyConfig.ROUTING_AI_ANALYSIS_CREATED,
                 event
+        );
+
+        return new AiTaskAcceptedResponse(taskUuid);
+    }
+
+    @Override
+    @Transactional
+    public QuestionStatusResponse applyAiRecommendation(String questionUuid, String taskUuid,
+            ApplyAiRecommendationRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+
+        QuestionAiTask aiTask = questionAiTaskRepository.findByTaskUuid(taskUuid)
+                .orElseThrow(() -> new BusinessValidationException(
+                        "AI_TASK_NOT_FOUND", "AI task not found",
+                        Map.of("taskUuid", taskUuid)));
+
+        if (!"SUCCESS".equals(aiTask.getStatus())) {
+            throw new BusinessValidationException(
+                    "AI_TASK_NOT_SUCCESS", "AI task is not in SUCCESS status",
+                    Map.of("taskUuid", taskUuid, "status", aiTask.getStatus()));
+        }
+
+        // Apply tags
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            UpdateTagsRequest tagsReq = new UpdateTagsRequest();
+            tagsReq.setTags(request.getTags());
+            updateTags(questionUuid, tagsReq, requestUser);
+        }
+
+        // Apply difficulty
+        if (request.getDifficulty() != null) {
+            question.setDifficulty(request.getDifficulty());
+            questionRepository.save(question);
+        }
+
+        // Mark as APPLIED
+        aiTask.setStatus("APPLIED");
+        aiTask.setAppliedAt(LocalDateTime.now());
+        questionAiTaskRepository.updateById(aiTask);
+
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    @Override
+    public List<AiTaskResponse> listAiTasks(String questionUuid, String requestUser) {
+        findQuestionOwnedByUser(questionUuid, requestUser);
+        List<QuestionAiTask> tasks = questionAiTaskRepository.findByQuestionUuid(questionUuid);
+        return tasks.stream().map(this::toAiTaskResponse).toList();
+    }
+
+    private AiTaskResponse toAiTaskResponse(QuestionAiTask task) {
+        List<String> tags = List.of();
+        if (task.getSuggestedTags() != null && !task.getSuggestedTags().isBlank()) {
+            try {
+                tags = objectMapper.readValue(task.getSuggestedTags(), new TypeReference<List<String>>() {});
+            } catch (Exception ignored) {}
+        }
+        return new AiTaskResponse(
+                task.getTaskUuid(),
+                task.getQuestionUuid(),
+                task.getStatus(),
+                tags,
+                task.getSuggestedDifficulty(),
+                task.getReasoning(),
+                task.getErrorMsg(),
+                task.getAppliedAt(),
+                null // createdAt not mapped in entity for now
         );
     }
 

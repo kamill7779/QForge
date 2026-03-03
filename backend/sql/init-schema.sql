@@ -140,6 +140,44 @@ CREATE TABLE IF NOT EXISTS q_ocr_task (
     INDEX idx_q_ocr_task_biz (biz_type, biz_id, status, created_at)
 );
 
+-- ==================== AI Analysis Tables ====================
+
+CREATE TABLE IF NOT EXISTS q_ai_analysis_task (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_uuid CHAR(36) NOT NULL UNIQUE,
+    question_uuid CHAR(36) NOT NULL,
+    status VARCHAR(32) NOT NULL COMMENT 'PENDING / PROCESSING / SUCCESS / FAILED',
+    model VARCHAR(64) NULL COMMENT '使用的 AI 模型标识',
+    user_prompt LONGTEXT NULL COMMENT '拼接后的用户提示词',
+    raw_response LONGTEXT NULL COMMENT 'AI 原始响应',
+    suggested_tags TEXT NULL COMMENT '推荐标签 JSON array',
+    suggested_difficulty DECIMAL(3,2) NULL COMMENT '推荐难度 P-value',
+    reasoning VARCHAR(1024) NULL COMMENT '推荐理由',
+    error_msg VARCHAR(2048) NULL,
+    request_user VARCHAR(128) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_q_ai_task_question (question_uuid, status, created_at)
+) COMMENT 'ocr-service 侧 AI 分析任务持久化';
+
+CREATE TABLE IF NOT EXISTS q_question_ai_task (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_uuid CHAR(36) NOT NULL UNIQUE,
+    question_uuid CHAR(36) NOT NULL,
+    status VARCHAR(32) NOT NULL COMMENT 'PENDING / SUCCESS / FAILED / APPLIED',
+    suggested_tags TEXT NULL COMMENT '推荐标签 JSON array',
+    suggested_difficulty DECIMAL(3,2) NULL COMMENT '推荐难度 P-value',
+    reasoning VARCHAR(1024) NULL COMMENT '推荐理由',
+    error_msg VARCHAR(2048) NULL,
+    request_user VARCHAR(128) NOT NULL,
+    applied_at DATETIME NULL COMMENT '用户应用推荐的时间',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_q_qai_task_question (question_uuid, status, created_at)
+) COMMENT 'question-service 侧 AI 分析任务持久化';
+
+-- ==================== Seed Data ====================
+
 INSERT INTO q_tag_category (category_code, category_name, category_kind, input_mode, allow_user_create, sort_order, enabled)
 SELECT 'MAIN_GRADE', '年级', 'MAIN', 'SELECT', FALSE, 10, TRUE
 WHERE NOT EXISTS (SELECT 1 FROM q_tag_category WHERE category_code = 'MAIN_GRADE');

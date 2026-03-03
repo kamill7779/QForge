@@ -11,6 +11,8 @@ import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisTaskCreatedEvent;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.ocr.config.ZhipuAiProperties;
+import io.github.kamill7779.qforge.ocr.entity.AiAnalysisTask;
+import io.github.kamill7779.qforge.ocr.repository.AiAnalysisTaskRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -28,40 +30,94 @@ public class AiAnalysisTaskConsumer {
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisTaskConsumer.class);
 
         private static final String SYSTEM_PROMPT = String.join("\n",
-            "你是教育题目分析助手。",
-            "目标：输出2-5个中文知识点标签 + 难度P值(0.00-1.00) + 简短理由。",
-            "规则：标签要具体；difficulty保留两位小数；reasoning控制在50字内。",
-            "只输出JSON，不要任何解释：",
-            "{\"tags\":[\"标签1\",\"标签2\"],\"difficulty\":0.65,\"reasoning\":\"...\"}"
+            "你是一个资深教育评估专家。请根据用户提供的题目内容，完成以下两项任务：",
+            "",
+            "## 任务一：推荐标签",
+            "为这道题推荐 2-5 个知识点标签。标签应当：",
+            "- 精准描述本题考察的核心知识点",
+            "- 粒度适中（如\"二次函数\"而非\"数学\"）",
+            "- 使用中文",
+            "",
+            "## 任务二：难度评估（P 值）",
+            "根据以下标准评估题目难度，输出 P 值（取值 0.00-1.00，保留两位小数）。",
+            "",
+            "### P 值定义",
+            "P 值表示\"通过率\"，即随机抽取的合格学生正确回答该题的概率：",
+            "- 1.00 = 所有人都能答对（极简单）",
+            "- 0.00 = 几乎无人能答对（极困难）",
+            "",
+            "### 难度等级参照",
+            "| P 值区间 | 等级 | 典型特征 |",
+            "|-----------|------|----------|",
+            "| 0.90–1.00 | 入门 | 直接套公式/定义即可 |",
+            "| 0.70–0.89 | 简单 | 需要 1-2 步推理 |",
+            "| 0.30–0.69 | 中等 | 需要综合运用知识 |",
+            "| 0.10–0.29 | 困难 | 多步骤推理+易错陷阱 |",
+            "| 0.00–0.09 | 专家 | 竞赛/超纲级别 |",
+            "",
+            "### 预估方法（五维加权评分）",
+            "由于没有实测数据，请使用以下五个维度进行预估，每个维度 0-20 分：",
+            "",
+            "| 维度 | 权重 | 评分标准（0-20） |",
+            "|------|------|-------------------|",
+            "| 前置知识门槛 | 20% | 0=需广泛跨领域知识, 20=仅需基础概念 |",
+            "| 推理步骤数 | 25% | 0=≥6步复杂推理链, 20=1步直接得出 |",
+            "| 陷阱/易错点 | 20% | 0=多个隐蔽陷阱, 20=无任何陷阱 |",
+            "| 实现/表达复杂度 | 25% | 0=需要复杂计算或论证, 20=口算即可 |",
+            "| 时间成本 | 10% | 0=考试中≥15分钟, 20=30秒内完成 |",
+            "",
+            "加权总分 S = Σ(维度得分 × 权重)，P = S / 100，保留两位小数。",
+            "",
+            "## 输出格式",
+            "严格输出以下 JSON，不要添加任何额外文字：",
+            "{",
+            "  \"tags\": [\"标签1\", \"标签2\"],",
+            "  \"difficulty\": 0.65,",
+            "  \"reasoning\": \"简要说明评分依据（50字以内）\"",
+            "}"
         );
-        private static final int DEFAULT_MAX_TOKENS = 1536;
-        private static final int MAX_STEM_CHARS = 6000;
-        private static final int MAX_SINGLE_ANSWER_CHARS = 1200;
-        private static final int MAX_ANSWERS = 4;
+        private static final int DEFAULT_MAX_TOKENS = 2048;
+        private static final int MAX_STEM_CHARS = 8000;
+        private static final int MAX_SINGLE_ANSWER_CHARS = 2000;
+        private static final int MAX_ANSWERS = 6;
 
     private final ZhipuAiClient zhipuAiClient;
     private final ZhipuAiProperties zhipuAiProperties;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final AiAnalysisTaskRepository aiAnalysisTaskRepository;
 
     public AiAnalysisTaskConsumer(
             ZhipuAiClient zhipuAiClient,
             ZhipuAiProperties zhipuAiProperties,
             RabbitTemplate rabbitTemplate,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AiAnalysisTaskRepository aiAnalysisTaskRepository
     ) {
         this.zhipuAiClient = zhipuAiClient;
         this.zhipuAiProperties = zhipuAiProperties;
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
+        this.aiAnalysisTaskRepository = aiAnalysisTaskRepository;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.AI_ANALYSIS_TASK_QUEUE)
     public void onAiAnalysisTask(AiAnalysisTaskCreatedEvent event) {
-        log.info("Received AI analysis task for question={}", event.questionUuid());
+        log.info("Received AI analysis task for question={}, taskUuid={}", event.questionUuid(), event.taskUuid());
+
+        // ---- Persist PENDING → PROCESSING ----
+        AiAnalysisTask task = new AiAnalysisTask();
+        task.setTaskUuid(event.taskUuid());
+        task.setQuestionUuid(event.questionUuid());
+        task.setStatus("PROCESSING");
+        task.setModel(zhipuAiProperties.getModel());
+        task.setRequestUser(event.userId());
+        aiAnalysisTaskRepository.insert(task);
 
         try {
             String userPrompt = buildUserPrompt(event);
+            task.setUserPrompt(userPrompt);
+
             int outputMaxTokens = zhipuAiProperties.getMaxTokens() != null
                 ? Math.max(256, zhipuAiProperties.getMaxTokens())
                 : DEFAULT_MAX_TOKENS;
@@ -103,6 +159,7 @@ public class AiAnalysisTaskConsumer {
                         + " | data=" + objectMapper.writeValueAsString(response.getData());
                 } catch (Exception ignored) {}
                 log.error("GLM API call failed for question={}: {}", event.questionUuid(), errDetail);
+                failTask(task, "GLM API call failed: " + response.getMsg());
                 publishResult(event, false, null, null, null, "GLM API call failed: " + response.getMsg());
                 return;
             }
@@ -111,6 +168,7 @@ public class AiAnalysisTaskConsumer {
                     || response.getData().getChoices().isEmpty()) {
                 log.error("GLM API returned no choices for question={}, data={}",
                         event.questionUuid(), response.getData());
+                failTask(task, "GLM API returned no choices");
                 publishResult(event, false, null, null, null, "GLM API returned no choices");
                 return;
             }
@@ -142,6 +200,9 @@ public class AiAnalysisTaskConsumer {
                 }
             }
 
+            // Store raw response for debugging
+            task.setRawResponse(rawJson.length() > 0 ? rawJson : rawContentStr);
+
             log.info("AI analysis raw response for question={}: {}", event.questionUuid(), rawJson);
 
             if (rawJson.isEmpty()) {
@@ -154,6 +215,7 @@ public class AiAnalysisTaskConsumer {
                     + "; content_class=" + (content != null ? content.getClass().getName() : "null")
                     + "; full_msg=" + msgDump;
                 log.warn("AI analysis returned empty content for question={}, hint={}", event.questionUuid(), hint);
+                failTask(task, "AI model returned empty response (" + hint + ")");
                 publishResult(event, false, null, null, null,
                         "AI model returned empty response (" + hint + ")");
                 return;
@@ -183,11 +245,31 @@ public class AiAnalysisTaskConsumer {
 
             String reasoning = node.has("reasoning") ? node.get("reasoning").asText() : "";
 
+            // ---- Persist SUCCESS ----
+            task.setStatus("SUCCESS");
+            try {
+                task.setSuggestedTags(objectMapper.writeValueAsString(tags));
+            } catch (Exception ignored) {}
+            task.setSuggestedDifficulty(difficulty);
+            task.setReasoning(reasoning);
+            aiAnalysisTaskRepository.updateById(task);
+
             publishResult(event, true, tags, difficulty, reasoning, null);
 
         } catch (Exception ex) {
             log.error("AI analysis failed for question={}", event.questionUuid(), ex);
+            failTask(task, ex.getMessage());
             publishResult(event, false, null, null, null, ex.getMessage());
+        }
+    }
+
+    private void failTask(AiAnalysisTask task, String errorMsg) {
+        task.setStatus("FAILED");
+        task.setErrorMsg(errorMsg != null && errorMsg.length() > 2000 ? errorMsg.substring(0, 2000) : errorMsg);
+        try {
+            aiAnalysisTaskRepository.updateById(task);
+        } catch (Exception ex) {
+            log.error("Failed to update AI task record taskUuid={}", task.getTaskUuid(), ex);
         }
     }
 
@@ -241,6 +323,7 @@ public class AiAnalysisTaskConsumer {
             String errorMessage
     ) {
         AiAnalysisResultEvent result = new AiAnalysisResultEvent(
+                event.taskUuid(),
                 event.questionUuid(),
                 event.userId(),
                 success,

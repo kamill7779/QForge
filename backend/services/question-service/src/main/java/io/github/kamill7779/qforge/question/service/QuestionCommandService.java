@@ -10,6 +10,9 @@ import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
+import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
+import io.github.kamill7779.qforge.question.dto.AiTaskResponse;
+import io.github.kamill7779.qforge.question.dto.ApplyAiRecommendationRequest;
 import java.util.List;
 
 public interface QuestionCommandService {
@@ -43,5 +46,12 @@ public interface QuestionCommandService {
     QuestionStatusResponse updateDifficulty(String questionUuid, UpdateDifficultyRequest request, String requestUser);
 
     /** Triggers async AI analysis for tags + difficulty. */
-    void requestAiAnalysis(String questionUuid, String requestUser);
+    AiTaskAcceptedResponse requestAiAnalysis(String questionUuid, String requestUser);
+
+    /** Applies AI recommendation (tags + difficulty) and marks task as APPLIED. */
+    QuestionStatusResponse applyAiRecommendation(String questionUuid, String taskUuid,
+            ApplyAiRecommendationRequest request, String requestUser);
+
+    /** Lists AI analysis tasks for a question. */
+    List<AiTaskResponse> listAiTasks(String questionUuid, String requestUser);
 }
