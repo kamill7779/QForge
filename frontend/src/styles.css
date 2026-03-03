@@ -1667,3 +1667,26 @@ textarea {
   padding: 8px 0;
   border-top: 1px solid var(--border, #e0e0e0);
 }
+.bank-main-tag-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.bank-main-tag-selectors .row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bank-main-tag-selectors select {
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.bank-main-tag-selectors .tag-edit-label {
+  min-width: 48px;
+  font-size: 0.82rem;
+  color: var(--text-light, #888);
+}
