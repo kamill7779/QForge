@@ -52,7 +52,6 @@ public class StemXmlValidator {
         }
 
         walkAndValidateTags(root);
-        validateSingleStemImage(root);
         validateChoices(root);
         validateBlankIds(root);
         validateChoiceKeys(root);
@@ -91,24 +90,6 @@ public class StemXmlValidator {
             if (child.getNodeType() == Node.ELEMENT_NODE) {
                 walkAndValidateTags((Element) child);
             }
-        }
-    }
-
-    private void validateSingleStemImage(Element root) {
-        int stemImageCount = 0;
-        NodeList children = root.getChildNodes();
-        for (int i = 0; i < children.getLength(); i++) {
-            Node child = children.item(i);
-            if (child.getNodeType() == Node.ELEMENT_NODE && "image".equals(child.getNodeName())) {
-                stemImageCount++;
-            }
-        }
-        if (stemImageCount > 1) {
-            throw new BusinessValidationException(
-                    "TOO_MANY_STEM_IMAGES",
-                    "At most one <image> is allowed directly under <stem>",
-                    Map.of("count", stemImageCount)
-            );
         }
     }
 

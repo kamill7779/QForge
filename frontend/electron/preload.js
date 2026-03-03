@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld("qforge", {
     clear: () => ipcRenderer.invoke("credentials:clear")
   },
   screenshot: {
-    trigger: () => ipcRenderer.invoke("screenshot:trigger"),
+    trigger: (payload) => ipcRenderer.invoke("screenshot:trigger", payload || {}),
     onCaptured: (handler) => {
       const wrapped = (_event, payload) => handler(payload || {});
       ipcRenderer.on("screenshot:captured", wrapped);

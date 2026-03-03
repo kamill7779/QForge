@@ -112,16 +112,8 @@
                     <button id="insert-blank-btn" class="btn">添加空</button>
                     <button id="insert-answer-area-btn" class="btn">添加答题区</button>
                     <button id="insert-image-tag-btn" class="btn">插入图片标签</button>
+                    <button id="insert-image-shot-btn" class="btn">截图插图</button>
                   </div>
-                  <div class="block-title">题干配图（预留）</div>
-                  <div class="row rail-row">
-                    <input id="stem-image-input" type="file" accept="image/*" />
-                  </div>
-                  <div class="row rail-row rail-actions">
-                    <button id="stem-image-shot-btn" class="btn">截图配图</button>
-                    <button id="stem-image-clear-btn" class="btn btn-ghost">清除配图</button>
-                  </div>
-                  <div id="stem-image-preview" class="stem-image-preview empty">未选择配图</div>
                   <div id="stem-tag-edit-panel" class="tag-edit-panel">
                     <div class="block-title">主标签与副标签（题干确认时保存）</div>
                     <div id="stem-main-tag-container"></div>
@@ -275,10 +267,6 @@
                   <button id="bank-edit-stem-btn" class="btn btn-mini btn-ghost">编辑</button>
                 </div>
                 <div id="bank-stem-display" class="latex-paper">题干渲染区</div>
-                <div id="bank-stem-image-section" class="bank-stem-image-section hidden">
-                  <div class="block-title">题干配图</div>
-                  <div id="bank-stem-image-display" class="bank-stem-image-display"></div>
-                </div>
                 <div id="bank-stem-editor" class="bank-inline-editor hidden">
                   <div class="stem-editor-toolbar">
                     <button id="bank-add-paragraph-btn" class="btn btn-mini">+ 段落</button>

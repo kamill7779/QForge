@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -26,53 +27,17 @@ public class AiAnalysisTaskConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisTaskConsumer.class);
 
-    private static final String SYSTEM_PROMPT = String.join("\n",
-            "你是一个资深教育评估专家。请根据用户提供的题目内容，完成以下两项任务：",
-            "",
-            "## 任务一：推荐标签",
-            "为这道题推荐 2-5 个知识点标签。标签应当：",
-            "- 精准描述本题考察的核心知识点",
-            "- 粒度适中（如\"二次函数\"而非\"数学\"）",
-            "- 使用中文",
-            "",
-            "## 任务二：难度评估（P 值）",
-            "根据以下标准评估题目难度，输出 P 值（取值 0.00-1.00，保留两位小数）。",
-            "",
-            "### P 值定义",
-            "P 值表示\"通过率\"，即随机抽取的合格学生正确回答该题的概率：",
-            "- 1.00 = 所有人都能答对（极简单）",
-            "- 0.00 = 几乎无人能答对（极困难）",
-            "",
-            "### 难度等级参照",
-            "| P 值区间 | 等级 | 典型特征 |",
-            "|-----------|------|----------|",
-            "| 0.90–1.00 | 入门 | 直接套公式/定义即可 |",
-            "| 0.70–0.89 | 简单 | 需要 1-2 步推理 |",
-            "| 0.30–0.69 | 中等 | 需要综合运用知识 |",
-            "| 0.10–0.29 | 困难 | 多步骤推理+易错陷阱 |",
-            "| 0.00–0.09 | 专家 | 竞赛/超纲级别 |",
-            "",
-            "### 预估方法（五维加权评分）",
-            "由于没有实测数据，请使用以下五个维度进行预估，每个维度 0-20 分：",
-            "",
-            "| 维度 | 权重 | 评分标准（0-20） |",
-            "|------|------|-------------------|",
-            "| 前置知识门槛 | 20% | 0=需广泛跨领域知识, 20=仅需基础概念 |",
-            "| 推理步骤数 | 25% | 0=≥6步复杂推理链, 20=1步直接得出 |",
-            "| 陷阱/易错点 | 20% | 0=多个隐蔽陷阱, 20=无任何陷阱 |",
-            "| 实现/表达复杂度 | 25% | 0=需要复杂计算或论证, 20=口算即可 |",
-            "| 时间成本 | 10% | 0=考试中≥15分钟, 20=30秒内完成 |",
-            "",
-            "加权总分 S = Σ(维度得分 × 权重)，P = S / 100，保留两位小数。",
-            "",
-            "## 输出格式",
-            "严格输出以下 JSON，不要添加任何额外文字：",
-            "{",
-            "  \"tags\": [\"标签1\", \"标签2\"],",
-            "  \"difficulty\": 0.65,",
-            "  \"reasoning\": \"简要说明评分依据（50字以内）\"",
-            "}"
-    );
+        private static final String SYSTEM_PROMPT = String.join("\n",
+            "你是教育题目分析助手。",
+            "目标：输出2-5个中文知识点标签 + 难度P值(0.00-1.00) + 简短理由。",
+            "规则：标签要具体；difficulty保留两位小数；reasoning控制在50字内。",
+            "只输出JSON，不要任何解释：",
+            "{\"tags\":[\"标签1\",\"标签2\"],\"difficulty\":0.65,\"reasoning\":\"...\"}"
+        );
+        private static final int DEFAULT_MAX_TOKENS = 1536;
+        private static final int MAX_STEM_CHARS = 6000;
+        private static final int MAX_SINGLE_ANSWER_CHARS = 1200;
+        private static final int MAX_ANSWERS = 4;
 
     private final ZhipuAiClient zhipuAiClient;
     private final ZhipuAiProperties zhipuAiProperties;
@@ -97,6 +62,20 @@ public class AiAnalysisTaskConsumer {
 
         try {
             String userPrompt = buildUserPrompt(event);
+            int outputMaxTokens = zhipuAiProperties.getMaxTokens() != null
+                ? Math.max(256, zhipuAiProperties.getMaxTokens())
+                : DEFAULT_MAX_TOKENS;
+            float temperature = zhipuAiProperties.getTemperature() != null
+                ? Math.max(0f, Math.min(1f, zhipuAiProperties.getTemperature()))
+                : 0.2f;
+
+            log.info(
+                "AI analysis prompt length for question={} systemChars={}, userChars={}, maxTokens={}",
+                event.questionUuid(),
+                SYSTEM_PROMPT.length(),
+                userPrompt.length(),
+                outputMaxTokens
+            );
 
             ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
                     .model(zhipuAiProperties.getModel())
@@ -110,8 +89,8 @@ public class AiAnalysisTaskConsumer {
                                     .content(userPrompt)
                                     .build()
                     ))
-                    .temperature(0.7f)
-                    .maxTokens(1024)
+                    .temperature(temperature)
+                    .maxTokens(outputMaxTokens)
                     .stream(false)
                     .build();
 
@@ -167,19 +146,44 @@ public class AiAnalysisTaskConsumer {
     }
 
     private String buildUserPrompt(AiAnalysisTaskCreatedEvent event) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("## 题目内容\n\n");
-        sb.append("### 题干\n");
-        sb.append(event.stemXml()).append("\n\n");
+        String stem = truncate(event.stemXml(), MAX_STEM_CHARS);
+        int totalAnswers = event.answerTexts() == null ? 0 : event.answerTexts().size();
+        List<String> answers = new ArrayList<>();
+        if (event.answerTexts() != null) {
+            int limit = Math.min(MAX_ANSWERS, event.answerTexts().size());
+            for (int i = 0; i < limit; i++) {
+                answers.add(truncate(event.answerTexts().get(i), MAX_SINGLE_ANSWER_CHARS));
+            }
+        }
 
-        if (event.answerTexts() != null && !event.answerTexts().isEmpty()) {
-            sb.append("### 答案\n");
-            for (int i = 0; i < event.answerTexts().size(); i++) {
-                sb.append("答案 ").append(i + 1).append(": ").append(event.answerTexts().get(i)).append("\n");
+        StringBuilder sb = new StringBuilder();
+        sb.append("题目内容\n\n");
+        sb.append("题干:\n");
+        sb.append(stem).append("\n\n");
+
+        if (!answers.isEmpty()) {
+            sb.append("答案:\n");
+            for (int i = 0; i < answers.size(); i++) {
+                sb.append("答案 ").append(i + 1).append(": ").append(answers.get(i)).append("\n");
+            }
+            if (totalAnswers > answers.size()) {
+                sb.append(String.format(Locale.ROOT, "(其余 %d 条答案已截断)\n", totalAnswers - answers.size()));
             }
         }
 
         return sb.toString();
+    }
+
+    private String truncate(String text, int maxChars) {
+        String raw = text == null ? "" : text.trim();
+        if (raw.length() <= maxChars) {
+            return raw;
+        }
+        int head = (int) Math.floor(maxChars * 0.7);
+        int tail = maxChars - head;
+        return raw.substring(0, head)
+                + "\n...[内容过长，已截断]...\n"
+                + raw.substring(raw.length() - tail);
     }
 
     private void publishResult(

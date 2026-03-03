@@ -28,6 +28,8 @@ npm start
 
 - `QFORGE_API_BASE_URL`
 - `QFORGE_WS_BASE_URL`
+- `QFORGE_SCREENSHOT_SHORTCUT`（OCR 截图，默认 `CommandOrControl+Alt+A`）
+- `QFORGE_IMAGE_SCREENSHOT_SHORTCUT`（独立插图截图，默认 `CommandOrControl+Alt+I`）
 
 ## 默认账号
 

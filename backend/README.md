@@ -94,3 +94,18 @@ docker compose -f docker-compose.dev.yml logs -f dev-container
 docker compose -f docker-compose.dev.yml restart dev-container
 docker compose -f docker-compose.dev.yml down
 ```
+
+## AI 分析调优（ocr-service）
+
+- 可通过环境变量覆盖输出上限：`ZHIPUAI_MAX_TOKENS`（默认从 `ocr-service` 配置读取）
+- 推荐先提升 `maxTokens`，再通过输入裁剪控制上下文长度
+
+本仓库提供了 prompt 预算调参脚本（题干+答案必须注入）：
+
+```bash
+python backend/scripts/ai_prompt_tuning.py \
+	--stem-file <stem.txt> \
+	--answers-file <answers.txt>
+```
+
+`answers.txt` 使用“空行分隔不同答案”。脚本输出每组预算的字符数与粗略 token 估算，便于选择折中配置。

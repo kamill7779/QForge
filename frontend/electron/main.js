@@ -5,9 +5,11 @@ const path = require("node:path");
 const API_BASE_URL = process.env.QFORGE_API_BASE_URL || "http://localhost:8080";
 const WS_BASE_URL = process.env.QFORGE_WS_BASE_URL || "ws://localhost:8089";
 const SCREENSHOT_SHORTCUT = process.env.QFORGE_SCREENSHOT_SHORTCUT || "CommandOrControl+Alt+A";
+const IMAGE_SCREENSHOT_SHORTCUT = process.env.QFORGE_IMAGE_SCREENSHOT_SHORTCUT || "CommandOrControl+Alt+I";
 
 let mainWindow = null;
 let screenshotWindow = null;
+let screenshotMeta = null;
 
 function credentialsFilePath() {
   return path.join(app.getPath("userData"), "credentials.json");
@@ -138,13 +140,15 @@ async function captureTargetDisplay() {
 function closeScreenshotWindow() {
   if (!screenshotWindow || screenshotWindow.isDestroyed()) {
     screenshotWindow = null;
+    screenshotMeta = null;
     return;
   }
   screenshotWindow.close();
   screenshotWindow = null;
+  screenshotMeta = null;
 }
 
-async function openScreenshotWindow() {
+async function openScreenshotWindow(meta = {}) {
   if (screenshotWindow && !screenshotWindow.isDestroyed()) {
     screenshotWindow.focus();
     return;
@@ -177,14 +181,20 @@ async function openScreenshotWindow() {
   screenshotWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   screenshotWindow.once("closed", () => {
     screenshotWindow = null;
+    screenshotMeta = null;
   });
+
+  screenshotMeta = {
+    intent: meta.intent || "question-ocr",
+    triggerSource: meta.triggerSource || "ui-button"
+  };
 
   await screenshotWindow.loadFile(path.join(__dirname, "screenshot.html"));
   screenshotWindow.show();
   screenshotWindow.focus();
   screenshotWindow.webContents.send("screenshot:init", {
     imageDataUrl,
-    shortcut: SCREENSHOT_SHORTCUT
+    shortcut: meta.shortcut || SCREENSHOT_SHORTCUT
   });
 }
 
@@ -209,7 +219,8 @@ app.whenReady().then(() => {
   ipcMain.handle("config:get", async () => ({
     apiBaseUrl: API_BASE_URL,
     wsBaseUrl: WS_BASE_URL,
-    screenshotShortcut: SCREENSHOT_SHORTCUT
+    screenshotShortcut: SCREENSHOT_SHORTCUT,
+    imageScreenshotShortcut: IMAGE_SCREENSHOT_SHORTCUT
   }));
 
   ipcMain.handle("auth:login", async (_event, payload) => {
@@ -230,8 +241,13 @@ app.whenReady().then(() => {
   ipcMain.handle("credentials:load", loadCredentials);
   ipcMain.handle("credentials:save", async (_event, payload) => saveCredentials(payload || {}));
   ipcMain.handle("credentials:clear", clearCredentials);
-  ipcMain.handle("screenshot:trigger", async () => {
-    await openScreenshotWindow();
+  ipcMain.handle("screenshot:trigger", async (_event, payload) => {
+    const requested = payload || {};
+    await openScreenshotWindow({
+      intent: requested.intent || "question-ocr",
+      triggerSource: requested.triggerSource || "ui-button",
+      shortcut: requested.shortcut || SCREENSHOT_SHORTCUT
+    });
     return { ok: true };
   });
 
@@ -239,20 +255,42 @@ app.whenReady().then(() => {
     closeScreenshotWindow();
   });
   ipcMain.on("screenshot:confirm", (_event, payload) => {
-    sendToMainWindow("screenshot:captured", payload || {});
+    sendToMainWindow("screenshot:captured", {
+      ...(payload || {}),
+      ...(screenshotMeta || {})
+    });
     closeScreenshotWindow();
   });
 
   createWindow();
 
   const registered = globalShortcut.register(SCREENSHOT_SHORTCUT, () => {
-    openScreenshotWindow().catch((error) => {
+    openScreenshotWindow({
+      intent: "auto-ocr",
+      triggerSource: "ocr-shortcut",
+      shortcut: SCREENSHOT_SHORTCUT
+    }).catch((error) => {
       sendToMainWindow("screenshot:error", { message: error.message || String(error) });
     });
   });
   if (!registered) {
     sendToMainWindow("screenshot:error", {
       message: `快捷键注册失败: ${SCREENSHOT_SHORTCUT}`
+    });
+  }
+
+  const imageRegistered = globalShortcut.register(IMAGE_SCREENSHOT_SHORTCUT, () => {
+    openScreenshotWindow({
+      intent: "insert-image",
+      triggerSource: "image-shortcut",
+      shortcut: IMAGE_SCREENSHOT_SHORTCUT
+    }).catch((error) => {
+      sendToMainWindow("screenshot:error", { message: error.message || String(error) });
+    });
+  });
+  if (!imageRegistered) {
+    sendToMainWindow("screenshot:error", {
+      message: `插图快捷键注册失败: ${IMAGE_SCREENSHOT_SHORTCUT}`
     });
   }
 
