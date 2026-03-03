@@ -33,13 +33,19 @@ public class AiAnalysisTaskConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisTaskConsumer.class);
 
+        private static final String RESULT_START = "##RESULT_START##";
+        private static final String RESULT_END   = "##RESULT_END##";
+
         private static final String SYSTEM_PROMPT =
-            "你是教育评估专家。直接输出如下JSON，不得先输出分析过程：\n" +
+            "你是教育评估专家。请严格按如下格式输出，不得先输出分析过程：\n" +
+            "##RESULT_START##\n" +
             "{\"tags\":[\"标签1\",\"标签2\"],\"difficulty\":0.55,\"reasoning\":\"30字内结论\"}\n" +
-            "标签：推荐2-5个知识点（中文，粒度如"二次函数"、"解三角形"，禁用"数学"等过宽表述）。\n" +
+            "##RESULT_END##\n" +
+            "标签：推荐2-5个知识点（中文，粒度如\"二次函数\"、\"解三角形\"，禁用\"数学\"等过宽表述）。\n" +
             "P值校准（通过率0.00-1.00）：0.8+极简单, 0.6-0.8简单, 0.4-0.6中等, 0.2-0.4偏难, 0.05-0.2竞赛/压轴, <0.05联赛级。\n" +
             "示例：立体几何综合→0.35, 二次函数求值→0.60, 基础填空→0.75, 竞赛组合→0.10。\n" +
-            "reasoning必须是结论句（如"立体几何综合，空间想象要求高"），禁止使用"任务一""**标签**"等标题或Markdown。";
+            "reasoning必须是结论句（如\"立体几何综合，空间想象要求高\"），禁止使用\"任务一\"\"**标签**\"等标题或Markdown。\n" +
+            "注意：##RESULT_START## 和 ##RESULT_END## 是必须输出的定界符，JSON放在两者之间。";
         private static final int DEFAULT_MAX_TOKENS = 4096;
         private static final int MAX_STEM_CHARS = 8000;
         private static final int MAX_SINGLE_ANSWER_CHARS = 2000;
@@ -154,14 +160,26 @@ public class AiAnalysisTaskConsumer {
                     reasoningContent != null ? reasoningContent.length() : -1);
 
             String rawJson = rawContentStr != null ? rawContentStr.trim() : "";
-            rawJson = stripCodeFences(rawJson);
-            rawJson = unescapeDoubleEncodedJson(rawJson);
+
+            // Primary: extract JSON between ##RESULT_START## / ##RESULT_END## delimiters
+            String delimited = extractByDelimiter(rawJson);
+            if (!delimited.isEmpty()) {
+                log.info("Extracted JSON via delimiter from content for question={}", event.questionUuid());
+                rawJson = delimited;
+            } else {
+                rawJson = stripCodeFences(rawJson);
+                rawJson = unescapeDoubleEncodedJson(rawJson);
+            }
 
             // Fallback 1: reasoning models (GLM-Z1) may put JSON inside reasoningContent
             if (rawJson.isEmpty() && reasoningContent != null && !reasoningContent.isBlank()) {
                 log.info("content is empty, trying to extract JSON from reasoningContent for question={}",
                         event.questionUuid());
-                String extracted = extractJsonFromText(reasoningContent);
+                // Try delimiter first, then validated brace-scan
+                String extracted = extractByDelimiter(reasoningContent);
+                if (extracted.isEmpty()) {
+                    extracted = extractJsonFromText(reasoningContent);
+                }
                 if (!extracted.isEmpty()) {
                     log.info("Extracted JSON from reasoningContent for question={}: {}", event.questionUuid(), extracted);
                     rawJson = extracted;
@@ -363,6 +381,19 @@ public class AiAnalysisTaskConsumer {
         );
 
         log.info("Published AI analysis result for question={}, success={}", event.questionUuid(), success);
+    }
+
+    /**
+     * Extracts JSON between ##RESULT_START## and ##RESULT_END## delimiters.
+     * This is the primary extraction method — delimiter-based extraction is immune
+     * to LaTeX braces, Markdown, and other noise in the model output.
+     */
+    private String extractByDelimiter(String text) {
+        if (text == null) return "";
+        int s = text.indexOf(RESULT_START);
+        int e = text.indexOf(RESULT_END);
+        if (s < 0 || e < 0 || e <= s) return "";
+        return text.substring(s + RESULT_START.length(), e).trim();
     }
 
     private String stripCodeFences(String text) {
