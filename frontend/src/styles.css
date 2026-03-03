@@ -502,7 +502,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .meta-line {
@@ -575,18 +576,14 @@ textarea {
 .focus-editor-grid {
   display: grid;
   grid-template-columns: minmax(320px, 1.2fr) minmax(260px, 1fr);
-  grid-template-rows: 1fr;
   gap: 10px;
   min-height: 0;
-  flex: 1;
 }
 
-/* 使 grid 每列都成为 flex 容器，让子元素可以正确撑满并触发滚动 */
 .focus-editor-grid > div {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
 }
 
 .latex-preview {
@@ -602,8 +599,19 @@ textarea {
 }
 
 #answer-textarea {
-  min-height: 200px;
+  height: 300px;
+  min-height: 120px;
+  max-height: 500px;
   resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  border: 1px solid #ccd8ef;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f7faff;
+  color: #1f355c;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .latex-preview.compact {
@@ -1260,13 +1268,16 @@ textarea {
   border: 1px solid #ccd8ef;
   border-radius: 10px;
   background: #f7faff;
-  min-height: 200px;
-  max-height: 600px;
+  height: 340px;
+  min-height: 340px;
+  max-height: 340px;
   padding: 10px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-sizing: border-box;
 }
 
 .stem-editor-empty {
