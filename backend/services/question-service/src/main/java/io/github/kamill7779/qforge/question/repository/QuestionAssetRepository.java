@@ -43,6 +43,32 @@ public interface QuestionAssetRepository extends BaseMapper<QuestionAsset> {
         return entity;
     }
 
+    /**
+     * 批量查询多个题目的所有图片资产（@TableLogic 自动过滤 deleted=true）。
+     */
+    default List<QuestionAsset> findActiveByQuestionIds(List<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        return this.selectList(
+                Wrappers.<QuestionAsset>lambdaQuery()
+                        .in(QuestionAsset::getQuestionId, questionIds)
+        );
+    }
+
+    /**
+     * 按 ref_key 查找指定题目的图片（@TableLogic 自动过滤已删除）。
+     */
+    default Optional<QuestionAsset> findByQuestionIdAndRefKey(Long questionId, String refKey) {
+        QuestionAsset asset = this.selectOne(
+                Wrappers.<QuestionAsset>lambdaQuery()
+                        .eq(QuestionAsset::getQuestionId, questionId)
+                        .eq(QuestionAsset::getRefKey, refKey)
+                        .last("LIMIT 1")
+        );
+        return Optional.ofNullable(asset);
+    }
+
     default void softDeleteByQuestionId(Long questionId) {
         List<QuestionAsset> assets = findByQuestionId(questionId);
         for (QuestionAsset asset : assets) {

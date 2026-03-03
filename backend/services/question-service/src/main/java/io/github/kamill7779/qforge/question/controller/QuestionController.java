@@ -9,6 +9,7 @@ import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
+import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
@@ -43,6 +44,14 @@ public class QuestionController {
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         return ResponseEntity.ok(questionCommandService.listUserQuestions(requestUser));
+    }
+
+    @GetMapping("/{questionUuid}/assets")
+    public ResponseEntity<List<QuestionAssetResponse>> listAssets(
+            @PathVariable("questionUuid") String questionUuid,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.listAssets(questionUuid, requestUser));
     }
 
     @PostMapping

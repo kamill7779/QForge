@@ -19,8 +19,11 @@ import io.github.kamill7779.qforge.question.dto.QuestionMainTagResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
+import io.github.kamill7779.qforge.question.dto.InlineImageEntry;
+import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
+import io.github.kamill7779.qforge.question.entity.QuestionAsset;
 import io.github.kamill7779.qforge.question.entity.Answer;
 import io.github.kamill7779.qforge.question.entity.Question;
 import io.github.kamill7779.qforge.question.entity.QuestionAiTask;
@@ -119,15 +122,81 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
-    /** Validates stem XML then persists it. */
+    /** Validates stem XML then persists it, and syncs inline images atomically. */
     @Override
     @Transactional
     public QuestionStatusResponse updateStem(String questionUuid, UpdateStemRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         stemXmlValidator.validate(request.getStemXml());
+
+        Map<String, InlineImageEntry> inlineImages = request.getInlineImages();
+        if (inlineImages != null && !inlineImages.isEmpty()) {
+            if (inlineImages.size() > 10) {
+                throw new BusinessValidationException(
+                        "ASSET_LIMIT_EXCEEDED",
+                        "A question can have at most 10 inline images",
+                        Map.of("count", inlineImages.size(), "limit", 10)
+                );
+            }
+            for (Map.Entry<String, InlineImageEntry> entry : inlineImages.entrySet()) {
+                String imageData = entry.getValue().imageData();
+                if (imageData != null && !imageData.isBlank()) {
+                    long approxBytes = (long) (imageData.length() * 3L / 4);
+                    if (approxBytes > InlineImageEntry.MAX_BINARY_BYTES) {
+                        throw new BusinessValidationException(
+                                "ASSET_SIZE_EXCEEDED",
+                                "Image size must not exceed 30 KB",
+                                Map.of("ref", entry.getKey(),
+                                        "approxSizeBytes", approxBytes,
+                                        "limitBytes", InlineImageEntry.MAX_BINARY_BYTES)
+                        );
+                    }
+                }
+            }
+            syncInlineImages(question, inlineImages);
+        } else if (inlineImages != null) {
+            // 客户端显式传空 map，表示清除所有图片
+            questionAssetRepository.softDeleteByQuestionId(question.getId());
+        }
+        // inlineImages == null 表示客户端未传图片字段，跳过图片操作
+
         question.setStemText(request.getStemXml());
         questionRepository.save(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    /**
+     * 同步单道题目的内联图片：upsert 传入的图片，软删除移除的图片。
+     */
+    private void syncInlineImages(Question question, Map<String, InlineImageEntry> inlineImages) {
+        List<QuestionAsset> existing = questionAssetRepository.findByQuestionId(question.getId());
+        Map<String, QuestionAsset> existingByRef = existing.stream()
+                .filter(a -> a.getRefKey() != null)
+                .collect(Collectors.toMap(QuestionAsset::getRefKey, a -> a, (a, b) -> a));
+        Set<String> incomingRefs = inlineImages.keySet();
+
+        for (Map.Entry<String, InlineImageEntry> entry : inlineImages.entrySet()) {
+            String ref = entry.getKey();
+            InlineImageEntry img = entry.getValue();
+            QuestionAsset asset = existingByRef.get(ref);
+            if (asset == null) {
+                asset = new QuestionAsset();
+                asset.setAssetUuid(UUID.randomUUID().toString());
+                asset.setQuestionId(question.getId());
+                asset.setRefKey(ref);
+                asset.setAssetType("INLINE_IMAGE");
+            }
+            asset.setImageData(img.imageData());
+            asset.setMimeType(img.mimeType() != null ? img.mimeType() : "image/png");
+            asset.setFileName(ref);
+            questionAssetRepository.save(asset);
+        }
+
+        for (QuestionAsset asset : existing) {
+            if (asset.getRefKey() != null && !incomingRefs.contains(asset.getRefKey())) {
+                questionAssetRepository.deleteById(asset.getId());
+            }
+        }
     }
 
     @Override
@@ -276,6 +345,21 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                     ));
         }
 
+        List<QuestionAsset> allAssets = questionAssetRepository.findActiveByQuestionIds(questionIds);
+        Map<Long, List<QuestionAssetResponse>> assetsByQuestionId = new HashMap<>();
+        for (QuestionAsset asset : allAssets) {
+            if (asset.getRefKey() != null && asset.getImageData() != null) {
+                assetsByQuestionId
+                        .computeIfAbsent(asset.getQuestionId(), ignored -> new ArrayList<>())
+                        .add(new QuestionAssetResponse(
+                                asset.getAssetUuid(),
+                                asset.getRefKey(),
+                                asset.getImageData(),
+                                asset.getMimeType()
+                        ));
+            }
+        }
+
         return questions.stream()
                 .map(question -> {
                     TagSnapshot tagSnapshot = tagSnapshotMap.getOrDefault(question.getId(), TagSnapshot.defaultValue(List.of()));
@@ -288,9 +372,22 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                             question.getDifficulty(),
                             answerCountMap.getOrDefault(question.getId(), 0L),
                             answersByQuestionId.getOrDefault(question.getId(), List.of()),
-                            question.getUpdatedAt()
+                            question.getUpdatedAt(),
+                            assetsByQuestionId.getOrDefault(question.getId(), List.of())
                     );
                 })
+                .toList();
+    }
+
+    @Override
+    public List<QuestionAssetResponse> listAssets(String questionUuid, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        List<QuestionAsset> assets = questionAssetRepository.findByQuestionId(question.getId());
+        return assets.stream()
+                .filter(a -> a.getRefKey() != null && a.getImageData() != null)
+                .map(a -> new QuestionAssetResponse(
+                        a.getAssetUuid(), a.getRefKey(), a.getImageData(), a.getMimeType()
+                ))
                 .toList();
     }
 

@@ -77,17 +77,18 @@ CREATE TABLE IF NOT EXISTS q_question_asset (
     id          BIGINT PRIMARY KEY AUTO_INCREMENT,
     asset_uuid  CHAR(36)      NOT NULL UNIQUE,
     question_id BIGINT        NOT NULL,
-    asset_type  VARCHAR(32)   NOT NULL  COMMENT 'STEM_IMAGE / CHOICE_IMAGE',
-    image_data  LONGTEXT      NOT NULL  COMMENT '图片 base64 编码数据',
+    asset_type  VARCHAR(32)   NOT NULL  COMMENT 'INLINE_IMAGE / STEM_IMAGE / CHOICE_IMAGE',
+    ref_key     VARCHAR(64)   NULL      COMMENT '前端 XML 引用 key，如 img-1、img-2',
+    image_data  MEDIUMTEXT    NOT NULL  COMMENT '图片 base64 编码数据（每张 ≤ 40KB）',
     file_name   VARCHAR(255)  NULL      COMMENT '原始文件名',
     mime_type   VARCHAR(128)  NULL      COMMENT 'image/png, image/jpeg 等',
     deleted     BOOLEAN       NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
     created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_q_asset_question (question_id, asset_type),
-    INDEX idx_q_asset_deleted (deleted),
+    INDEX idx_q_asset_question     (question_id, asset_type),
+    INDEX idx_q_asset_question_ref (question_id, ref_key),
     CONSTRAINT fk_q_asset_question FOREIGN KEY (question_id) REFERENCES q_question(id)
-) COMMENT '题目关联资源（图片 base64 存储）';
+) COMMENT '题目关联资源（图片 base64），每题最多 10 张，每张最多 30KB';
 
 ALTER TABLE q_question
     ADD CONSTRAINT fk_q_question_stem_image

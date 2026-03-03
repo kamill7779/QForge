@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.question.service;
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
+import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
@@ -38,6 +39,9 @@ public interface QuestionCommandService {
     void deleteDraftQuestion(String questionUuid, String requestUser);
 
     List<QuestionOverviewResponse> listUserQuestions(String requestUser);
+
+    /** 返回指定题目的内联图片列表（含完整 base64）。 */
+    List<QuestionAssetResponse> listAssets(String questionUuid, String requestUser);
 
     /** Replaces all secondary tags for a question. */
     QuestionStatusResponse updateTags(String questionUuid, UpdateTagsRequest request, String requestUser);

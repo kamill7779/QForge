@@ -22,6 +22,10 @@ public class QuestionAsset {
     @TableField("asset_type")
     private String assetType;
 
+    /** 前端 XML 中的引用 key，如 img-1、img-2。 */
+    @TableField("ref_key")
+    private String refKey;
+
     @TableField("image_data")
     private String imageData;
 
@@ -70,6 +74,14 @@ public class QuestionAsset {
 
     public void setAssetType(String assetType) {
         this.assetType = assetType;
+    }
+
+    public String getRefKey() {
+        return refKey;
+    }
+
+    public void setRefKey(String refKey) {
+        this.refKey = refKey;
     }
 
     public String getImageData() {
