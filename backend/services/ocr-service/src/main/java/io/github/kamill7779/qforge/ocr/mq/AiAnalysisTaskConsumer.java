@@ -155,6 +155,7 @@ public class AiAnalysisTaskConsumer {
 
             String rawJson = rawContentStr != null ? rawContentStr.trim() : "";
             rawJson = stripCodeFences(rawJson);
+            rawJson = unescapeDoubleEncodedJson(rawJson);
 
             // Fallback 1: reasoning models (GLM-Z1) may put JSON inside reasoningContent
             if (rawJson.isEmpty() && reasoningContent != null && !reasoningContent.isBlank()) {
@@ -341,6 +342,41 @@ public class AiAnalysisTaskConsumer {
             s = sb.toString().trim();
         }
         return s;
+    }
+
+    /**
+     * Handles cases where the AI model returns double-escaped JSON:
+     * Case 1: outer JSON string wrapping e.g. "{\"tags\":[...]}" (starts and ends with quote)
+     * Case 2: literal backslash-escaped JSON e.g. {\"tags\":[...]} (starts with {\ )
+     * Both are caused by the model serialising its output as a JSON string instead of raw JSON.
+     */
+    private String unescapeDoubleEncodedJson(String text) {
+        if (text == null || text.isEmpty()) return text;
+        // Case 1: outer JSON string wrapping - try Jackson string unwrap first
+        if (text.startsWith("\"") && text.endsWith("\"") && text.length() > 2) {
+            try {
+                String inner = objectMapper.readValue(text, String.class).trim();
+                if (inner.startsWith("{")) {
+                    log.info("Unwrapped outer-quoted AI JSON string (len={})", text.length());
+                    return inner;
+                }
+            } catch (Exception ignored) {}
+        }
+        // Case 2: starts with {\" - literal backslash escaping throughout
+        if (text.length() >= 2 && text.charAt(0) == '{' && text.charAt(1) == '\\') {
+            String recovered = text
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+                    .replace("\\n", "\n")
+                    .replace("\\r", "\r")
+                    .replace("\\t", "\t");
+            try {
+                objectMapper.readTree(recovered);
+                log.info("Unescaped double-encoded AI JSON (original len={})", text.length());
+                return recovered;
+            } catch (Exception ignored) {}
+        }
+        return text;
     }
 
     /**
