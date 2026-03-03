@@ -6,13 +6,16 @@ import io.github.kamill7779.qforge.question.entity.QuestionOcrTask;
 import io.github.kamill7779.qforge.question.repository.QuestionOcrTaskRepository;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.util.Map;
-import org.springframework.amqp.ImmediateRequeueAmqpException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class OcrResultConsumer {
+
+    private static final Logger log = LoggerFactory.getLogger(OcrResultConsumer.class);
 
     private final QuestionOcrTaskRepository questionOcrTaskRepository;
     private final OcrWsPushService ocrWsPushService;
@@ -28,10 +31,17 @@ public class OcrResultConsumer {
     @RabbitListener(queues = RabbitTopologyConfig.OCR_RESULT_QUESTION_QUEUE)
     @Transactional
     public void onOcrResult(OcrTaskResultEvent event) {
-        QuestionOcrTask task = questionOcrTaskRepository.findByTaskUuid(event.taskUuid()).orElse(null);
+        // Retry up to 3 times waiting for DB row to be visible (event may arrive before TX commit)
+        QuestionOcrTask task = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            task = questionOcrTaskRepository.findByTaskUuid(event.taskUuid()).orElse(null);
+            if (task != null) break;
+            log.warn("Question OCR task mapping not ready yet (attempt {}/3), waiting 1s: {}", attempt, event.taskUuid());
+            try { Thread.sleep(1000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+        }
         if (task == null) {
-            // The result event may arrive slightly earlier than local task mapping persistence.
-            throw new ImmediateRequeueAmqpException("Question OCR task mapping not ready yet");
+            log.error("Question OCR task mapping still not found after 3 attempts, discarding: {}", event.taskUuid());
+            return;
         }
 
         // Transition to CONFIRMED when OCR succeeds; retain FAILED otherwise.

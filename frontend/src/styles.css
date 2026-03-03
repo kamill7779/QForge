@@ -574,12 +574,20 @@ textarea {
   flex: 1;
 }
 
+/* 使 grid 每列都成为 flex 容器，让子元素可以正确撑满并触发滚动 */
+.focus-editor-grid > div {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .latex-preview {
   border: 1px solid #ccd8ef;
   border-radius: 10px;
   background: #f7faff;
-  min-height: 440px;
-  max-height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: 12px;
   overflow: auto;
   white-space: pre-wrap;

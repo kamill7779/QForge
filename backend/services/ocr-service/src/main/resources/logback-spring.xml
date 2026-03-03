@@ -23,9 +23,6 @@
     </encoder>
   </appender>
 
-  <!-- Extra debug for OCR client -->
-  <logger name="io.github.kamill7779.qforge.ocr" level="DEBUG"/>
-
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
     <appender-ref ref="FILE"/>

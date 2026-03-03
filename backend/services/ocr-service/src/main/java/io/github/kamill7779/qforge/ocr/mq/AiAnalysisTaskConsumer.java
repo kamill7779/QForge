@@ -33,53 +33,12 @@ public class AiAnalysisTaskConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisTaskConsumer.class);
 
-        private static final String SYSTEM_PROMPT = String.join("\n",
-            "你是一个资深教育评估专家。请根据用户提供的题目内容，完成以下两项任务：",
-            "",
-            "## 任务一：推荐标签",
-            "为这道题推荐 2-5 个知识点标签。标签应当：",
-            "- 精准描述本题考察的核心知识点",
-            "- 粒度适中（如\"二次函数\"而非\"数学\"）",
-            "- 使用中文",
-            "",
-            "## 任务二：难度评估（P 值）",
-            "根据以下标准评估题目难度，输出 P 值（取值 0.00-1.00，保留两位小数）。",
-            "",
-            "### P 值定义",
-            "P 值表示\"通过率\"，即随机抽取的合格学生正确回答该题的概率：",
-            "- 1.00 = 所有人都能答对（极简单）",
-            "- 0.00 = 几乎无人能答对（极困难）",
-            "",
-            "### 难度等级参照",
-            "| P 值区间 | 等级 | 典型特征 |",
-            "|-----------|------|----------|",
-            "| 0.90–1.00 | 入门 | 直接套公式/定义即可 |",
-            "| 0.70–0.89 | 简单 | 需要 1-2 步推理 |",
-            "| 0.30–0.69 | 中等 | 需要综合运用知识 |",
-            "| 0.10–0.29 | 困难 | 多步骤推理+易错陷阱 |",
-            "| 0.00–0.09 | 专家 | 竞赛/超纲级别 |",
-            "",
-            "### 预估方法（五维加权评分）",
-            "由于没有实测数据，请使用以下五个维度进行预估，每个维度 0-20 分：",
-            "",
-            "| 维度 | 权重 | 评分标准（0-20） |",
-            "|------|------|-------------------|",
-            "| 前置知识门槛 | 20% | 0=需广泛跨领域知识, 20=仅需基础概念 |",
-            "| 推理步骤数 | 25% | 0=≥6步复杂推理链, 20=1步直接得出 |",
-            "| 陷阱/易错点 | 20% | 0=多个隐蔽陷阱, 20=无任何陷阱 |",
-            "| 实现/表达复杂度 | 25% | 0=需要复杂计算或论证, 20=口算即可 |",
-            "| 时间成本 | 10% | 0=考试中≥15分钟, 20=30秒内完成 |",
-            "",
-            "加权总分 S = Σ(维度得分 × 权重)，P = S / 100，保留两位小数。",
-            "",
-            "## 输出格式",
-            "严格输出以下 JSON，不要添加任何额外文字：",
-            "{",
-            "  \"tags\": [\"标签1\", \"标签2\"],",
-            "  \"difficulty\": 0.65,",
-            "  \"reasoning\": \"简要说明评分依据（50字以内）\"",
-            "}"
-        );
+        private static final String SYSTEM_PROMPT =
+            "你是教育评估专家。分析题目，完成两项任务并以JSON格式输出结果，不要输出分析过程。\n" +
+            "任务1：推荐2-5个知识点标签（中文，粒度适中，如\"二次函数\"而非\"数学\"）。\n" +
+            "任务2：估算P值（通过率0.00-1.00）：0.9+极简单, 0.7-0.9简单, 0.3-0.7中等, 0.1-0.3困难, 0-0.1专家难度。\n" +
+            "只输出如下JSON，禁止任何额外内容：\n" +
+            "{\"tags\":[\"标签1\",\"标签2\"],\"difficulty\":0.65,\"reasoning\":\"50字内评分依据\"}";
         private static final int DEFAULT_MAX_TOKENS = 4096;
         private static final int MAX_STEM_CHARS = 8000;
         private static final int MAX_SINGLE_ANSWER_CHARS = 2000;
@@ -226,7 +185,10 @@ public class AiAnalysisTaskConsumer {
                 task.setRawResponse(reasoningContent);
             }
 
-            log.info("AI analysis raw response for question={}: {}", event.questionUuid(), rawJson);
+            log.info("AI analysis raw response for question={}: {}...(len={})",
+                    event.questionUuid(),
+                    rawJson.length() > 200 ? rawJson.substring(0, 200) : rawJson,
+                    rawJson.length());
 
             if (rawJson.isEmpty()) {
                 // Dump the full message for diagnosis

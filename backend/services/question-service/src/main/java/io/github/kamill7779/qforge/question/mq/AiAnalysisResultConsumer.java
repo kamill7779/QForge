@@ -36,8 +36,7 @@ public class AiAnalysisResultConsumer {
     public void onAiAnalysisResult(AiAnalysisResultEvent event) {
         log.info("Received AI analysis result for question={}, taskUuid={}, success={}",
                 event.questionUuid(), event.taskUuid(), event.success());
-
-        // ---- Persist result to q_question_ai_task ----
+        try {
         if (event.taskUuid() != null) {
             questionAiTaskRepository.findByTaskUuid(event.taskUuid()).ifPresent(task -> {
                 if (event.success()) {
@@ -72,6 +71,10 @@ public class AiAnalysisResultConsumer {
             payload.put("taskUuid", event.taskUuid());
             payload.put("errorMessage", event.errorMessage() == null ? "Unknown error" : event.errorMessage());
             wsPushService.push(event.userId(), "ai.analysis.failed", payload);
+            }
+        } catch (Exception ex) {
+            log.error("Failed to process AI analysis result for question={}, taskUuid={}: {}",
+                    event.questionUuid(), event.taskUuid(), ex.getMessage(), ex);
         }
     }
 }

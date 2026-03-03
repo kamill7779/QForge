@@ -11,7 +11,6 @@ import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.ImmediateRequeueAmqpException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
@@ -47,10 +46,17 @@ public class OcrTaskConsumer {
     public void onTaskCreated(OcrTaskCreatedEvent event) {
         log.info("Received OCR task event: taskUuid={}, bizType={}", event.taskUuid(), event.bizType());
 
-        Optional<OcrTask> optional = ocrTaskRepository.findByTaskUuid(event.taskUuid());
+        // Retry up to 3 times waiting for DB row to be visible (event may arrive before TX commit)
+        Optional<OcrTask> optional = Optional.empty();
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            optional = ocrTaskRepository.findByTaskUuid(event.taskUuid());
+            if (optional.isPresent()) break;
+            log.warn("OCR task row not ready yet (attempt {}/3), waiting 1s: {}", attempt, event.taskUuid());
+            try { Thread.sleep(1000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+        }
         if (optional.isEmpty()) {
-            log.warn("OCR task row not ready yet, requeuing: {}", event.taskUuid());
-            throw new ImmediateRequeueAmqpException("OCR task row not ready yet");
+            log.error("OCR task row still not found after 3 attempts, discarding message: {}", event.taskUuid());
+            return;
         }
 
         OcrTask task = optional.get();
