@@ -149,8 +149,6 @@ services:
       options:
         max-size: "20m"
         max-file: "3"
-    volumes:
-      - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql

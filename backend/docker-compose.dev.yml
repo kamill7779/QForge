@@ -147,7 +147,6 @@ services:
     volumes:
       - ./:/workspace
       - maven-repo:/root/.m2
-      - ./.dev-logs:/workspace/.dev-logs
     environment:
       <<: *infra-env
       OCR_SERVICE_BASE_URL: http://ocr-service:8090
