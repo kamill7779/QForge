@@ -315,7 +315,10 @@ public class AiAnalysisTaskConsumer {
     }
 
     private String buildUserPrompt(AiAnalysisTaskCreatedEvent event) {
-        String stem = truncate(event.stemXml(), MAX_STEM_CHARS);
+        String rawStem = event.stemXml() == null ? "" : event.stemXml();
+        // Strip <image .../> tags so the AI doesn't hallucinate image-based tags
+        String cleanedStem = rawStem.replaceAll("<image[^>]*/?>", "");
+        String stem = truncate(cleanedStem, MAX_STEM_CHARS);
         int totalAnswers = event.answerTexts() == null ? 0 : event.answerTexts().size();
         List<String> answers = new ArrayList<>();
         if (event.answerTexts() != null) {

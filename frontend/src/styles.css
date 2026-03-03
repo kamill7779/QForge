@@ -1636,23 +1636,34 @@ textarea {
 
 .ai-status-box {
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   font-size: 13px;
   margin-top: 8px;
+  margin-bottom: 8px;
   line-height: 1.5;
 }
 
 .ai-status-box.ai-loading {
-  background: var(--warn-bg);
-  color: var(--warn-tx);
+  background: #f3e8ff;
+  color: #6b21a8;
+  border: 1px solid #d8b4fe;
 }
 
 .ai-status-box.ai-success {
   background: var(--success-bg);
   color: var(--success-tx);
+  border: 1px solid #b6e1c8;
 }
 
 .ai-status-box.ai-error {
   background: var(--fail-bg);
   color: var(--fail-tx);
+  border: 1px solid #efc4c4;
+}
+
+/* Entry-view inline tags & difficulty sections */
+.entry-inline-section {
+  margin-top: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border, #e0e0e0);
 }
