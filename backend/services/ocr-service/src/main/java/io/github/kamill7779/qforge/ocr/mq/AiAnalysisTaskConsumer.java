@@ -118,22 +118,41 @@ public class AiAnalysisTaskConsumer {
             var choice = response.getData().getChoices().get(0);
             String finishReason = choice.getFinishReason();
             Object content = choice.getMessage().getContent();
+            String reasoningContent = choice.getMessage().getReasoningContent();
             String rawContentStr = content != null ? content.toString() : null;
 
-            log.info("AI analysis response for question={} finishReason={} contentType={} rawLen={}",
+            log.info("AI analysis response for question={} finishReason={} contentType={} rawLen={} reasoningLen={}",
                     event.questionUuid(),
                     finishReason,
                     content != null ? content.getClass().getSimpleName() : "null",
-                    rawContentStr != null ? rawContentStr.length() : -1);
+                    rawContentStr != null ? rawContentStr.length() : -1,
+                    reasoningContent != null ? reasoningContent.length() : -1);
 
             String rawJson = rawContentStr != null ? rawContentStr.trim() : "";
             rawJson = stripCodeFences(rawJson);
 
+            // Fallback: reasoning models (GLM-Z1) may put JSON inside reasoningContent
+            if (rawJson.isEmpty() && reasoningContent != null && !reasoningContent.isBlank()) {
+                log.info("content is empty, trying to extract JSON from reasoningContent for question={}",
+                        event.questionUuid());
+                String extracted = extractJsonFromText(reasoningContent);
+                if (!extracted.isEmpty()) {
+                    log.info("Extracted JSON from reasoningContent for question={}: {}", event.questionUuid(), extracted);
+                    rawJson = extracted;
+                }
+            }
+
             log.info("AI analysis raw response for question={}: {}", event.questionUuid(), rawJson);
 
             if (rawJson.isEmpty()) {
+                // Dump the full message for diagnosis
+                String msgDump = "";
+                try {
+                    msgDump = objectMapper.writeValueAsString(choice.getMessage());
+                } catch (Exception ignored) {}
                 String hint = "finish_reason=" + finishReason
-                    + "; content_class=" + (content != null ? content.getClass().getName() : "null");
+                    + "; content_class=" + (content != null ? content.getClass().getName() : "null")
+                    + "; full_msg=" + msgDump;
                 log.warn("AI analysis returned empty content for question={}, hint={}", event.questionUuid(), hint);
                 publishResult(event, false, null, null, null,
                         "AI model returned empty response (" + hint + ")");
@@ -253,5 +272,27 @@ public class AiAnalysisTaskConsumer {
             s = sb.toString().trim();
         }
         return s;
+    }
+
+    /**
+     * Scans text for the first balanced JSON object { ... } and returns it.
+     * Used as fallback when reasoning models (GLM-Z1) embed the final JSON
+     * inside reasoning_content instead of content.
+     */
+    private String extractJsonFromText(String text) {
+        int start = text.indexOf('{');
+        if (start < 0) return "";
+        int depth = 0;
+        for (int i = start; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return text.substring(start, i + 1);
+                }
+            }
+        }
+        return "";
     }
 }
