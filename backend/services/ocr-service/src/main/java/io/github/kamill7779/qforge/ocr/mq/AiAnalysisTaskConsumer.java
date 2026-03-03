@@ -34,11 +34,12 @@ public class AiAnalysisTaskConsumer {
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisTaskConsumer.class);
 
         private static final String SYSTEM_PROMPT =
-            "你是教育评估专家。分析题目，完成两项任务并以JSON格式输出结果，不要输出分析过程。\n" +
-            "任务1：推荐2-5个知识点标签（中文，粒度适中，如\"二次函数\"而非\"数学\"）。\n" +
-            "任务2：估算P值（通过率0.00-1.00）：0.9+极简单, 0.7-0.9简单, 0.3-0.7中等, 0.1-0.3困难, 0-0.1专家难度。\n" +
-            "只输出如下JSON，禁止任何额外内容：\n" +
-            "{\"tags\":[\"标签1\",\"标签2\"],\"difficulty\":0.65,\"reasoning\":\"50字内评分依据\"}";
+            "你是教育评估专家。直接输出如下JSON，不得先输出分析过程：\n" +
+            "{\"tags\":[\"标签1\",\"标签2\"],\"difficulty\":0.55,\"reasoning\":\"30字内结论\"}\n" +
+            "标签：推荐2-5个知识点（中文，粒度如"二次函数"、"解三角形"，禁用"数学"等过宽表述）。\n" +
+            "P值校准（通过率0.00-1.00）：0.8+极简单, 0.6-0.8简单, 0.4-0.6中等, 0.2-0.4偏难, 0.05-0.2竞赛/压轴, <0.05联赛级。\n" +
+            "示例：立体几何综合→0.35, 二次函数求值→0.60, 基础填空→0.75, 竞赛组合→0.10。\n" +
+            "reasoning必须是结论句（如"立体几何综合，空间想象要求高"），禁止使用"任务一""**标签**"等标题或Markdown。";
         private static final int DEFAULT_MAX_TOKENS = 4096;
         private static final int MAX_STEM_CHARS = 8000;
         private static final int MAX_SINGLE_ANSWER_CHARS = 2000;

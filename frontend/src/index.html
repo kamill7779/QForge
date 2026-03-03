@@ -235,6 +235,7 @@
             <div class="row">
               <select id="bank-difficulty-filter">
                 <option value="">全部难度</option>
+                <option value="unset">未设置</option>
                 <option value="easy">简单 (P≥0.70)</option>
                 <option value="medium-easy">中等偏易 (0.50≤P&lt;0.70)</option>
                 <option value="medium">中等 (0.30≤P&lt;0.50)</option>
@@ -291,9 +292,30 @@
               <section class="bank-section">
                 <div class="bank-section-head">
                   <div class="block-title">答案</div>
+                  <button id="bank-answer-add-btn" class="btn btn-primary btn-mini">+ 新增答案</button>
+                </div>
+                <div id="bank-answer-add-panel" class="hidden">
+                  <div class="block-title" style="margin-top:8px">新增答案</div>
+                  <textarea id="bank-answer-add-textarea" class="bank-answer-textarea" rows="6" placeholder="输入新答案 LaTeX"></textarea>
+                  <div class="row" style="margin-top:6px">
+                    <button id="bank-answer-add-save-btn" class="btn btn-primary btn-mini">保存新答案</button>
+                    <button id="bank-answer-add-cancel-btn" class="btn btn-ghost btn-mini">取消</button>
+                  </div>
                 </div>
                 <div id="bank-answer-tabs" class="answer-tabs"></div>
                 <div id="bank-answer-display" class="latex-paper answer-paper">暂无答案</div>
+                <div id="bank-answer-edit-bar" class="bank-answer-actions hidden">
+                  <button id="bank-answer-edit-btn" class="btn btn-ghost btn-mini">编辑答案</button>
+                  <button id="bank-answer-delete-btn" class="btn btn-danger btn-mini">删除答案</button>
+                </div>
+                <div id="bank-answer-editor" class="hidden">
+                  <div class="block-title" style="margin-top:8px">编辑当前答案</div>
+                  <textarea id="bank-answer-textarea" class="bank-answer-textarea" rows="6" placeholder="输入答案 LaTeX，例如 $$x=1$$"></textarea>
+                  <div class="row" style="margin-top:6px">
+                    <button id="bank-answer-save-btn" class="btn btn-primary btn-mini">保存修改</button>
+                    <button id="bank-answer-cancel-btn" class="btn btn-ghost btn-mini">取消</button>
+                  </div>
+                </div>
               </section>
 
               <section class="bank-section">
@@ -308,8 +330,11 @@
                   <span class="bank-tag-label">副标签</span>
                   <div id="bank-secondary-tags" class="tag-input-wrap">
                     <div id="bank-tag-capsules" class="tag-capsules"></div>
-                    <input id="bank-tag-input" type="text" class="tag-input-field" placeholder="输入标签后按回车" />
+                    <input id="bank-tag-input" type="text" class="tag-input-field" placeholder="输入标签，按回车或点保存" />
                   </div>
+                </div>
+                <div class="row" style="margin-top:6px">
+                  <button id="bank-tag-save-btn" class="btn btn-primary btn-mini">保存标签</button>
                 </div>
               </section>
 
