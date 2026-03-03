@@ -583,6 +583,7 @@ textarea {
 .focus-editor-grid > div {
   display: flex;
   flex-direction: column;
+  gap: 6px;
   min-height: 0;
 }
 
@@ -596,6 +597,15 @@ textarea {
   overflow: auto;
   white-space: pre-wrap;
   color: #1f355c;
+}
+
+#stem-preview,
+#answer-preview {
+  flex: none;
+  height: 340px;
+  min-height: 340px;
+  max-height: 340px;
+  overflow-y: auto;
 }
 
 #answer-textarea {
@@ -1674,9 +1684,11 @@ textarea {
 
 /* Entry-view inline tags & difficulty sections */
 .entry-inline-section {
-  margin-top: 10px;
-  padding: 8px 0;
-  border-top: 1px solid var(--border, #e0e0e0);
+  border: 1px dashed #cedcef;
+  border-radius: 10px;
+  background: #fdfefe;
+  padding: 9px 10px;
+  margin-top: 8px;
 }
 .bank-main-tag-selectors {
   display: flex;

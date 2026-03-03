@@ -6,6 +6,7 @@ const API_BASE_URL = process.env.QFORGE_API_BASE_URL || "http://localhost:8080";
 const WS_BASE_URL = process.env.QFORGE_WS_BASE_URL || "ws://localhost:8089";
 const SCREENSHOT_SHORTCUT = process.env.QFORGE_SCREENSHOT_SHORTCUT || "CommandOrControl+Alt+A";
 const IMAGE_SCREENSHOT_SHORTCUT = process.env.QFORGE_IMAGE_SCREENSHOT_SHORTCUT || "CommandOrControl+Alt+I";
+const QUICK_INSERT_SHORTCUT = process.env.QFORGE_QUICK_INSERT_SHORTCUT || "CommandOrControl+Alt+Q";
 
 let mainWindow = null;
 let screenshotWindow = null;
@@ -220,7 +221,8 @@ app.whenReady().then(() => {
     apiBaseUrl: API_BASE_URL,
     wsBaseUrl: WS_BASE_URL,
     screenshotShortcut: SCREENSHOT_SHORTCUT,
-    imageScreenshotShortcut: IMAGE_SCREENSHOT_SHORTCUT
+    imageScreenshotShortcut: IMAGE_SCREENSHOT_SHORTCUT,
+    quickInsertShortcut: QUICK_INSERT_SHORTCUT
   }));
 
   ipcMain.handle("auth:login", async (_event, payload) => {
@@ -291,6 +293,21 @@ app.whenReady().then(() => {
   if (!imageRegistered) {
     sendToMainWindow("screenshot:error", {
       message: `插图快捷键注册失败: ${IMAGE_SCREENSHOT_SHORTCUT}`
+    });
+  }
+
+  const quickInsertRegistered = globalShortcut.register(QUICK_INSERT_SHORTCUT, () => {
+    openScreenshotWindow({
+      intent: "insert-image",
+      triggerSource: "quick-insert-shortcut",
+      shortcut: QUICK_INSERT_SHORTCUT
+    }).catch((error) => {
+      sendToMainWindow("screenshot:error", { message: error.message || String(error) });
+    });
+  });
+  if (!quickInsertRegistered) {
+    sendToMainWindow("screenshot:error", {
+      message: `快捷插图快捷键注册失败: ${QUICK_INSERT_SHORTCUT}`
     });
   }
 
