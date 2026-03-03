@@ -199,20 +199,21 @@ public class AiAnalysisTaskConsumer {
                     objectMapper.readTree(rawJson);
                     // Valid JSON — proceed
                 } catch (Exception preCheckEx) {
-                    log.warn("rawJson is not valid JSON for question={}, preview='{}'; attempting embedded JSON extraction",
+                    log.warn("rawJson is not valid JSON for question={}, preview='{}'; clearing for reasoning fallback",
                             event.questionUuid(),
                             rawJson.length() > 80 ? rawJson.substring(0, 80) : rawJson);
-                    // Try to find {"tags":...} embedded anywhere in the raw content
-                    String embedded = extractJsonFromText(rawJson);
-                    if (embedded.isEmpty() && rawContentStr != null) {
+                    // rawJson itself is the invalid content — extracting from it yields the same garbage.
+                    // Try rawContentStr only if it differs and is non-empty.
+                    String embedded = "";
+                    if (rawContentStr != null && !rawContentStr.isBlank() && !rawContentStr.trim().equals(rawJson)) {
                         embedded = extractJsonFromText(rawContentStr);
                     }
                     if (!embedded.isEmpty()) {
-                        log.info("Salvaged embedded JSON from non-JSON rawJson for question={}", event.questionUuid());
+                        log.info("Salvaged embedded JSON from rawContentStr for question={}", event.questionUuid());
                         rawJson = embedded;
                     } else {
-                        // Give up on rawJson; clear so the reasoning-based fallbacks can run
-                        log.warn("No embedded JSON found in rawJson for question={}, clearing for fallback", event.questionUuid());
+                        // Give up; clear so buildFallbackJsonFromReasoning can run
+                        log.warn("No valid JSON salvageable for question={}, clearing for fallback", event.questionUuid());
                         rawJson = "";
                     }
                 }
@@ -415,22 +416,35 @@ public class AiAnalysisTaskConsumer {
     }
 
     /**
-     * Scans text for the first balanced JSON object { ... } and returns it.
-     * Used as fallback when reasoning models (GLM-Z1) embed the final JSON
-     * inside reasoning_content instead of content.
+     * Scans text for the first balanced JSON object { ... } that is also valid JSON,
+     * retrying from the next '{' occurrence if validation fails.
+     * LaTeX expressions like {a_{n}\} or {\circ} are skipped automatically.
      */
     private String extractJsonFromText(String text) {
-        int start = text.indexOf('{');
-        if (start < 0) return "";
-        int depth = 0;
-        for (int i = start; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (c == '{') depth++;
-            else if (c == '}') {
-                depth--;
-                if (depth == 0) {
-                    return text.substring(start, i + 1);
+        int searchFrom = 0;
+        while (searchFrom < text.length()) {
+            int start = text.indexOf('{', searchFrom);
+            if (start < 0) return "";
+            int depth = 0;
+            int end = -1;
+            for (int i = start; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (c == '{') depth++;
+                else if (c == '}') {
+                    depth--;
+                    if (depth == 0) {
+                        end = i;
+                        break;
+                    }
                 }
+            }
+            if (end < 0) return ""; // no closing brace found at all
+            String candidate = text.substring(start, end + 1);
+            try {
+                objectMapper.readTree(candidate);
+                return candidate; // valid JSON — done
+            } catch (Exception ignored) {
+                searchFrom = start + 1; // this candidate is LaTeX/garbage, try next '{'
             }
         }
         return "";
