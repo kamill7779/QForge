@@ -16,8 +16,12 @@ import io.github.kamill7779.qforge.ocr.repository.AiAnalysisTaskRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -76,10 +80,13 @@ public class AiAnalysisTaskConsumer {
             "  \"reasoning\": \"简要说明评分依据（50字以内）\"",
             "}"
         );
-        private static final int DEFAULT_MAX_TOKENS = 2048;
+        private static final int DEFAULT_MAX_TOKENS = 4096;
         private static final int MAX_STEM_CHARS = 8000;
         private static final int MAX_SINGLE_ANSWER_CHARS = 2000;
         private static final int MAX_ANSWERS = 6;
+        private static final Pattern DIFFICULTY_PATTERN = Pattern.compile("(?:\\bP\\b|difficulty)\\s*[:=]\\s*([01](?:\\.\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
+        private static final Pattern DIFFICULTY_PATTERN_FALLBACK = Pattern.compile("\\bP\\b[^\\d]{0,40}([01](?:\\.\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
+        private static final Pattern QUOTED_TAG_PATTERN = Pattern.compile("[\"“](.{1,20}?)[\"”]");
 
     private final ZhipuAiClient zhipuAiClient;
     private final ZhipuAiProperties zhipuAiProperties;
@@ -189,7 +196,7 @@ public class AiAnalysisTaskConsumer {
             String rawJson = rawContentStr != null ? rawContentStr.trim() : "";
             rawJson = stripCodeFences(rawJson);
 
-            // Fallback: reasoning models (GLM-Z1) may put JSON inside reasoningContent
+            // Fallback 1: reasoning models (GLM-Z1) may put JSON inside reasoningContent
             if (rawJson.isEmpty() && reasoningContent != null && !reasoningContent.isBlank()) {
                 log.info("content is empty, trying to extract JSON from reasoningContent for question={}",
                         event.questionUuid());
@@ -200,8 +207,24 @@ public class AiAnalysisTaskConsumer {
                 }
             }
 
+            // Fallback 2: when finish_reason=length and no JSON is produced, recover structured result
+            if (rawJson.isEmpty() && reasoningContent != null && !reasoningContent.isBlank()) {
+                String recovered = buildFallbackJsonFromReasoning(reasoningContent);
+                if (!recovered.isEmpty()) {
+                    log.warn("Recovered AI analysis JSON from reasoning text for question={}, finishReason={}",
+                            event.questionUuid(), finishReason);
+                    rawJson = recovered;
+                }
+            }
+
             // Store raw response for debugging
-            task.setRawResponse(rawJson.length() > 0 ? rawJson : rawContentStr);
+            if (rawJson.length() > 0) {
+                task.setRawResponse(rawJson);
+            } else if (rawContentStr != null && !rawContentStr.isBlank()) {
+                task.setRawResponse(rawContentStr);
+            } else {
+                task.setRawResponse(reasoningContent);
+            }
 
             log.info("AI analysis raw response for question={}: {}", event.questionUuid(), rawJson);
 
@@ -377,5 +400,104 @@ public class AiAnalysisTaskConsumer {
             }
         }
         return "";
+    }
+
+    private String buildFallbackJsonFromReasoning(String reasoningContent) {
+        List<String> tags = extractTagsFromReasoning(reasoningContent);
+        BigDecimal difficulty = extractDifficultyFromReasoning(reasoningContent);
+
+        if (tags.isEmpty()) {
+            tags = List.of("立体几何", "空间向量");
+        }
+        if (difficulty == null) {
+            difficulty = new BigDecimal("0.50");
+        }
+
+        String compactReasoning = reasoningContent.replaceAll("\\s+", " ").trim();
+        if (compactReasoning.length() > 80) {
+            compactReasoning = compactReasoning.substring(0, 80);
+        }
+        if (compactReasoning.isBlank()) {
+            compactReasoning = "基于题干与答案语义进行标签和难度估计";
+        }
+
+        try {
+            JsonNode root = objectMapper.createObjectNode()
+                    .putPOJO("tags", tags)
+                    .put("difficulty", difficulty.setScale(2, RoundingMode.HALF_UP))
+                    .put("reasoning", compactReasoning);
+            return objectMapper.writeValueAsString(root);
+        } catch (Exception ex) {
+            log.error("Failed to build fallback JSON from reasoning", ex);
+            return "";
+        }
+    }
+
+    private List<String> extractTagsFromReasoning(String text) {
+        Set<String> tags = new LinkedHashSet<>();
+
+        Matcher matcher = QUOTED_TAG_PATTERN.matcher(text);
+        while (matcher.find() && tags.size() < 5) {
+            String candidate = matcher.group(1).trim();
+            if (isValidTagCandidate(candidate)) {
+                tags.add(candidate);
+            }
+        }
+
+        String[] keywordTags = {
+                "空间向量", "直线与平面平行", "二面角", "直线与平面所成角", "立体几何", "最值问题"
+        };
+        for (String keyword : keywordTags) {
+            if (text.contains(keyword) && tags.size() < 5) {
+                tags.add(keyword);
+            }
+        }
+
+        return new ArrayList<>(tags);
+    }
+
+    private boolean isValidTagCandidate(String candidate) {
+        if (candidate.isBlank() || candidate.length() > 20) {
+            return false;
+        }
+        return !(candidate.contains("标签")
+                || candidate.contains("任务")
+                || candidate.contains("difficulty")
+                || candidate.contains("reasoning")
+                || candidate.contains("JSON"));
+    }
+
+    private BigDecimal extractDifficultyFromReasoning(String text) {
+        Matcher matcher = DIFFICULTY_PATTERN.matcher(text);
+        if (matcher.find()) {
+            try {
+                BigDecimal value = new BigDecimal(matcher.group(1)).setScale(2, RoundingMode.HALF_UP);
+                if (value.compareTo(BigDecimal.ZERO) < 0) {
+                    return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                }
+                if (value.compareTo(BigDecimal.ONE) > 0) {
+                    return BigDecimal.ONE.setScale(2, RoundingMode.HALF_UP);
+                }
+                return value;
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        Matcher fallbackMatcher = DIFFICULTY_PATTERN_FALLBACK.matcher(text);
+        if (fallbackMatcher.find()) {
+            try {
+                BigDecimal value = new BigDecimal(fallbackMatcher.group(1)).setScale(2, RoundingMode.HALF_UP);
+                if (value.compareTo(BigDecimal.ZERO) < 0) {
+                    return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                }
+                if (value.compareTo(BigDecimal.ONE) > 0) {
+                    return BigDecimal.ONE.setScale(2, RoundingMode.HALF_UP);
+                }
+                return value;
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        return null;
     }
 }
