@@ -3,9 +3,8 @@ package io.github.kamill7779.qforge.question.mq;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
-import io.github.kamill7779.qforge.question.entity.QuestionAiTask;
+import io.github.kamill7779.qforge.question.dto.DbWriteBackEvent;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
-import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +12,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -24,17 +24,17 @@ public class AiAnalysisResultConsumer {
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisResultConsumer.class);
 
     private final OcrWsPushService wsPushService;
-    private final QuestionAiTaskRepository questionAiTaskRepository;
     private final TaskStateRedisService taskStateRedisService;
+    private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
 
     public AiAnalysisResultConsumer(OcrWsPushService wsPushService,
-                                    QuestionAiTaskRepository questionAiTaskRepository,
                                     TaskStateRedisService taskStateRedisService,
+                                    RabbitTemplate rabbitTemplate,
                                     ObjectMapper objectMapper) {
         this.wsPushService = wsPushService;
-        this.questionAiTaskRepository = questionAiTaskRepository;
         this.taskStateRedisService = taskStateRedisService;
+        this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
     }
 
@@ -60,34 +60,37 @@ public class AiAnalysisResultConsumer {
             }
         }
 
-        // ---- 异步 DB 持久化 ----
+        // ---- 投递异步落库写回事件（MQ 队列 + 自动重试，不阻塞主流程）----
         if (event.taskUuid() != null) {
-            questionAiTaskRepository.findByTaskUuid(event.taskUuid()).ifPresent(task -> {
-                if (event.success()) {
-                    task.setStatus("SUCCESS");
-                    try {
-                        task.setSuggestedTags(objectMapper.writeValueAsString(
-                                event.suggestedTags() != null ? event.suggestedTags() : List.of()));
-                    } catch (Exception ignored) {}
-                    task.setSuggestedDifficulty(event.suggestedDifficulty());
-                    task.setReasoning(trimToColumnSize(
-                            event.reasoning(),
-                            MAX_REASONING_LENGTH,
-                            "reasoning",
-                            event.taskUuid()
-                    ));
-                } else {
-                    task.setStatus("FAILED");
-                    task.setErrorMsg(trimToColumnSize(
-                            event.errorMessage(),
-                            MAX_ERROR_MESSAGE_LENGTH,
-                            "error_msg",
-                            event.taskUuid()
-                    ));
+            String tagsJsonForDb = null;
+            if (event.success()) {
+                try {
+                    tagsJsonForDb = objectMapper.writeValueAsString(
+                            event.suggestedTags() != null ? event.suggestedTags() : List.of());
+                } catch (Exception ignored) {
+                    tagsJsonForDb = "[]";
                 }
-                questionAiTaskRepository.updateById(task);
-                log.info("Updated q_question_ai_task taskUuid={} status={}", task.getTaskUuid(), task.getStatus());
-            });
+            }
+            DbWriteBackEvent writeBack = new DbWriteBackEvent(
+                    "AI",
+                    event.taskUuid(),
+                    event.questionUuid(),
+                    event.success() ? "SUCCESS" : "FAILED",
+                    event.userId(),
+                    null, // bizType: AI 任务无需
+                    tagsJsonForDb,
+                    event.suggestedDifficulty(),
+                    trimToColumnSize(event.reasoning(), MAX_REASONING_LENGTH, "reasoning", event.taskUuid()),
+                    null, // recognizedText: OCR 专属
+                    trimToColumnSize(event.errorMessage(), MAX_ERROR_MESSAGE_LENGTH, "error_msg", event.taskUuid())
+            );
+            rabbitTemplate.convertAndSend(
+                    RabbitTopologyConfig.DB_EXCHANGE,
+                    RabbitTopologyConfig.ROUTING_DB_PERSIST,
+                    writeBack
+            );
+            log.info("Published DbWriteBackEvent for AI taskUuid={} status={}",
+                    event.taskUuid(), writeBack.status());
         }
 
         // ---- WebSocket push (unchanged) ----

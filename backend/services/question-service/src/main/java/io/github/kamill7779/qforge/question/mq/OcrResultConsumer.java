@@ -2,39 +2,37 @@ package io.github.kamill7779.qforge.question.mq;
 
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
-import io.github.kamill7779.qforge.question.entity.QuestionOcrTask;
+import io.github.kamill7779.qforge.question.dto.DbWriteBackEvent;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
-import io.github.kamill7779.qforge.question.repository.QuestionOcrTaskRepository;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class OcrResultConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(OcrResultConsumer.class);
 
-    private final QuestionOcrTaskRepository questionOcrTaskRepository;
     private final OcrWsPushService ocrWsPushService;
     private final TaskStateRedisService taskStateRedisService;
+    private final RabbitTemplate rabbitTemplate;
 
     public OcrResultConsumer(
-            QuestionOcrTaskRepository questionOcrTaskRepository,
             OcrWsPushService ocrWsPushService,
-            TaskStateRedisService taskStateRedisService
+            TaskStateRedisService taskStateRedisService,
+            RabbitTemplate rabbitTemplate
     ) {
-        this.questionOcrTaskRepository = questionOcrTaskRepository;
         this.ocrWsPushService = ocrWsPushService;
         this.taskStateRedisService = taskStateRedisService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.OCR_RESULT_QUESTION_QUEUE)
-    @Transactional
     public void onOcrResult(OcrTaskResultEvent event) {
         log.info("Received OCR result for taskUuid={}, status={}", event.taskUuid(), event.status());
 
@@ -52,20 +50,25 @@ public class OcrResultConsumer {
             requestUser = (String) redisState.get().get("userId");
         }
 
-        // ---- 3. DB 持久化（可能 DB 行已可见，也可能还不可见；尽力而为） ----
-        QuestionOcrTask task = questionOcrTaskRepository.findByTaskUuid(event.taskUuid()).orElse(null);
-        if (task != null) {
-            String localStatus = "SUCCESS".equals(event.status()) ? "CONFIRMED" : event.status();
-            task.setStatus(localStatus);
-            task.setRecognizedText(event.recognizedText());
-            task.setErrorMsg(event.errorMessage());
-            questionOcrTaskRepository.save(task);
-            if (requestUser == null) {
-                requestUser = task.getRequestUser();
-            }
-        } else {
-            log.warn("OCR task DB row not found for taskUuid={}; Redis state used for WS push", event.taskUuid());
-        }
+        // ---- 3. 投递异步落库写回事件（MQ 队列 + 自动重试，不阻塞主流程）----
+        DbWriteBackEvent writeBack = new DbWriteBackEvent(
+                "OCR",
+                event.taskUuid(),
+                event.bizId(),    // bizId 即 questionUuid
+                "SUCCESS".equals(event.status()) ? "CONFIRMED" : event.status(),
+                requestUser,
+                event.bizType(),
+                null, null, null, // AI 专属字段
+                event.recognizedText(),
+                event.errorMessage()
+        );
+        rabbitTemplate.convertAndSend(
+                RabbitTopologyConfig.DB_EXCHANGE,
+                RabbitTopologyConfig.ROUTING_DB_PERSIST,
+                writeBack
+        );
+        log.info("Published DbWriteBackEvent for OCR taskUuid={} status={}",
+                event.taskUuid(), writeBack.status());
 
         // ---- 4. WebSocket 推送 ----
         if (requestUser == null) {

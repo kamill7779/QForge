@@ -674,15 +674,23 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             ApplyAiRecommendationRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
 
+        // Redis-first 状态校验：优先信任热缓存，TTL 过期后回退 DB
+        String redisStatus = taskStateRedisService.getAiTask(taskUuid)
+                .map(m -> (String) m.get("status"))
+                .orElse(null);
+
+        // 加载 DB 实体（后续 updateById(APPLIED) 必须使用）
         QuestionAiTask aiTask = questionAiTaskRepository.findByTaskUuid(taskUuid)
                 .orElseThrow(() -> new BusinessValidationException(
                         "AI_TASK_NOT_FOUND", "AI task not found",
                         Map.of("taskUuid", taskUuid)));
 
-        if (!"SUCCESS".equals(aiTask.getStatus())) {
+        // 以 Redis 为准；若 Redis 已过期则回退到 DB 状态
+        String effectiveStatus = (redisStatus != null) ? redisStatus : aiTask.getStatus();
+        if (!"SUCCESS".equals(effectiveStatus)) {
             throw new BusinessValidationException(
                     "AI_TASK_NOT_SUCCESS", "AI task is not in SUCCESS status",
-                    Map.of("taskUuid", taskUuid, "status", aiTask.getStatus()));
+                    Map.of("taskUuid", taskUuid, "status", effectiveStatus));
         }
 
         // Apply tags
