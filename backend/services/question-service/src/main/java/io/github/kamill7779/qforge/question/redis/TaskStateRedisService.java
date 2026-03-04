@@ -2,7 +2,10 @@ package io.github.kamill7779.qforge.question.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.kamill7779.qforge.common.contract.ExtractedImage;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -28,7 +31,11 @@ public class TaskStateRedisService {
 
     private static final String AI_PREFIX  = "ai:task:";
     private static final String OCR_PREFIX = "ocr:task:";
+    private static final String ANSWER_OCR_GUARD_PREFIX = "ocr:answer:guard:";
+    private static final String ANSWER_OCR_ASSET_PREFIX = "ocr:answer:assets:";
     private static final Duration DEFAULT_TTL = Duration.ofMinutes(30);
+    private static final Duration ANSWER_OCR_GUARD_TTL = Duration.ofMinutes(10);
+    private static final Duration ANSWER_OCR_ASSET_TTL = Duration.ofHours(6);
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
@@ -128,6 +135,107 @@ public class TaskStateRedisService {
      */
     public Optional<Map<String, Object>> getOcrTask(String taskUuid) {
         return get(OCR_PREFIX + taskUuid);
+    }
+
+    /**
+     * 尝试获取单题答案 OCR 并发保护键。
+     * <p>
+     * key = {@code ocr:answer:guard:{questionUuid}}，值记录 holder（用户/时间）仅用于排查。
+     *
+     * @return true 表示获取成功；false 表示已有进行中的答案 OCR 任务
+     */
+    public boolean tryAcquireAnswerOcrGuard(String questionUuid, String holder) {
+        String key = ANSWER_OCR_GUARD_PREFIX + questionUuid;
+        String value = (holder == null || holder.isBlank() ? "unknown" : holder) + ":" + System.currentTimeMillis();
+        Boolean acquired = redis.opsForValue().setIfAbsent(key, value, ANSWER_OCR_GUARD_TTL);
+        return Boolean.TRUE.equals(acquired);
+    }
+
+    /**
+     * 释放单题答案 OCR 并发保护键。
+     */
+    public void releaseAnswerOcrGuard(String questionUuid) {
+        redis.delete(ANSWER_OCR_GUARD_PREFIX + questionUuid);
+    }
+
+    /**
+     * Cache unsaved answer OCR cropped images in Redis, keyed by questionUuid.
+     */
+    public void saveAnswerOcrAssets(String questionUuid, java.util.List<ExtractedImage> images) {
+        if (questionUuid == null || questionUuid.isBlank() || images == null || images.isEmpty()) {
+            return;
+        }
+        String key = ANSWER_OCR_ASSET_PREFIX + questionUuid;
+        Map<String, String> merged = new HashMap<>(getAnswerOcrAssets(questionUuid));
+        for (ExtractedImage image : images) {
+            if (image == null || image.refKey() == null || image.refKey().isBlank()) {
+                continue;
+            }
+            if (image.imageBase64() != null && !image.imageBase64().isBlank()) {
+                merged.put(image.refKey(), image.imageBase64());
+            }
+        }
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(merged), ANSWER_OCR_ASSET_TTL);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to cache answer OCR assets for question {}: {}", questionUuid, e.getMessage());
+        }
+    }
+
+    /**
+     * Read cached answer OCR images (refKey -> imageBase64).
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, String> getAnswerOcrAssets(String questionUuid) {
+        if (questionUuid == null || questionUuid.isBlank()) {
+            return Map.of();
+        }
+        String key = ANSWER_OCR_ASSET_PREFIX + questionUuid;
+        String json = redis.opsForValue().get(key);
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> raw = objectMapper.readValue(json, Map.class);
+            Map<String, String> out = new HashMap<>();
+            raw.forEach((k, v) -> {
+                if (k != null && v != null) {
+                    out.put(k, String.valueOf(v));
+                }
+            });
+            return out;
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to deserialize answer OCR assets for question {}: {}", questionUuid, e.getMessage());
+            return Map.of();
+        }
+    }
+
+    /**
+     * Remove cached refs after they are persisted into answer assets table.
+     */
+    public void removeAnswerOcrAssets(String questionUuid, Collection<String> refs) {
+        if (questionUuid == null || questionUuid.isBlank() || refs == null || refs.isEmpty()) {
+            return;
+        }
+        Map<String, String> existing = new HashMap<>(getAnswerOcrAssets(questionUuid));
+        if (existing.isEmpty()) {
+            return;
+        }
+        for (String ref : refs) {
+            if (ref != null && !ref.isBlank()) {
+                existing.remove(ref);
+            }
+        }
+        String key = ANSWER_OCR_ASSET_PREFIX + questionUuid;
+        if (existing.isEmpty()) {
+            redis.delete(key);
+            return;
+        }
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(existing), ANSWER_OCR_ASSET_TTL);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to update answer OCR assets cache for question {}: {}", questionUuid, e.getMessage());
+        }
     }
 
     // ======================== internal =======================

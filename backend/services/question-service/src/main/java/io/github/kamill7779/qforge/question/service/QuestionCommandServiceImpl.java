@@ -25,6 +25,7 @@ import io.github.kamill7779.qforge.question.dto.InlineImageEntry;
 import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
+import io.github.kamill7779.qforge.question.entity.AnswerAsset;
 import io.github.kamill7779.qforge.question.entity.QuestionAsset;
 import io.github.kamill7779.qforge.question.entity.Answer;
 import io.github.kamill7779.qforge.question.entity.Question;
@@ -35,6 +36,7 @@ import io.github.kamill7779.qforge.question.entity.Tag;
 import io.github.kamill7779.qforge.question.entity.TagCategory;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
+import io.github.kamill7779.qforge.question.repository.AnswerAssetRepository;
 import io.github.kamill7779.qforge.question.repository.AnswerRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
@@ -72,6 +74,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
+    private final AnswerAssetRepository answerAssetRepository;
     private final QuestionAssetRepository questionAssetRepository;
     private final QuestionOcrTaskRepository questionOcrTaskRepository;
     private final QuestionAiTaskRepository questionAiTaskRepository;
@@ -89,6 +92,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
             AnswerRepository answerRepository,
+            AnswerAssetRepository answerAssetRepository,
             QuestionAssetRepository questionAssetRepository,
             QuestionOcrTaskRepository questionOcrTaskRepository,
             QuestionAiTaskRepository questionAiTaskRepository,
@@ -105,6 +109,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
+        this.answerAssetRepository = answerAssetRepository;
         this.questionAssetRepository = questionAssetRepository;
         this.questionOcrTaskRepository = questionOcrTaskRepository;
         this.questionAiTaskRepository = questionAiTaskRepository;
@@ -220,7 +225,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     public AddAnswerResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         Answer answer = saveOneAnswer(question, request.getLatexText());
-        validateAndSyncAnswerImages(question, answer.getAnswerUuid(), request.getInlineImages());
+        validateAndSyncAnswerImages(question, answer, request.getInlineImages());
         return new AddAnswerResponse(question.getQuestionUuid(), question.getStatus(), answer.getAnswerUuid());
     }
 
@@ -234,10 +239,10 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                         "Answer not found",
                         Map.of("questionUuid", questionUuid, "answerUuid", answerUuid),
                         HttpStatus.NOT_FOUND
-                ));
+        ));
         answer.setLatexText(request.getLatexText());
         answerRepository.save(answer);
-        validateAndSyncAnswerImages(question, answerUuid, request.getInlineImages());
+        validateAndSyncAnswerImages(question, answer, request.getInlineImages());
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -260,6 +265,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                     Map.of("questionUuid", questionUuid, "answerUuid", answerUuid, "answerCount", answerCount)
             );
         }
+        answerAssetRepository.deleteByAnswerId(answer.getId());
         answerRepository.deleteById(answer.getId());
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
@@ -269,12 +275,36 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     @Transactional
     public OcrTaskAcceptedResponse submitOcrTask(String questionUuid, OcrTaskSubmitRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        OcrTaskAcceptedResponse response = ocrServiceClient.createTask(new OcrServiceCreateTaskRequest(
-                request.getBizType(),
-                questionUuid,
-                request.getImageBase64(),
-                requestUser
-        ));
+        boolean answerContent = "ANSWER_CONTENT".equals(request.getBizType());
+        if (answerContent) {
+            boolean hasInProgress = questionOcrTaskRepository.existsByQuestionUuidAndBizTypeAndStatusIn(
+                    questionUuid,
+                    "ANSWER_CONTENT",
+                    List.of("PENDING", "PROCESSING")
+            );
+            if (hasInProgress) {
+                throw buildAnswerOcrTaskConflict(questionUuid);
+            }
+            boolean guardAcquired = taskStateRedisService.tryAcquireAnswerOcrGuard(questionUuid, requestUser);
+            if (!guardAcquired) {
+                throw buildAnswerOcrTaskConflict(questionUuid);
+            }
+        }
+
+        OcrTaskAcceptedResponse response;
+        try {
+            response = ocrServiceClient.createTask(new OcrServiceCreateTaskRequest(
+                    request.getBizType(),
+                    questionUuid,
+                    request.getImageBase64(),
+                    requestUser
+            ));
+        } catch (RuntimeException ex) {
+            if (answerContent) {
+                taskStateRedisService.releaseAnswerOcrGuard(questionUuid);
+            }
+            throw ex;
+        }
 
         // Redis 热状态先行写入，消费者可立即查到（解决 DB 行可见性竞态）
         taskStateRedisService.createOcrTask(response.taskUuid(), question.getQuestionUuid(),
@@ -289,6 +319,15 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         questionOcrTaskRepository.save(task);
 
         return response;
+    }
+
+    private BusinessValidationException buildAnswerOcrTaskConflict(String questionUuid) {
+        return new BusinessValidationException(
+                "OCR_TASK_CONFLICT",
+                "Only one in-progress answer OCR task is allowed for the same question",
+                Map.of("questionUuid", questionUuid, "bizType", "ANSWER_CONTENT"),
+                HttpStatus.CONFLICT
+        );
     }
 
     @Override
@@ -387,7 +426,45 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     @Override
     public List<QuestionAssetResponse> listAssets(String questionUuid, String requestUser) {
-        // 优先从 Redis 缓存读取（OcrResultConsumer 写入，30s TTL）
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        LinkedHashMap<String, QuestionAssetResponse> merged = new LinkedHashMap<>();
+
+        for (QuestionAssetResponse stemAsset : loadStemAssets(questionUuid, question.getId())) {
+            if (stemAsset.refKey() != null) {
+                merged.put(stemAsset.refKey(), stemAsset);
+            }
+        }
+
+        List<AnswerAsset> answerAssets = answerAssetRepository.findByQuestionId(question.getId());
+        for (AnswerAsset asset : answerAssets) {
+            if (asset.getRefKey() == null || asset.getImageData() == null) {
+                continue;
+            }
+            merged.put(asset.getRefKey(), new QuestionAssetResponse(
+                    asset.getAssetUuid(),
+                    asset.getRefKey(),
+                    asset.getImageData(),
+                    asset.getMimeType()
+            ));
+        }
+
+        Map<String, String> tempAnswerAssets = taskStateRedisService.getAnswerOcrAssets(questionUuid);
+        for (Map.Entry<String, String> entry : tempAnswerAssets.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null || entry.getValue().isBlank()) {
+                continue;
+            }
+            merged.put(entry.getKey(), new QuestionAssetResponse(
+                    "tmp-" + entry.getKey(),
+                    entry.getKey(),
+                    entry.getValue(),
+                    "image/png"
+            ));
+        }
+
+        return new ArrayList<>(merged.values());
+    }
+
+    private List<QuestionAssetResponse> loadStemAssets(String questionUuid, Long questionId) {
         try {
             String cached = redis.opsForValue().get(ASSET_CACHE_PREFIX + questionUuid);
             if (cached != null && !cached.isBlank()) {
@@ -398,11 +475,10 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 }
             }
         } catch (Exception ignored) {
-            // Redis 不可用时 fallback 到 DB
+            // Fallback to DB.
         }
 
-        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        List<QuestionAsset> assets = questionAssetRepository.findByQuestionId(question.getId());
+        List<QuestionAsset> assets = questionAssetRepository.findByQuestionId(questionId);
         return assets.stream()
                 .filter(a -> a.getRefKey() != null && a.getImageData() != null)
                 .map(a -> new QuestionAssetResponse(
@@ -424,21 +500,16 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     }
 
     /**
-     * 校验答案内联图片大小/数量后同步到 q_question_asset。
-     * assetType = ANSWER_IMAGE，fileName 存 answerUuid 以隔离不同答案。
+     * 校验答案内联图片大小/数量后同步到 q_answer_asset。
      */
-    private void validateAndSyncAnswerImages(Question question, String answerUuid,
+    private void validateAndSyncAnswerImages(Question question, Answer answer,
                                              Map<String, InlineImageEntry> inlineImages) {
         if (inlineImages == null) {
             return; // null 表示客户端未传图片字段，跳过
         }
         if (inlineImages.isEmpty()) {
             // 显式传空 map → 清除该答案的所有图片
-            List<QuestionAsset> existing = questionAssetRepository
-                    .findByQuestionIdAndAssetTypeAndFileName(question.getId(), "ANSWER_IMAGE", answerUuid);
-            for (QuestionAsset asset : existing) {
-                questionAssetRepository.deleteById(asset.getId());
-            }
+            answerAssetRepository.deleteByAnswerId(answer.getId());
             return;
         }
         int maxImages = businessProperties.getMaxInlineImages();
@@ -465,42 +536,40 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 }
             }
         }
-        syncAnswerImages(question, answerUuid, inlineImages);
+        syncAnswerImages(question, answer, inlineImages);
+        taskStateRedisService.removeAnswerOcrAssets(question.getQuestionUuid(), inlineImages.keySet());
     }
 
     /**
      * 同步单个答案的内联图片：upsert 传入的图片，删除移除的图片。
-     * 与 syncInlineImages 类似，但使用 asset_type=ANSWER_IMAGE + fileName=answerUuid 隔离。
      */
-    private void syncAnswerImages(Question question, String answerUuid,
+    private void syncAnswerImages(Question question, Answer answer,
                                   Map<String, InlineImageEntry> inlineImages) {
-        List<QuestionAsset> existing = questionAssetRepository
-                .findByQuestionIdAndAssetTypeAndFileName(question.getId(), "ANSWER_IMAGE", answerUuid);
-        Map<String, QuestionAsset> existingByRef = existing.stream()
+        List<AnswerAsset> existing = answerAssetRepository.findByAnswerId(answer.getId());
+        Map<String, AnswerAsset> existingByRef = existing.stream()
                 .filter(a -> a.getRefKey() != null)
-                .collect(Collectors.toMap(QuestionAsset::getRefKey, a -> a, (a, b) -> a));
+                .collect(Collectors.toMap(AnswerAsset::getRefKey, a -> a, (a, b) -> a));
         Set<String> incomingRefs = inlineImages.keySet();
 
         for (Map.Entry<String, InlineImageEntry> entry : inlineImages.entrySet()) {
             String ref = entry.getKey();
             InlineImageEntry img = entry.getValue();
-            QuestionAsset asset = existingByRef.get(ref);
+            AnswerAsset asset = existingByRef.get(ref);
             if (asset == null) {
-                asset = new QuestionAsset();
+                asset = new AnswerAsset();
                 asset.setAssetUuid(UUID.randomUUID().toString());
                 asset.setQuestionId(question.getId());
+                asset.setAnswerId(answer.getId());
                 asset.setRefKey(ref);
-                asset.setAssetType("ANSWER_IMAGE");
             }
             asset.setImageData(img.imageData());
             asset.setMimeType(img.mimeType() != null ? img.mimeType() : "image/png");
-            asset.setFileName(answerUuid);
-            questionAssetRepository.save(asset);
+            answerAssetRepository.save(asset);
         }
 
-        for (QuestionAsset asset : existing) {
+        for (AnswerAsset asset : existing) {
             if (asset.getRefKey() != null && !incomingRefs.contains(asset.getRefKey())) {
-                questionAssetRepository.deleteById(asset.getId());
+                answerAssetRepository.deleteById(asset.getId());
             }
         }
     }

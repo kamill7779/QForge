@@ -73,6 +73,11 @@ public class OcrResultConsumer {
         } else {
             taskStateRedisService.failOcrTask(event.taskUuid(), event.errorMessage());
         }
+        if ("ANSWER_CONTENT".equals(event.bizType())
+                && ("SUCCESS".equals(event.status()) || "FAILED".equals(event.status()))
+                && event.bizId() != null && !event.bizId().isBlank()) {
+            taskStateRedisService.releaseAnswerOcrGuard(event.bizId());
+        }
 
         // ---- 2. 从 Redis 获取任务映射（替代旧的 sleep-retry DB 查询）----
         String requestUser = null;
@@ -81,9 +86,9 @@ public class OcrResultConsumer {
             requestUser = (String) redisState.get().get("userId");
         }
 
-        // ---- 3. 保存裁剪图片到 q_question_asset（需在 WS 推送前完成）----
+        // ---- 3. 保存/缓存裁剪图片（需在 WS 推送前完成）----
         if ("SUCCESS".equals(event.status()) && event.extractedImagesJson() != null) {
-            saveExtractedImages(event);
+            handleExtractedImages(event);
         }
 
         // ---- 4. 投递异步落库写回事件（MQ 队列 + 自动重试，不阻塞主流程）----
@@ -130,7 +135,35 @@ public class OcrResultConsumer {
     /**
      * 解析 extractedImagesJson，将裁剪的图片保存到 q_question_asset 并缓存到 Redis。
      */
-    private void saveExtractedImages(OcrTaskResultEvent event) {
+    private void handleExtractedImages(OcrTaskResultEvent event) {
+        if ("ANSWER_CONTENT".equals(event.bizType())) {
+            cacheAnswerExtractedImages(event);
+            return;
+        }
+        saveStemExtractedImages(event);
+    }
+
+    /**
+     * Parse answer extracted images and cache in Redis as temporary unsaved answer assets.
+     */
+    private void cacheAnswerExtractedImages(OcrTaskResultEvent event) {
+        List<ExtractedImage> images;
+        try {
+            images = objectMapper.readValue(
+                    event.extractedImagesJson(), new TypeReference<List<ExtractedImage>>() {});
+        } catch (Exception ex) {
+            log.warn("Failed to parse answer extractedImagesJson for task {}: {}",
+                    event.taskUuid(), ex.getMessage());
+            return;
+        }
+        if (images == null || images.isEmpty()) {
+            return;
+        }
+        taskStateRedisService.saveAnswerOcrAssets(event.bizId(), images);
+        log.info("Cached {} temporary answer OCR images for question {}", images.size(), event.bizId());
+    }
+
+    private void saveStemExtractedImages(OcrTaskResultEvent event) {
         List<ExtractedImage> images;
         try {
             images = objectMapper.readValue(

@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.question.repository;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import io.github.kamill7779.qforge.question.entity.QuestionOcrTask;
+import java.util.Collection;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -32,5 +33,22 @@ public interface QuestionOcrTaskRepository extends BaseMapper<QuestionOcrTask> {
                 Wrappers.<QuestionOcrTask>lambdaQuery()
                         .eq(QuestionOcrTask::getQuestionUuid, questionUuid)
         );
+    }
+
+    default boolean existsByQuestionUuidAndBizTypeAndStatusIn(
+            String questionUuid,
+            String bizType,
+            Collection<String> statuses
+    ) {
+        if (statuses == null || statuses.isEmpty()) {
+            return false;
+        }
+        Long count = this.selectCount(
+                Wrappers.<QuestionOcrTask>lambdaQuery()
+                        .eq(QuestionOcrTask::getQuestionUuid, questionUuid)
+                        .eq(QuestionOcrTask::getBizType, bizType)
+                        .in(QuestionOcrTask::getStatus, statuses)
+        );
+        return count != null && count > 0;
     }
 }

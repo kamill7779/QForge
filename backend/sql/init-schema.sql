@@ -90,6 +90,23 @@ CREATE TABLE IF NOT EXISTS q_question_asset (
     CONSTRAINT fk_q_asset_question FOREIGN KEY (question_id) REFERENCES q_question(id)
 ) COMMENT '题目关联资源（图片 base64），每题最多 10 张，每张最多 512KB';
 
+CREATE TABLE IF NOT EXISTS q_answer_asset (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    asset_uuid  CHAR(36)      NOT NULL UNIQUE,
+    question_id BIGINT        NOT NULL,
+    answer_id   BIGINT        NOT NULL,
+    ref_key     VARCHAR(64)   NOT NULL COMMENT '答案 XML 引用 key，如 a92f6c03-img-1',
+    image_data  MEDIUMTEXT    NOT NULL COMMENT '图片 base64 编码数据',
+    mime_type   VARCHAR(128)  NULL COMMENT 'image/png, image/jpeg 等',
+    deleted     BOOLEAN       NOT NULL DEFAULT FALSE COMMENT '逻辑删除标记',
+    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_q_answer_asset_answer_ref (answer_id, ref_key),
+    INDEX idx_q_answer_asset_question (question_id, answer_id),
+    CONSTRAINT fk_q_answer_asset_question FOREIGN KEY (question_id) REFERENCES q_question(id),
+    CONSTRAINT fk_q_answer_asset_answer FOREIGN KEY (answer_id) REFERENCES q_answer(id)
+) COMMENT '答案关联资源（图片 base64）';
+
 ALTER TABLE q_question
     ADD CONSTRAINT fk_q_question_stem_image
         FOREIGN KEY (stem_image_id) REFERENCES q_question_asset(id)
@@ -114,24 +131,24 @@ CREATE TABLE IF NOT EXISTS q_question_ocr_task (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     task_uuid CHAR(36) NOT NULL UNIQUE,
     question_uuid CHAR(36) NOT NULL,
-    biz_type VARCHAR(32) NOT NULL,
-    status VARCHAR(32) NOT NULL,
+    biz_type VARCHAR(32) NOT NULL COMMENT 'QUESTION_STEM / ANSWER_CONTENT',
+    status VARCHAR(32) NOT NULL COMMENT 'PENDING / PROCESSING / CONFIRMED / FAILED',
     request_user VARCHAR(128) NOT NULL,
     recognized_text LONGTEXT NULL,
     error_msg VARCHAR(1024) NULL,
     confirmed_text LONGTEXT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_q_qocr_task_question (question_uuid, status, updated_at)
+    INDEX idx_q_qocr_task_question_biz (question_uuid, biz_type, status, updated_at)
 );
 
 CREATE TABLE IF NOT EXISTS q_ocr_task (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     task_uuid CHAR(36) NOT NULL UNIQUE,
-    biz_type VARCHAR(32) NOT NULL,
+    biz_type VARCHAR(32) NOT NULL COMMENT 'QUESTION_STEM / ANSWER_CONTENT',
     biz_id CHAR(36) NOT NULL,
     image_base64 LONGTEXT NOT NULL,
-    status VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL COMMENT 'PENDING / PROCESSING / SUCCESS / FAILED',
     provider VARCHAR(64) NOT NULL,
     request_user VARCHAR(128) NOT NULL,
     recognized_text LONGTEXT NULL,
