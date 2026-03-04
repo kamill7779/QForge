@@ -32,6 +32,7 @@ import io.github.kamill7779.qforge.question.entity.QuestionTagRel;
 import io.github.kamill7779.qforge.question.entity.Tag;
 import io.github.kamill7779.qforge.question.entity.TagCategory;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
+import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
 import io.github.kamill7779.qforge.question.repository.AnswerRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
@@ -77,6 +78,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     private final StemXmlValidator stemXmlValidator;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final TaskStateRedisService taskStateRedisService;
 
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
@@ -90,7 +92,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             OcrServiceClient ocrServiceClient,
             StemXmlValidator stemXmlValidator,
             RabbitTemplate rabbitTemplate,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            TaskStateRedisService taskStateRedisService
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
@@ -104,6 +107,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         this.stemXmlValidator = stemXmlValidator;
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
+        this.taskStateRedisService = taskStateRedisService;
     }
 
     @Override
@@ -258,6 +262,10 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 requestUser
         ));
 
+        // Redis 热状态先行写入，消费者可立即查到（解决 DB 行可见性竞态）
+        taskStateRedisService.createOcrTask(response.taskUuid(), question.getQuestionUuid(),
+                request.getBizType(), requestUser);
+
         QuestionOcrTask task = new QuestionOcrTask();
         task.setTaskUuid(response.taskUuid());
         task.setQuestionUuid(question.getQuestionUuid());
@@ -345,21 +353,6 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                     ));
         }
 
-        List<QuestionAsset> allAssets = questionAssetRepository.findActiveByQuestionIds(questionIds);
-        Map<Long, List<QuestionAssetResponse>> assetsByQuestionId = new HashMap<>();
-        for (QuestionAsset asset : allAssets) {
-            if (asset.getRefKey() != null && asset.getImageData() != null) {
-                assetsByQuestionId
-                        .computeIfAbsent(asset.getQuestionId(), ignored -> new ArrayList<>())
-                        .add(new QuestionAssetResponse(
-                                asset.getAssetUuid(),
-                                asset.getRefKey(),
-                                asset.getImageData(),
-                                asset.getMimeType()
-                        ));
-            }
-        }
-
         return questions.stream()
                 .map(question -> {
                     TagSnapshot tagSnapshot = tagSnapshotMap.getOrDefault(question.getId(), TagSnapshot.defaultValue(List.of()));
@@ -372,8 +365,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                             question.getDifficulty(),
                             answerCountMap.getOrDefault(question.getId(), 0L),
                             answersByQuestionId.getOrDefault(question.getId(), List.of()),
-                            question.getUpdatedAt(),
-                            assetsByQuestionId.getOrDefault(question.getId(), List.of())
+                            question.getUpdatedAt()
                     );
                 })
                 .toList();
@@ -642,6 +634,9 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         }
 
         String taskUuid = UUID.randomUUID().toString();
+
+        // Redis 热状态先行写入，消费者可立即查到
+        taskStateRedisService.createAiTask(taskUuid, questionUuid, requestUser);
 
         // Persist PENDING row
         QuestionAiTask aiTask = new QuestionAiTask();

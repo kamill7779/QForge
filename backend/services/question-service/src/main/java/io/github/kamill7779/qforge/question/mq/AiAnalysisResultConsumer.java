@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.entity.QuestionAiTask;
+import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
 import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.util.HashMap;
@@ -24,13 +25,16 @@ public class AiAnalysisResultConsumer {
 
     private final OcrWsPushService wsPushService;
     private final QuestionAiTaskRepository questionAiTaskRepository;
+    private final TaskStateRedisService taskStateRedisService;
     private final ObjectMapper objectMapper;
 
     public AiAnalysisResultConsumer(OcrWsPushService wsPushService,
                                     QuestionAiTaskRepository questionAiTaskRepository,
+                                    TaskStateRedisService taskStateRedisService,
                                     ObjectMapper objectMapper) {
         this.wsPushService = wsPushService;
         this.questionAiTaskRepository = questionAiTaskRepository;
+        this.taskStateRedisService = taskStateRedisService;
         this.objectMapper = objectMapper;
     }
 
@@ -39,6 +43,24 @@ public class AiAnalysisResultConsumer {
         log.info("Received AI analysis result for question={}, taskUuid={}, success={}",
                 event.questionUuid(), event.taskUuid(), event.success());
         try {
+        // ---- Redis 热状态先行更新 ----
+        if (event.taskUuid() != null) {
+            if (event.success()) {
+                String tagsJson;
+                try {
+                    tagsJson = objectMapper.writeValueAsString(
+                            event.suggestedTags() != null ? event.suggestedTags() : List.of());
+                } catch (Exception e) {
+                    tagsJson = "[]";
+                }
+                taskStateRedisService.completeAiTask(event.taskUuid(), tagsJson,
+                        event.suggestedDifficulty(), event.reasoning());
+            } else {
+                taskStateRedisService.failAiTask(event.taskUuid(), event.errorMessage());
+            }
+        }
+
+        // ---- 异步 DB 持久化 ----
         if (event.taskUuid() != null) {
             questionAiTaskRepository.findByTaskUuid(event.taskUuid()).ifPresent(task -> {
                 if (event.success()) {

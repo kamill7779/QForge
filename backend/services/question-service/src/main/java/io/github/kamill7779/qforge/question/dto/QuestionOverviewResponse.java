@@ -13,8 +13,6 @@ public record QuestionOverviewResponse(
         BigDecimal difficulty,
         long answerCount,
         List<AnswerOverviewResponse> answers,
-        LocalDateTime updatedAt,
-        /** 该题目关联的全部内联图片（含完整 base64 数据）。 */
-        List<QuestionAssetResponse> assets
+        LocalDateTime updatedAt
 ) {
 }
