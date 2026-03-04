@@ -46,7 +46,7 @@ public class AiAnalysisTaskConsumer {
             "示例：立体几何综合→0.35, 二次函数求值→0.60, 基础填空→0.75, 竞赛组合→0.10。\n" +
             "reasoning必须是结论句（如\"立体几何综合，空间想象要求高\"），禁止使用\"任务一\"\"**标签**\"等标题或Markdown。\n" +
             "注意：##RESULT_START## 和 ##RESULT_END## 是必须输出的定界符，JSON放在两者之间。";
-        private static final int DEFAULT_MAX_TOKENS = 4096;
+        private static final int DEFAULT_MAX_TOKENS = 65536;
         private static final int MAX_STEM_CHARS = 8000;
         private static final int MAX_SINGLE_ANSWER_CHARS = 2000;
         private static final int MAX_ANSWERS = 6;

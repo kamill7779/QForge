@@ -57,7 +57,7 @@ zhipuai:
   api-key: ${ZHIPUAI_API_KEY:}
   model: ${ZHIPUAI_MODEL:glm-5}
   temperature: 0.1
-  max-tokens: 4096
+  max-tokens: 65536
 
 springdoc:
   api-docs:
