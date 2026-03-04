@@ -194,18 +194,20 @@ def call_glm_vision(
 ) -> dict:
     """调用 GLM 视觉模型 Chat Completion API。"""
 
+    # GLM-4V 系列不支持 system role，将 system prompt 合并到 user message
+    user_text = (
+        SYSTEM_PROMPT
+        + "\n\n---\n\n请分析这张试题图片，识别所有图像/图形区域并返回坐标。"
+    )
+
     messages = [
-        {
-            "role": "system",
-            "content": SYSTEM_PROMPT,
-        },
         {
             "role": "user",
             "content": image_content
             + [
                 {
                     "type": "text",
-                    "text": "请分析这张试题图片，识别所有图像/图形区域并返回坐标。",
+                    "text": user_text,
                 }
             ],
         },
@@ -214,10 +216,12 @@ def call_glm_vision(
     payload = {
         "model": model,
         "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-        "stream": False,
     }
+    # 某些视觉模型不支持 temperature/max_tokens 参数
+    if temperature != 0.1:
+        payload["temperature"] = temperature
+    if max_tokens != 4096:
+        payload["max_tokens"] = max_tokens
 
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
