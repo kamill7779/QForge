@@ -33,5 +33,5 @@ test("generateAnswerImageRef auto-increments by seed", () => {
     }
   };
 
-  assert.equal(runtime.generateAnswerImageRef(entry, null), "aa92f6c03-img-2");
+  assert.equal(runtime.generateAnswerImageRef(entry, null), "fig-2");
 });

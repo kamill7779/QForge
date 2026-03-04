@@ -10,6 +10,17 @@
     return `a${answerTaskSeed(taskUuid)}-img-${n}`;
   }
 
+  function parseRefIndex(ref) {
+    const key = String(ref || "").trim();
+    let match = key.match(/^fig-(\d+)$/i);
+    if (match) return Number(match[1] || 0);
+    match = key.match(/-img-(\d+)$/i);
+    if (match) return Number(match[1] || 0);
+    match = key.match(/^img-(\d+)$/i);
+    if (match) return Number(match[1] || 0);
+    return 0;
+  }
+
   function createImageRuntime(state) {
     function imageDataUrl(value) {
       const x = String(value || "").trim();
@@ -85,13 +96,13 @@
       if (!entry.answerImages || typeof entry.answerImages !== "object") {
         entry.answerImages = {};
       }
-      const seedRaw = String(
-        answerUuid || entry?.lastAnswerOcrTaskUuid || entry?.questionUuid || "draft"
-      ).replace(/[^0-9a-f]/gi, "").toLowerCase();
-      const seed = (seedRaw || "draft0000").slice(0, 8).padEnd(8, "0");
-      let i = 1;
-      while (entry.answerImages[`a${seed}-img-${i}`]) i += 1;
-      return `a${seed}-img-${i}`;
+      const refs = Object.keys(entry.answerImages || {});
+      let max = 0;
+      for (const ref of refs) {
+        const idx = parseRefIndex(ref);
+        if (idx > max) max = idx;
+      }
+      return `fig-${max + 1}`;
     }
 
     return {

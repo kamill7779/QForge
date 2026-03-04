@@ -19,18 +19,84 @@ function toAnswerXmlPayload(text){if(window.StemXml&&typeof window.StemXml.toAns
 function toEditorAnswerText(text){if(window.StemXml&&typeof window.StemXml.toEditorAnswerText==="function")return window.StemXml.toEditorAnswerText(text);return String(text||"")}
 const imageRuntime=(window.QForgeImageRuntime&&typeof window.QForgeImageRuntime.createImageRuntime==="function")?window.QForgeImageRuntime.createImageRuntime(state):null
 if(!imageRuntime)throw new Error("QForgeImageRuntime not loaded")
+const answerRuntime=(window.QForgeAnswerRuntime&&typeof window.QForgeAnswerRuntime.prepareAnswerSubmitData==="function")?window.QForgeAnswerRuntime:null
+if(!answerRuntime)throw new Error("QForgeAnswerRuntime not loaded")
 const imageDataUrl=imageRuntime.imageDataUrl
 const resolveStemImage=imageRuntime.resolveStemImage
 const resolveAnswerImage=imageRuntime.resolveAnswerImage
-const ensureInlineImages=imageRuntime.ensureInlineImages
 const generateImageRef=imageRuntime.generateImageRef
 const attachInlineImage=imageRuntime.attachInlineImage
-const generateAnswerImageRef=imageRuntime.generateAnswerImageRef
+const nextAnswerFigureRef=answerRuntime.nextFigureRef
+const prepareAnswerSubmitData=answerRuntime.prepareAnswerSubmitData
 function answerXmlToBlocks(xmlStr){const raw=String(xmlStr||"").trim();if(!raw)return[{type:"p",text:""}];if(raw.startsWith("<answer")){const doc=parseAnswerXmlDoc(raw);if(doc){const blocks=[];const root=doc.documentElement;for(const node of Array.from(root.childNodes)){if(node.nodeType===Node.TEXT_NODE){const t=(node.nodeValue||"").trim();if(t)blocks.push({type:"p",text:t});continue}if(node.nodeType!==Node.ELEMENT_NODE)continue;const tag=String(node.tagName||"").toLowerCase();if(tag==="p"){blocks.push(parsePNodeWithBlanks(node))}else if(tag==="image"){blocks.push({type:"image",ref:node.getAttribute("ref")||"img-1"})}}if(!blocks.length)blocks.push({type:"p",text:""});return blocks}}return[{type:"p",text:raw}]}
 function blocksToAnswerXml(blocks){let x='<answer version="1">';for(const b of blocks){if(b.type==="p"){x+=serializePBlock(b)}else if(b.type==="image"){x+=`<image ref="${escXml(b.ref||"img-1")}" />`}}x+="</answer>";return x}
+function nextAnswerRefForBlocks(blocks,entry){const refs=[];for(const b of(blocks||[])){if(b&&b.type==="image"&&b.ref)refs.push(String(b.ref).trim())}for(const ref of Object.keys(entry?.answerImages||{}))refs.push(ref);return nextAnswerFigureRef(refs)}
+function buildAnswerSubmitPayload(entry,blocks,answerUuid){const prepared=prepareAnswerSubmitData({entry,blocks,answerUuid,resolveAnswerImage});return{latexText:blocksToAnswerXml(prepared.blocks),inlineImages:prepared.inlineImages}}
 function pruneImageRefsFromXml(xmlText,refs){const dropping=new Set((refs||[]).filter(Boolean));if(!dropping.size)return String(xmlText||"");const blocks=xmlToBlocks(xmlText);const keepChoiceItems=(items=[])=>(items||[]).map(it=>({...it,imageRef:it.imageRef&&dropping.has(it.imageRef)?"":it.imageRef||""}));const next=blocks.filter(b=>!(b.type==="image"&&dropping.has((b.ref||"").trim()))).map(b=>b.type==="choices"?{...b,items:keepChoiceItems(b.items)}:b);return blocksToXml(next)}
 function clearLegacyStemImage(entry){const refs=["stem-local","original"];entry.stemImageBase64="";entry.stemDraft=pruneImageRefsFromXml(entry.stemDraft||entry.stemText||"",refs);entry.stemText=pruneImageRefsFromXml(entry.stemText||entry.stemDraft||"",refs);entry.updatedAt=Date.now();state.entries.set(entry.questionUuid,entry);saveWorkspace();renderAll()}
-function insertImageBlockToSelected(entry,ref){if(state.activeTab==="bank"&&state.bankSelectedUuid===entry.questionUuid){if(!$("bank-answer-editor")?.classList.contains("hidden")){const sd=(entry.answersServerData||[])[state.bankAnswerIdx];const aRef=generateAnswerImageRef(entry,sd?.answerUuid);if(!entry.answerImages)entry.answerImages={};entry.answerImages[aRef]=entry.inlineImages[ref];delete entry.inlineImages[ref];const blocks=collectAnswerBlocksFromEditor("bank-answer-edit-structured-editor");blocks.push({type:"image",ref:aRef});renderAnswerStructuredEditor("bank-answer-edit-structured-editor",blocks,entry);answerEditorChanged("bank-answer-edit-structured-editor","bank-answer-edit-preview",entry);return}if(!$("bank-answer-add-panel")?.classList.contains("hidden")){const aRef=generateAnswerImageRef(entry,null);if(!entry.answerImages)entry.answerImages={};entry.answerImages[aRef]=entry.inlineImages[ref];delete entry.inlineImages[ref];const blocks=collectAnswerBlocksFromEditor("bank-answer-add-structured-editor");blocks.push({type:"image",ref:aRef});renderAnswerStructuredEditor("bank-answer-add-structured-editor",blocks,entry);answerEditorChanged("bank-answer-add-structured-editor","bank-answer-add-preview",entry);return}if(!$("bank-stem-editor")?.classList.contains("hidden")){const blocks=collectBankBlocksFromEditor();blocks.push({type:"image",ref});const xml=blocksToXml(blocks);entry.stemDraft=xml;entry.updatedAt=Date.now();state.entries.set(entry.questionUuid,entry);saveWorkspace();renderBankStemEditor(entry);renderLatex("bank-stem-edit-preview",xml,"预览区",{imageResolver:r=>resolveStemImage(entry,r)});return}}if(state.activeTab==="entry"&&stageOf(entry)==="PENDING_ANSWER"){const aRef=generateAnswerImageRef(entry,null);if(!entry.answerImages)entry.answerImages={};entry.answerImages[aRef]=entry.inlineImages[ref];delete entry.inlineImages[ref];const blocks=collectAnswerBlocksFromEditor("entry-answer-structured-editor");blocks.push({type:"image",ref:aRef});const xml=blocksToAnswerXml(blocks);entry.answerDraft=xml;entry.updatedAt=Date.now();state.entries.set(entry.questionUuid,entry);saveWorkspace();renderAnswerStructuredEditor("entry-answer-structured-editor",blocks,entry);renderAnswerLatex("answer-preview",xml,"答案 LaTeX 预览区域",entry);return}const blocks=collectBlocksFromEditor();blocks.push({type:"image",ref});const xml=blocksToXml(blocks);entry.stemDraft=xml;entry.updatedAt=Date.now();state.entries.set(entry.questionUuid,entry);saveWorkspace();renderStemEditor(entry);renderLatex("stem-preview",xml,"题干 LaTeX 预览区域",{imageResolver:r=>resolveStemImage(entry,r)})}
+function insertImageBlockToSelected(entry,ref){
+  if(state.activeTab==="bank"&&state.bankSelectedUuid===entry.questionUuid){
+    if(!$("bank-answer-editor")?.classList.contains("hidden")){
+      const blocks=collectAnswerBlocksFromEditor("bank-answer-edit-structured-editor");
+      const aRef=nextAnswerRefForBlocks(blocks,entry);
+      if(!entry.answerImages)entry.answerImages={};
+      entry.answerImages[aRef]=entry.inlineImages[ref];
+      delete entry.inlineImages[ref];
+      blocks.push({type:"image",ref:aRef});
+      renderAnswerStructuredEditor("bank-answer-edit-structured-editor",blocks,entry);
+      answerEditorChanged("bank-answer-edit-structured-editor","bank-answer-edit-preview",entry);
+      return
+    }
+    if(!$("bank-answer-add-panel")?.classList.contains("hidden")){
+      const blocks=collectAnswerBlocksFromEditor("bank-answer-add-structured-editor");
+      const aRef=nextAnswerRefForBlocks(blocks,entry);
+      if(!entry.answerImages)entry.answerImages={};
+      entry.answerImages[aRef]=entry.inlineImages[ref];
+      delete entry.inlineImages[ref];
+      blocks.push({type:"image",ref:aRef});
+      renderAnswerStructuredEditor("bank-answer-add-structured-editor",blocks,entry);
+      answerEditorChanged("bank-answer-add-structured-editor","bank-answer-add-preview",entry);
+      return
+    }
+    if(!$("bank-stem-editor")?.classList.contains("hidden")){
+      const blocks=collectBankBlocksFromEditor();
+      blocks.push({type:"image",ref});
+      const xml=blocksToXml(blocks);
+      entry.stemDraft=xml;
+      entry.updatedAt=Date.now();
+      state.entries.set(entry.questionUuid,entry);
+      saveWorkspace();
+      renderBankStemEditor(entry);
+      renderLatex("bank-stem-edit-preview",xml,"预览区",{imageResolver:r=>resolveStemImage(entry,r)});
+      return
+    }
+  }
+  if(state.activeTab==="entry"&&stageOf(entry)==="PENDING_ANSWER"){
+    const blocks=collectAnswerBlocksFromEditor("entry-answer-structured-editor");
+    const aRef=nextAnswerRefForBlocks(blocks,entry);
+    if(!entry.answerImages)entry.answerImages={};
+    entry.answerImages[aRef]=entry.inlineImages[ref];
+    delete entry.inlineImages[ref];
+    blocks.push({type:"image",ref:aRef});
+    const xml=blocksToAnswerXml(blocks);
+    entry.answerDraft=xml;
+    entry.updatedAt=Date.now();
+    state.entries.set(entry.questionUuid,entry);
+    saveWorkspace();
+    renderAnswerStructuredEditor("entry-answer-structured-editor",blocks,entry);
+    renderAnswerLatex("answer-preview",xml,"答案 LaTeX 预览区域",entry);
+    return
+  }
+  const blocks=collectBlocksFromEditor();
+  blocks.push({type:"image",ref});
+  const xml=blocksToXml(blocks);
+  entry.stemDraft=xml;
+  entry.updatedAt=Date.now();
+  state.entries.set(entry.questionUuid,entry);
+  saveWorkspace();
+  renderStemEditor(entry);
+  renderLatex("stem-preview",xml,"题干 LaTeX 预览区域",{imageResolver:r=>resolveStemImage(entry,r)})
+}
 function applyChoiceImageRef(target,ref){if(!target||!ref)return false;const container=target.scope==="bank"?$("bank-stem-structured-editor"):$("stem-editor");if(!container)return false;const blocks=[...container.querySelectorAll(".stem-block")];const block=blocks[target.blockIndex];if(!block)return false;const row=[...block.querySelectorAll(".choice-edit-row")].find(r=>r.querySelector(".choice-text-input")?.dataset.key===target.choiceKey);if(!row)return false;const preview=row.querySelector(".choice-image-preview");if(!preview)return false;preview.dataset.ref=ref;const src=imageDataUrl(resolveStemImage(state.entries.get(target.questionUuid),ref));preview.innerHTML=src?`<img src="${src}" class="choice-image-thumb" />`:`[${ref}]`;if(target.scope==="bank")bankEditorChanged();else editorChanged();return true}
 function findNextEmptyChoiceTarget(){const scope=state.activeTab==="bank"?"bank":"entry";const entry=scope==="bank"?bankSelectedEntry():selectedEntry();if(!entry)return null;const container=scope==="bank"?$("bank-stem-structured-editor"):$("stem-editor");if(!container||container.offsetParent===null)return null;const allBlocks=[...container.querySelectorAll(".stem-block")];for(let bi=0;bi<allBlocks.length;bi++){const block=allBlocks[bi];if(block.dataset.type!=="choices")continue;const rows=block.querySelectorAll(".choice-edit-row");for(const row of rows){const preview=row.querySelector(".choice-image-preview");if(preview&&!preview.dataset.ref){const choiceKey=row.querySelector(".choice-text-input")?.dataset.key||"";return{scope,questionUuid:entry.questionUuid,blockIndex:bi,choiceKey}}}}return null}
 function insertTextAtCursor(input,snippet){if(!input)return;const start=input.selectionStart??input.value.length;const end=input.selectionEnd??input.value.length;const before=input.value.slice(0,start);const after=input.value.slice(end);input.value=`${before}${snippet}${after}`;const next=start+snippet.length;input.selectionStart=next;input.selectionEnd=next;input.dispatchEvent(new Event("input"))}
@@ -255,7 +321,7 @@ function collectAnswerBlocksFromEditor(editorId){
       const inp=el.querySelector(".block-text-input");
       blocks.push({type:"p",text:inp?inp.value:""});
     }else if(type==="image"){
-      blocks.push({type:"image",ref:el.dataset.ref||generateImageRef(selectedEntry())});
+      blocks.push({type:"image",ref:el.dataset.ref||"fig-1"});
     }
   }
   assignInlineBlankIds(blocks);
@@ -267,7 +333,7 @@ function addAnswerBlock(editorId,previewId,type,entry){
   if(type==="p"){
     blocks.push({type:"p",text:""});
   }else if(type==="image"){
-    const ref=generateImageRef(entry);
+    const ref=nextAnswerRefForBlocks(blocks,entry);
     blocks.push({type:"image",ref});
   }
   const xml=blocksToAnswerXml(blocks);
@@ -305,7 +371,7 @@ async function submitAnswerOcr(){const e=selectedEntry();if(!e)throw new Error("
 function fillLatest(){const e=selectedEntry();const t=selectedTask();if(!e||!t||!t.recognizedText)throw new Error("当前任务没有可用识别结果");e.stemDraft=t.recognizedText;e.updatedAt=Date.now();state.entries.set(e.questionUuid,e);saveWorkspace();renderAll();log("已填充OCR结果到题干编辑区")}
 function fillLatestAnswer(){const e=selectedEntry();const t=selectedAnswerTask();if(!e||!t||!t.recognizedText)throw new Error("当前任务没有可用答案识别结果");e.answerDraft=toAnswerXmlPayload(t.recognizedText);e.updatedAt=Date.now();state.entries.set(e.questionUuid,e);saveWorkspace();renderAll();log("已填充OCR结果到答案编辑区")}
 async function confirmStem(){const e=selectedEntry();if(!e)throw new Error("请先选择任务");const confirmedBlocks=collectBlocksFromEditor();const hasContent=confirmedBlocks.some(b=>(b.type==="p"&&b.text.trim())||b.type!=="p");if(!hasContent)throw new Error("题干不能为空");const confirmedText=blocksToXml(confirmedBlocks);ensureMainTags(e);const pendingInput=$("stem-secondary-tags-input").value.trim();if(pendingInput){e.secondaryTags=[...new Set([...(e.secondaryTags||[]),pendingInput])];$("stem-secondary-tags-input").value=""}const secondaryTagsText=(e.secondaryTags||[]).join(" ");const mainTags=(e.mainTags||[]).map(t=>({categoryCode:t.categoryCode,tagCode:t.tagCode}));const stemXml=toStemXmlPayload(confirmedText);const inlineImages={};for(const [ref,base64] of Object.entries(e.inlineImages||{})){if(base64&&typeof base64==="string")inlineImages[ref]={imageData:base64,mimeType:"image/png"}}const r=await api(`/api/questions/${e.questionUuid}/stem`,`PUT`,{stemXml,mainTags,secondaryTagsText,inlineImages});e.status=r.data.status;e.stemText=stemXml;e.stemDraft=toEditorStemText(stemXml);e.stemConfirmed=true;e.secondaryTagsDraft=secondaryTagsText;e.assetsLoaded=true;e.updatedAt=Date.now();state.entries.set(e.questionUuid,e);saveWorkspace();renderAll();log(`题干已确认: ${e.questionUuid}`)}
-async function addAnswer(){const e=selectedEntry();if(!e)throw new Error("请先选择任务");if(!e.stemConfirmed)throw new Error("请先确认题干");const blocks=collectAnswerBlocksFromEditor("entry-answer-structured-editor");const hasContent=blocks.some(b=>(b.type==="p"&&b.text.trim())||b.type!=="p");if(!hasContent)throw new Error("答案不能为空");const answerXml=blocksToAnswerXml(blocks);const answerInlineImages={};const imgRefs=blocks.filter(b=>b.type==="image").map(b=>b.ref);for(const ref of imgRefs){const base64=(e.answerImages&&e.answerImages[ref])||(e.inlineImages&&e.inlineImages[ref]);if(base64&&typeof base64==="string")answerInlineImages[ref]={imageData:base64,mimeType:"image/png"}}const r=await api(`/api/questions/${e.questionUuid}/answers`,"POST",{latexText:answerXml,inlineImages:Object.keys(answerInlineImages).length?answerInlineImages:undefined});const newUuid=(r.data&&r.data.answerUuid)||r.data?.answer?.answerUuid||"";e.status=r.data.status;e.answerCount=(e.answerCount||0)+1;e.answersLocal=[...(e.answersLocal||[]),answerXml];e.answersServerData=[...(e.answersServerData||[]),{answerUuid:newUuid,latexText:answerXml}];e.answerViewIndex=Math.max(0,e.answersLocal.length-1);e.answerDraft="";e.updatedAt=Date.now();state.entries.set(e.questionUuid,e);saveWorkspace();renderAll();log(`答案已添加: ${e.questionUuid}`);}
+async function addAnswer(){const e=selectedEntry();if(!e)throw new Error("请先选择任务");if(!e.stemConfirmed)throw new Error("请先确认题干");const blocks=collectAnswerBlocksFromEditor("entry-answer-structured-editor");const hasContent=blocks.some(b=>(b.type==="p"&&b.text.trim())||b.type!=="p");if(!hasContent)throw new Error("答案不能为空");const payload=buildAnswerSubmitPayload(e,blocks,null);const answerXml=payload.latexText;const answerInlineImages=payload.inlineImages;const r=await api(`/api/questions/${e.questionUuid}/answers`,"POST",{latexText:answerXml,inlineImages:Object.keys(answerInlineImages).length?answerInlineImages:undefined});const newUuid=(r.data&&r.data.answerUuid)||r.data?.answer?.answerUuid||"";e.status=r.data.status;e.answerCount=(e.answerCount||0)+1;e.answersLocal=[...(e.answersLocal||[]),answerXml];e.answersServerData=[...(e.answersServerData||[]),{answerUuid:newUuid,latexText:answerXml}];e.answerViewIndex=Math.max(0,e.answersLocal.length-1);e.answerDraft="";e.updatedAt=Date.now();state.entries.set(e.questionUuid,e);saveWorkspace();renderAll();log(`答案已添加: ${e.questionUuid}`);}
 async function completeQ(){const e=selectedEntry();if(!e)throw new Error("请先选择任务");const r=await api(`/api/questions/${e.questionUuid}/complete`,`POST`);e.status=r.data.status;ensureAnswerViewIndex(e);e.updatedAt=Date.now();state.entries.set(e.questionUuid,e);saveWorkspace();renderAll();log(`任务已完成(READY): ${e.questionUuid}`)}
 async function delQ(qid){if(!qid)throw new Error("questionUuid is required");await api(`/api/questions/${qid}`,"DELETE");state.entries.delete(qid);state.contextMenuQuestionUuid="";for(const [id,t] of state.ocrTasks.entries())if(t.questionUuid===qid)state.ocrTasks.delete(id);if(state.selectedQuestionUuid===qid){const n=[...state.entries.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];state.selectedQuestionUuid=n?n.questionUuid:""}hideMenu();saveWorkspace();renderAll();log(`已删除未完成题目: ${qid}`)}
 async function syncQuestions(){const r=await api("/api/questions","GET");const rows=Array.isArray(r.data)?r.data:[];const old=new Map(state.entries);const merged=new Map();for(const row of rows){const p=old.get(row.questionUuid);const stem=row.stemText||"";const ans=Array.isArray(row.answers)?row.answers:[];const ansText=ans.map(a=>a.latexText).filter(Boolean);const e=normalizeEntry({questionUuid:row.questionUuid,status:row.status||"DRAFT",stemText:stem,stemDraft:p?p.stemDraft||toEditorStemText(stem):toEditorStemText(stem),stemConfirmed:stem.trim().length>0||row.status==="READY",mainTags:row.mainTags,secondaryTags:row.secondaryTags,secondaryTagsDraft:p?p.secondaryTagsDraft:(Array.isArray(row.secondaryTags)?row.secondaryTags.join(" "):""),difficulty:row.difficulty!=null?row.difficulty:(p?p.difficulty:null),answerCount:Number(row.answerCount||ansText.length||0),answerDraft:p?p.answerDraft:"",answersLocal:ansText.length?ansText:(p?p.answersLocal:[]),answersServerData:ans.filter(a=>a.latexText).map(a=>({answerUuid:a.answerUuid||"",latexText:a.latexText||""})),answerViewIndex:p?p.answerViewIndex:0,lastOcrTaskUuid:p?p.lastOcrTaskUuid:"",lastOcrStatus:p?p.lastOcrStatus:"",lastAnswerOcrTaskUuid:p?p.lastAnswerOcrTaskUuid:"",lastAnswerOcrStatus:p?p.lastAnswerOcrStatus:"",stemImageBase64:p?p.stemImageBase64:"",inlineImages:p?p.inlineImages:{},answerImages:p?p.answerImages:{},assetsLoaded:p?p.assetsLoaded:false,updatedAt:Number.isFinite(new Date(row.updatedAt).getTime())?new Date(row.updatedAt).getTime():Date.now()});merged.set(row.questionUuid,e)}state.entries=merged;for(const [id,t] of state.ocrTasks.entries())if(!merged.has(t.questionUuid))state.ocrTasks.delete(id);if(!state.selectedQuestionUuid||!merged.has(state.selectedQuestionUuid)){if(state.activeTab==="entry"){const ef=[...merged.values()].filter(e=>stageOf(e)!=="COMPLETED").sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];state.selectedQuestionUuid=ef?ef.questionUuid:""}else{const f=[...merged.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];state.selectedQuestionUuid=f?f.questionUuid:""}}saveWorkspace();renderAll();log(`已同步题目: ${rows.length} 条`)}
@@ -359,11 +425,11 @@ if($("bank-difficulty-filter"))$("bank-difficulty-filter").addEventListener("cha
 $("bank-answer-tabs").addEventListener("click",ev=>{const btn=ev.target.closest&&ev.target.closest(".answer-tab");if(!btn)return;const idx=Number(btn.dataset.index);if(!Number.isFinite(idx))return;state.bankAnswerIdx=idx;renderBankDetail()});
 $("bank-answer-edit-btn")?.addEventListener("click",()=>{const e=bankSelectedEntry();if(!e)return;const answers=e.answersLocal||[];if(!answers.length)return;const ansXml=answers[state.bankAnswerIdx]||"";renderAnswerStructuredEditor("bank-answer-edit-structured-editor",answerXmlToBlocks(ansXml),e);renderAnswerLatex("bank-answer-edit-preview",ansXml,"预览区",e);$("bank-answer-display").classList.add("hidden");$("bank-answer-edit-bar").classList.add("hidden");$("bank-answer-editor").classList.remove("hidden")});
 $("bank-answer-cancel-btn")?.addEventListener("click",()=>{$("bank-answer-editor").classList.add("hidden");$("bank-answer-display").classList.remove("hidden");const e=bankSelectedEntry();if(e&&e.answersLocal&&e.answersLocal.length)$("bank-answer-edit-bar").classList.remove("hidden")});
-$('bank-answer-save-btn')?.addEventListener('click',async()=>{const e=bankSelectedEntry();if(!e)return;const blocks=collectAnswerBlocksFromEditor("bank-answer-edit-structured-editor");const text=blocksToAnswerXml(blocks);if(!text||!blocks.some(b=>(b.type==="p"&&b.text.trim())||b.type==="image")){log("答案不能为空");return}const answerInlineImages={};for(const b of blocks){if(b.type==="image"&&b.ref){const base64=(e.answerImages||{})[b.ref]||(e.inlineImages||{})[b.ref];if(base64)answerInlineImages[b.ref]={imageData:base64,mimeType:"image/png"}}}let serverData=e.answersServerData||[];let sd=serverData[state.bankAnswerIdx];if(!sd||!sd.answerUuid){log("答案UUID缺失，正在自动同步...");try{await syncQuestions()}catch(err){log(`同步失败: ${errMsg(err)}`);return}const e2=bankSelectedEntry();if(!e2)return;serverData=e2.answersServerData||[];sd=serverData[state.bankAnswerIdx];if(!sd||!sd.answerUuid){log("同步后仍无法获取答案UUID，请检查数据");return}}try{await bankUpdateAnswer(e.questionUuid,sd.answerUuid,text,answerInlineImages);$('bank-answer-editor').classList.add('hidden');$('bank-answer-display').classList.remove('hidden')}catch(err){log(`保存答案失败: ${errMsg(err)}`)}});
+$('bank-answer-save-btn')?.addEventListener('click',async()=>{const e=bankSelectedEntry();if(!e)return;const blocks=collectAnswerBlocksFromEditor("bank-answer-edit-structured-editor");if(!blocks.length||!blocks.some(b=>(b.type==="p"&&b.text.trim())||b.type==="image")){log("答案不能为空");return}let serverData=e.answersServerData||[];let sd=serverData[state.bankAnswerIdx];if(!sd||!sd.answerUuid){log("答案UUID缺失，正在自动同步...");try{await syncQuestions()}catch(err){log(`同步失败: ${errMsg(err)}`);return}const e2=bankSelectedEntry();if(!e2)return;serverData=e2.answersServerData||[];sd=serverData[state.bankAnswerIdx];if(!sd||!sd.answerUuid){log("同步后仍无法获取答案UUID，请检查数据");return}}const payload=buildAnswerSubmitPayload(e,blocks,sd.answerUuid);if(!payload.latexText){log("答案不能为空");return}try{await bankUpdateAnswer(e.questionUuid,sd.answerUuid,payload.latexText,payload.inlineImages);$('bank-answer-editor').classList.add('hidden');$('bank-answer-display').classList.remove('hidden')}catch(err){log(`保存答案失败: ${errMsg(err)}`)}});
 $('bank-answer-delete-btn')?.addEventListener('click',async()=>{const e=bankSelectedEntry();if(!e)return;if((e.answersLocal||[]).length<=1){log("最后一个答案不能删除");return}let serverData=e.answersServerData||[];let sd=serverData[state.bankAnswerIdx];if(!sd||!sd.answerUuid){log("答案UUID缺失，正在自动同步...");try{await syncQuestions()}catch(err){log(`同步失败: ${errMsg(err)}`);return}const e2=bankSelectedEntry();if(!e2)return;serverData=e2.answersServerData||[];sd=serverData[state.bankAnswerIdx];if(!sd||!sd.answerUuid){log("同步后仍无法获取答案UUID，请检查数据");return}}if(!confirm("确认删除该答案？"))return;try{await bankDeleteAnswer(e.questionUuid,sd.answerUuid)}catch(err){log(`删除答案失败: ${errMsg(err)}`)}});
 $("bank-answer-add-btn")?.addEventListener("click",()=>{const e=bankSelectedEntry();if(!e)return;renderAnswerStructuredEditor("bank-answer-add-structured-editor",[{type:"p",text:""}],e);renderAnswerLatex("bank-answer-add-preview","","预览区",e);$("bank-answer-add-panel").classList.remove("hidden");$("bank-answer-add-btn").classList.add("hidden")});
 $("bank-answer-add-cancel-btn")?.addEventListener("click",()=>{$("bank-answer-add-panel").classList.add("hidden");$("bank-answer-add-btn")?.classList.remove("hidden")});
-$("bank-answer-add-save-btn")?.addEventListener("click",async()=>{const e=bankSelectedEntry();if(!e)return;const blocks=collectAnswerBlocksFromEditor("bank-answer-add-structured-editor");const text=blocksToAnswerXml(blocks);if(!text||!blocks.some(b=>(b.type==="p"&&b.text.trim())||b.type==="image")){log("答案不能为空");return}const answerInlineImages={};for(const b of blocks){if(b.type==="image"&&b.ref){const base64=(e.answerImages||{})[b.ref]||(e.inlineImages||{})[b.ref];if(base64)answerInlineImages[b.ref]={imageData:base64,mimeType:"image/png"}}}try{await bankAddAnswer(e.questionUuid,text,answerInlineImages);$("bank-answer-add-panel").classList.add("hidden");$("bank-answer-add-btn")?.classList.remove("hidden")}catch(err){log(`新增答案失败: ${errMsg(err)}`)}});
+$("bank-answer-add-save-btn")?.addEventListener("click",async()=>{const e=bankSelectedEntry();if(!e)return;const blocks=collectAnswerBlocksFromEditor("bank-answer-add-structured-editor");if(!blocks.length||!blocks.some(b=>(b.type==="p"&&b.text.trim())||b.type==="image")){log("答案不能为空");return}const payload=buildAnswerSubmitPayload(e,blocks,null);if(!payload.latexText){log("答案不能为空");return}try{await bankAddAnswer(e.questionUuid,payload.latexText,payload.inlineImages);$("bank-answer-add-panel").classList.add("hidden");$("bank-answer-add-btn")?.classList.remove("hidden")}catch(err){log(`新增答案失败: ${errMsg(err)}`)}});
 $("bank-answer-edit-p-btn")?.addEventListener("click",()=>{const e=bankSelectedEntry();if(!e)return;const sd=(e.answersServerData||[])[state.bankAnswerIdx];addAnswerBlock("bank-answer-edit-structured-editor","bank-answer-edit-preview","p",e,sd?.answerUuid)});
 $("bank-answer-edit-img-btn")?.addEventListener("click",async()=>{const e=bankSelectedEntry();if(!e)return;try{await triggerScreenshot("insert-image")}catch(err){log(`截图插图失败: ${err.message}`)}});
 $("bank-answer-add-img-btn")?.addEventListener("click",async()=>{const e=bankSelectedEntry();if(!e)return;try{await triggerScreenshot("insert-image")}catch(err){log(`截图插图失败: ${err.message}`)}});
