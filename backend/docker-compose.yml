@@ -13,6 +13,11 @@ services:
       MYSQL_DATABASE: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
+    volumes:
+      # Named volume — survives docker compose down (data persists)
+      - mysql-data:/var/lib/mysql
+      # Init script — only runs once when the data directory is empty
+      - ./sql/init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql:ro
     ports:
       - "3306:3306"
     healthcheck:
@@ -46,6 +51,9 @@ services:
     environment:
       MODE: standalone
       NACOS_AUTH_ENABLE: "false"
+    volumes:
+      # Named volume — Nacos 热配置在 docker compose down 后不丢失
+      - nacos-data:/home/nacos/data
     ports:
       - "8848:8848"
 
@@ -142,7 +150,7 @@ services:
       pull: false
       args:
         SERVICE_NAME: question-service
-    container_name: question-service
+    # container_name omitted — allows --scale question-service=N
     networks: [qforge-net]
     logging:
       driver: "json-file"
@@ -164,8 +172,7 @@ services:
       RABBITMQ_PASSWORD: guest
       NACOS_SERVER_ADDR: nacos:8848
       OCR_SERVICE_BASE_URL: http://ocr-service:8090
-    ports:
-      - "8089:8089"
+    # No fixed host port — gateway routes via Nacos lb://, supports multi-instance
     depends_on:
       mysql:
         condition: service_healthy
@@ -184,7 +191,7 @@ services:
       pull: false
       args:
         SERVICE_NAME: persist-service
-    container_name: persist-service
+    # container_name omitted — allows --scale persist-service=N
     networks: [qforge-net]
     logging:
       driver: "json-file"
@@ -205,8 +212,7 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
       NACOS_SERVER_ADDR: nacos:8848
-    ports:
-      - "8091:8091"
+    # No fixed host port — MQ-driven consumer, supports multi-instance
     depends_on:
       mysql:
         condition: service_healthy
@@ -223,7 +229,7 @@ services:
       pull: false
       args:
         SERVICE_NAME: ocr-service
-    container_name: ocr-service
+    # container_name omitted — allows --scale ocr-service=N
     networks: [qforge-net]
     logging:
       driver: "json-file"
@@ -253,8 +259,7 @@ services:
       JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
       ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY}
       ZHIPUAI_MODEL: glm-5
-    ports:
-      - "8090:8090"
+    # No fixed host port — supports multi-instance
     depends_on:
       mysql:
         condition: service_healthy
@@ -264,3 +269,7 @@ services:
         condition: service_started
       nacos:
         condition: service_started
+
+volumes:
+  mysql-data:  # persistent: survives docker compose down; use down -v to wipe
+  nacos-data:  # Nacos 热配置持久化，目录 /home/nacos/data

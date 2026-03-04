@@ -3,7 +3,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const API_BASE_URL = process.env.QFORGE_API_BASE_URL || "http://localhost:8080";
-const WS_BASE_URL = process.env.QFORGE_WS_BASE_URL || "ws://localhost:8089";
+const WS_BASE_URL = process.env.QFORGE_WS_BASE_URL || "ws://localhost:8080"; // 走 gateway lb:ws://question-service
 const SCREENSHOT_SHORTCUT = process.env.QFORGE_SCREENSHOT_SHORTCUT || "CommandOrControl+Alt+A";
 const IMAGE_SCREENSHOT_SHORTCUT = process.env.QFORGE_IMAGE_SCREENSHOT_SHORTCUT || "CommandOrControl+Alt+I";
 const QUICK_INSERT_SHORTCUT = process.env.QFORGE_QUICK_INSERT_SHORTCUT || "CommandOrControl+Alt+Q";

@@ -1,7 +1,6 @@
 package io.github.kamill7779.qforge.question.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import java.util.Map;
 
 /**
@@ -19,10 +18,10 @@ public class UpdateStemRequest {
     private String stemXml;
 
     /**
-     * 内联图片 Map，key = 前端 XML ref（如 img-1），每题最多 10 张。
+     * 内联图片 Map，key = 前端 XML ref（如 img-1）。
      * 为 null 或空时表示本次提交不含任何配图（会清除已有图片）。
+     * 张数上限由热配置 {@code qforge.business.max-inline-images} 控制，在 service 层校验。
      */
-    @Size(max = 10, message = "A question can have at most 10 inline images")
     private Map<String, InlineImageEntry> inlineImages;
 
     public String getStemXml() {

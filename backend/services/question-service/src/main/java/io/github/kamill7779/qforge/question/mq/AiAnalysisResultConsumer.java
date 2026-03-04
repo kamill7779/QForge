@@ -6,6 +6,7 @@ import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
 import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
+import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.util.HashMap;
 import java.util.List;
@@ -19,24 +20,24 @@ import org.springframework.stereotype.Component;
 @Component
 public class AiAnalysisResultConsumer {
 
-    private static final int MAX_REASONING_LENGTH = 1024;
-    private static final int MAX_ERROR_MESSAGE_LENGTH = 2048;
-
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisResultConsumer.class);
 
     private final OcrWsPushService wsPushService;
     private final TaskStateRedisService taskStateRedisService;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final QForgeBusinessProperties businessProperties;
 
     public AiAnalysisResultConsumer(OcrWsPushService wsPushService,
                                     TaskStateRedisService taskStateRedisService,
                                     RabbitTemplate rabbitTemplate,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper,
+                                    QForgeBusinessProperties businessProperties) {
         this.wsPushService = wsPushService;
         this.taskStateRedisService = taskStateRedisService;
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
+        this.businessProperties = businessProperties;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.AI_ANALYSIS_RESULT_QUEUE)
@@ -79,8 +80,8 @@ public class AiAnalysisResultConsumer {
                     event.userId(),
                     tagsJsonForDb,
                     event.suggestedDifficulty(),
-                    trimToColumnSize(event.reasoning(), MAX_REASONING_LENGTH, "reasoning", event.taskUuid()),
-                    trimToColumnSize(event.errorMessage(), MAX_ERROR_MESSAGE_LENGTH, "error_msg", event.taskUuid())
+                    trimToColumnSize(event.reasoning(), businessProperties.getMaxReasoningLength(), "reasoning", event.taskUuid()),
+                    trimToColumnSize(event.errorMessage(), businessProperties.getMaxErrorMessageLength(), "error_msg", event.taskUuid())
             );
             rabbitTemplate.convertAndSend(
                     DbPersistConstants.DB_EXCHANGE,

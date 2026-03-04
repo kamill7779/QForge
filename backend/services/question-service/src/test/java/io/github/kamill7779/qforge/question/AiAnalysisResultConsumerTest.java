@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
 import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
 import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
+import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import io.github.kamill7779.qforge.question.mq.AiAnalysisResultConsumer;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
@@ -38,7 +39,7 @@ class AiAnalysisResultConsumerTest {
     @BeforeEach
     void setUp() {
         consumer = new AiAnalysisResultConsumer(wsPushService, taskStateRedisService,
-                rabbitTemplate, new ObjectMapper());
+                rabbitTemplate, new ObjectMapper(), new QForgeBusinessProperties());
     }
 
     @Test

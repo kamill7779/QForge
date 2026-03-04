@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.question.client.OcrServiceClient;
 import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
+import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.AiTaskResponse;
@@ -79,6 +80,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
     private final TaskStateRedisService taskStateRedisService;
+    private final QForgeBusinessProperties businessProperties;
 
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
@@ -93,7 +95,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             StemXmlValidator stemXmlValidator,
             RabbitTemplate rabbitTemplate,
             ObjectMapper objectMapper,
-            TaskStateRedisService taskStateRedisService
+            TaskStateRedisService taskStateRedisService,
+            QForgeBusinessProperties businessProperties
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
@@ -108,6 +111,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
         this.taskStateRedisService = taskStateRedisService;
+        this.businessProperties = businessProperties;
     }
 
     @Override
@@ -135,24 +139,26 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
         Map<String, InlineImageEntry> inlineImages = request.getInlineImages();
         if (inlineImages != null && !inlineImages.isEmpty()) {
-            if (inlineImages.size() > 10) {
+            int maxImages = businessProperties.getMaxInlineImages();
+            if (inlineImages.size() > maxImages) {
                 throw new BusinessValidationException(
                         "ASSET_LIMIT_EXCEEDED",
-                        "A question can have at most 10 inline images",
-                        Map.of("count", inlineImages.size(), "limit", 10)
+                        "A question can have at most " + maxImages + " inline images",
+                        Map.of("count", inlineImages.size(), "limit", maxImages)
                 );
             }
+            int maxBytes = businessProperties.getMaxImageBinaryBytes();
             for (Map.Entry<String, InlineImageEntry> entry : inlineImages.entrySet()) {
                 String imageData = entry.getValue().imageData();
                 if (imageData != null && !imageData.isBlank()) {
                     long approxBytes = (long) (imageData.length() * 3L / 4);
-                    if (approxBytes > InlineImageEntry.MAX_BINARY_BYTES) {
+                    if (approxBytes > maxBytes) {
                         throw new BusinessValidationException(
                                 "ASSET_SIZE_EXCEEDED",
-                                "Image size must not exceed 30 KB",
+                                "Image size must not exceed " + (maxBytes / 1024) + " KB",
                                 Map.of("ref", entry.getKey(),
                                         "approxSizeBytes", approxBytes,
-                                        "limitBytes", InlineImageEntry.MAX_BINARY_BYTES)
+                                        "limitBytes", maxBytes)
                         );
                     }
                 }

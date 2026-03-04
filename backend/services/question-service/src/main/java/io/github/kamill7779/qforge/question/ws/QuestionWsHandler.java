@@ -2,8 +2,10 @@ package io.github.kamill7779.qforge.question.ws;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -17,7 +19,7 @@ public class QuestionWsHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        String user = resolveUser(session.getUri());
+        String user = resolveUser(session);
         sessionsByUser.computeIfAbsent(user, ignored -> ConcurrentHashMap.newKeySet()).add(session);
     }
 
@@ -42,7 +44,22 @@ public class QuestionWsHandler extends TextWebSocketHandler {
         });
     }
 
-    private String resolveUser(URI uri) {
+    /**
+     * Resolve user identity. Prefer gateway-injected X-Auth-User header (trusted);
+     * fall back to URI query param "user" for direct connections.
+     */
+    private String resolveUser(WebSocketSession session) {
+        // 1. Gateway 传递的 header（可信）
+        HttpHeaders headers = session.getHandshakeHeaders();
+        List<String> authUser = headers.get("X-Auth-User");
+        if (authUser != null && !authUser.isEmpty() && !authUser.get(0).isBlank()) {
+            return authUser.get(0);
+        }
+        // 2. Fallback: query param ?user=xxx
+        return resolveUserFromUri(session.getUri());
+    }
+
+    private String resolveUserFromUri(URI uri) {
         if (uri == null || uri.getQuery() == null) {
             return "anonymous";
         }

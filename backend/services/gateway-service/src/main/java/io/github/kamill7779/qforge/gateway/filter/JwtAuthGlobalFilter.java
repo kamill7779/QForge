@@ -33,13 +33,20 @@ public class JwtAuthGlobalFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
+        // 1. Try Authorization header first
+        String token = null;
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return unauthorized(exchange);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
         }
 
-        String token = authHeader.substring(7);
-        if (!jwtService.isValid(token)) {
+        // 2. For WebSocket paths, fall back to query param "token"
+        //    (browsers cannot set custom headers on WebSocket handshake)
+        if (token == null && path.startsWith("/ws/")) {
+            token = exchange.getRequest().getQueryParams().getFirst("token");
+        }
+
+        if (token == null || !jwtService.isValid(token)) {
             return unauthorized(exchange);
         }
 

@@ -23,7 +23,7 @@ public record InlineImageEntry(
 
 ) {
     /** 最大允许的二进制字节数：30 KB。 */
-    public static final int MAX_BINARY_BYTES = 30 * 1024;
+    public static final int MAX_BINARY_BYTES = 50 * 1024;
 
     /** base64 字符串长度上限（30KB binary × 4/3 ≈ 40960）。 */
     public static final int MAX_BASE64_LENGTH = 40_960;
