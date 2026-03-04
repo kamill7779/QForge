@@ -1,24 +1,25 @@
 package io.github.kamill7779.qforge.question;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
-import io.github.kamill7779.qforge.question.entity.QuestionAiTask;
+import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
+import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.question.mq.AiAnalysisResultConsumer;
-import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
+import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class AiAnalysisResultConsumerTest {
@@ -27,20 +28,21 @@ class AiAnalysisResultConsumerTest {
     private OcrWsPushService wsPushService;
 
     @Mock
-    private QuestionAiTaskRepository questionAiTaskRepository;
+    private TaskStateRedisService taskStateRedisService;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
 
     private AiAnalysisResultConsumer consumer;
 
     @BeforeEach
     void setUp() {
-        consumer = new AiAnalysisResultConsumer(wsPushService, questionAiTaskRepository, new ObjectMapper());
+        consumer = new AiAnalysisResultConsumer(wsPushService, taskStateRedisService,
+                rabbitTemplate, new ObjectMapper());
     }
 
     @Test
-    void shouldTruncateErrorMessageBeforePersistingFailedTask() {
-        QuestionAiTask task = new QuestionAiTask();
-        task.setTaskUuid("task-1");
-        when(questionAiTaskRepository.findByTaskUuid("task-1")).thenReturn(Optional.of(task));
+    void shouldTruncateErrorMessageBeforePublishingDbWriteBackEvent() {
         String longErrorMessage = "E".repeat(2500);
 
         consumer.onAiAnalysisResult(new AiAnalysisResultEvent(
@@ -54,19 +56,20 @@ class AiAnalysisResultConsumerTest {
                 longErrorMessage
         ));
 
-        ArgumentCaptor<QuestionAiTask> taskCaptor = ArgumentCaptor.forClass(QuestionAiTask.class);
-        verify(questionAiTaskRepository).updateById(taskCaptor.capture());
-        QuestionAiTask updatedTask = taskCaptor.getValue();
-        assertEquals("FAILED", updatedTask.getStatus());
-        assertEquals(2048, updatedTask.getErrorMsg().length());
-        assertEquals(longErrorMessage.substring(0, 2048), updatedTask.getErrorMsg());
+        ArgumentCaptor<DbWriteBackEvent> captor = ArgumentCaptor.forClass(DbWriteBackEvent.class);
+        verify(rabbitTemplate).convertAndSend(
+                eq(DbPersistConstants.DB_EXCHANGE),
+                eq(DbPersistConstants.ROUTING_DB_PERSIST),
+                captor.capture()
+        );
+        DbWriteBackEvent event = captor.getValue();
+        assertEquals("FAILED", event.status());
+        assertEquals(2048, event.errorMsg().length());
+        assertEquals(longErrorMessage.substring(0, 2048), event.errorMsg());
     }
 
     @Test
-    void shouldTruncateReasoningBeforePersistingSuccessTask() {
-        QuestionAiTask task = new QuestionAiTask();
-        task.setTaskUuid("task-2");
-        when(questionAiTaskRepository.findByTaskUuid("task-2")).thenReturn(Optional.of(task));
+    void shouldTruncateReasoningBeforePublishingDbWriteBackEvent() {
         String longReasoning = "R".repeat(1500);
 
         consumer.onAiAnalysisResult(new AiAnalysisResultEvent(
@@ -80,11 +83,15 @@ class AiAnalysisResultConsumerTest {
                 null
         ));
 
-        ArgumentCaptor<QuestionAiTask> taskCaptor = ArgumentCaptor.forClass(QuestionAiTask.class);
-        verify(questionAiTaskRepository).updateById(taskCaptor.capture());
-        QuestionAiTask updatedTask = taskCaptor.getValue();
-        assertEquals("SUCCESS", updatedTask.getStatus());
-        assertEquals(1024, updatedTask.getReasoning().length());
-        assertEquals(longReasoning.substring(0, 1024), updatedTask.getReasoning());
+        ArgumentCaptor<DbWriteBackEvent> captor = ArgumentCaptor.forClass(DbWriteBackEvent.class);
+        verify(rabbitTemplate).convertAndSend(
+                eq(DbPersistConstants.DB_EXCHANGE),
+                eq(DbPersistConstants.ROUTING_DB_PERSIST),
+                captor.capture()
+        );
+        DbWriteBackEvent event = captor.getValue();
+        assertEquals("SUCCESS", event.status());
+        assertEquals(1024, event.reasoning().length());
+        assertEquals(longReasoning.substring(0, 1024), event.reasoning());
     }
 }

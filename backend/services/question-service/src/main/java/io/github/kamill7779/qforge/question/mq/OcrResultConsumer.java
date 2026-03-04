@@ -1,8 +1,9 @@
 package io.github.kamill7779.qforge.question.mq;
 
+import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
+import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
-import io.github.kamill7779.qforge.question.dto.DbWriteBackEvent;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.util.Map;
@@ -51,20 +52,18 @@ public class OcrResultConsumer {
         }
 
         // ---- 3. 投递异步落库写回事件（MQ 队列 + 自动重试，不阻塞主流程）----
-        DbWriteBackEvent writeBack = new DbWriteBackEvent(
-                "OCR",
+        DbWriteBackEvent writeBack = DbWriteBackEvent.ocr(
                 event.taskUuid(),
-                event.bizId(),    // bizId 即 questionUuid
+                event.bizId(),
                 "SUCCESS".equals(event.status()) ? "CONFIRMED" : event.status(),
                 requestUser,
                 event.bizType(),
-                null, null, null, // AI 专属字段
                 event.recognizedText(),
                 event.errorMessage()
         );
         rabbitTemplate.convertAndSend(
-                RabbitTopologyConfig.DB_EXCHANGE,
-                RabbitTopologyConfig.ROUTING_DB_PERSIST,
+                DbPersistConstants.DB_EXCHANGE,
+                DbPersistConstants.ROUTING_DB_PERSIST,
                 writeBack
         );
         log.info("Published DbWriteBackEvent for OCR taskUuid={} status={}",

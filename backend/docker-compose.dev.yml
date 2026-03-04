@@ -169,6 +169,30 @@ services:
       ocr-service:
         condition: service_started
 
+  persist-service:
+    <<: *service-base
+    container_name: qforge-dev-persist
+    volumes:
+      - ./:/workspace
+      - maven-repo:/root/.m2
+      - ./.dev-logs:/workspace/.dev-logs
+    environment:
+      <<: *infra-env
+    command: >
+      bash -c "
+        mvn -q -DskipTests -pl libs/common-contract install &&
+        mvn -DskipTests -pl services/persist-service spring-boot:run -am
+      "
+    ports:
+      - "8091:8091"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      nacos:
+        condition: service_started
+
   gateway-service:
     <<: *service-base
     container_name: qforge-dev-gateway

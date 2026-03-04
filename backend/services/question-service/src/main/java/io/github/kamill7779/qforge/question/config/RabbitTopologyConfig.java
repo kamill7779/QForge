@@ -26,11 +26,8 @@ public class RabbitTopologyConfig {
     public static final String ROUTING_AI_ANALYSIS_CREATED = "ai.analysis.created";
     public static final String ROUTING_AI_ANALYSIS_RESULT = "ai.analysis.result";
 
-    // --- DB async write-back topology ---
-    /** Direct exchange 用于 question-service 内部落库写回任务。 */
+    // --- DB write-back: 仅声明 exchange（生产者需要），queue + binding 由 persist-service 声明 ---
     public static final String DB_EXCHANGE = "qforge.db";
-    public static final String DB_PERSIST_QUEUE = "qforge.db.persist.q";
-    public static final String ROUTING_DB_PERSIST = "db.persist";
 
     @Bean
     public TopicExchange ocrExchange() {
@@ -81,24 +78,12 @@ public class RabbitTopologyConfig {
         return BindingBuilder.bind(aiAnalysisResultQueue).to(aiExchange).with(ROUTING_AI_ANALYSIS_RESULT);
     }
 
-    // --- DB write-back beans ---
+    // --- DB write-back: 仅声明 exchange ---
 
+    /** 仅声明 exchange，确保生产者 convertAndSend 时 exchange 已存在。 */
     @Bean
     public DirectExchange dbExchange() {
         return new DirectExchange(DB_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue dbPersistQueue() {
-        return new Queue(DB_PERSIST_QUEUE, true);
-    }
-
-    @Bean
-    public Binding dbPersistBinding(
-            @Qualifier("dbPersistQueue") Queue dbPersistQueue,
-            @Qualifier("dbExchange") DirectExchange dbExchange
-    ) {
-        return BindingBuilder.bind(dbPersistQueue).to(dbExchange).with(ROUTING_DB_PERSIST);
     }
 
     @Bean

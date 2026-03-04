@@ -17,6 +17,7 @@
         <module>services/auth-service</module>
         <module>services/question-service</module>
         <module>services/ocr-service</module>
+        <module>services/persist-service</module>
     </modules>
 
     <properties>

@@ -2,8 +2,9 @@ package io.github.kamill7779.qforge.question.mq;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
+import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
+import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
-import io.github.kamill7779.qforge.question.dto.DbWriteBackEvent;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
 import io.github.kamill7779.qforge.question.ws.OcrWsPushService;
 import java.util.HashMap;
@@ -71,22 +72,19 @@ public class AiAnalysisResultConsumer {
                     tagsJsonForDb = "[]";
                 }
             }
-            DbWriteBackEvent writeBack = new DbWriteBackEvent(
-                    "AI",
+            DbWriteBackEvent writeBack = DbWriteBackEvent.ai(
                     event.taskUuid(),
                     event.questionUuid(),
                     event.success() ? "SUCCESS" : "FAILED",
                     event.userId(),
-                    null, // bizType: AI 任务无需
                     tagsJsonForDb,
                     event.suggestedDifficulty(),
                     trimToColumnSize(event.reasoning(), MAX_REASONING_LENGTH, "reasoning", event.taskUuid()),
-                    null, // recognizedText: OCR 专属
                     trimToColumnSize(event.errorMessage(), MAX_ERROR_MESSAGE_LENGTH, "error_msg", event.taskUuid())
             );
             rabbitTemplate.convertAndSend(
-                    RabbitTopologyConfig.DB_EXCHANGE,
-                    RabbitTopologyConfig.ROUTING_DB_PERSIST,
+                    DbPersistConstants.DB_EXCHANGE,
+                    DbPersistConstants.ROUTING_DB_PERSIST,
                     writeBack
             );
             log.info("Published DbWriteBackEvent for AI taskUuid={} status={}",

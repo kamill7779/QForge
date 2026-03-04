@@ -9,10 +9,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisTaskCreatedEvent;
+import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
+import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.ocr.config.ZhipuAiProperties;
-import io.github.kamill7779.qforge.ocr.entity.AiAnalysisTask;
-import io.github.kamill7779.qforge.ocr.repository.AiAnalysisTaskRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -58,38 +58,32 @@ public class AiAnalysisTaskConsumer {
     private final ZhipuAiProperties zhipuAiProperties;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
-    private final AiAnalysisTaskRepository aiAnalysisTaskRepository;
 
     public AiAnalysisTaskConsumer(
             ZhipuAiClient zhipuAiClient,
             ZhipuAiProperties zhipuAiProperties,
             RabbitTemplate rabbitTemplate,
-            ObjectMapper objectMapper,
-            AiAnalysisTaskRepository aiAnalysisTaskRepository
+            ObjectMapper objectMapper
     ) {
         this.zhipuAiClient = zhipuAiClient;
         this.zhipuAiProperties = zhipuAiProperties;
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
-        this.aiAnalysisTaskRepository = aiAnalysisTaskRepository;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.AI_ANALYSIS_TASK_QUEUE)
     public void onAiAnalysisTask(AiAnalysisTaskCreatedEvent event) {
         log.info("Received AI analysis task for question={}, taskUuid={}", event.questionUuid(), event.taskUuid());
 
-        // ---- Persist PENDING → PROCESSING ----
-        AiAnalysisTask task = new AiAnalysisTask();
-        task.setTaskUuid(event.taskUuid());
-        task.setQuestionUuid(event.questionUuid());
-        task.setStatus("PROCESSING");
-        task.setModel(zhipuAiProperties.getModel());
-        task.setRequestUser(event.userId());
-        aiAnalysisTaskRepository.insert(task);
+        // 异步落库：PROCESSING 初始化
+        rabbitTemplate.convertAndSend(DbPersistConstants.DB_EXCHANGE, DbPersistConstants.ROUTING_DB_PERSIST,
+                DbWriteBackEvent.aiLocalProcessing(event.taskUuid(), event.questionUuid(),
+                        event.userId(), zhipuAiProperties.getModel(), null));
 
+        String userPrompt = null;
+        String rawResponseForAudit = null;
         try {
-            String userPrompt = buildUserPrompt(event);
-            task.setUserPrompt(userPrompt);
+            userPrompt = buildUserPrompt(event);
 
             int outputMaxTokens = zhipuAiProperties.getMaxTokens() != null
                 ? Math.max(256, zhipuAiProperties.getMaxTokens())
@@ -132,8 +126,11 @@ public class AiAnalysisTaskConsumer {
                         + " | data=" + objectMapper.writeValueAsString(response.getData());
                 } catch (Exception ignored) {}
                 log.error("GLM API call failed for question={}: {}", event.questionUuid(), errDetail);
-                failTask(task, "GLM API call failed: " + response.getMsg());
-                publishResult(event, false, null, null, null, "GLM API call failed: " + response.getMsg());
+                String failMsg1 = "GLM API call failed: " + response.getMsg();
+                rabbitTemplate.convertAndSend(DbPersistConstants.DB_EXCHANGE, DbPersistConstants.ROUTING_DB_PERSIST,
+                        DbWriteBackEvent.aiLocalFailed(event.taskUuid(), event.questionUuid(),
+                                failMsg1, userPrompt, rawResponseForAudit));
+                publishResult(event, false, null, null, null, failMsg1);
                 return;
             }
 
@@ -141,7 +138,9 @@ public class AiAnalysisTaskConsumer {
                     || response.getData().getChoices().isEmpty()) {
                 log.error("GLM API returned no choices for question={}, data={}",
                         event.questionUuid(), response.getData());
-                failTask(task, "GLM API returned no choices");
+                rabbitTemplate.convertAndSend(DbPersistConstants.DB_EXCHANGE, DbPersistConstants.ROUTING_DB_PERSIST,
+                        DbWriteBackEvent.aiLocalFailed(event.taskUuid(), event.questionUuid(),
+                                "GLM API returned no choices", userPrompt, rawResponseForAudit));
                 publishResult(event, false, null, null, null, "GLM API returned no choices");
                 return;
             }
@@ -196,13 +195,13 @@ public class AiAnalysisTaskConsumer {
                 }
             }
 
-            // Store raw response for debugging
+            // 保留原始响应用于审计落库
             if (rawJson.length() > 0) {
-                task.setRawResponse(rawJson);
+                rawResponseForAudit = rawJson;
             } else if (rawContentStr != null && !rawContentStr.isBlank()) {
-                task.setRawResponse(rawContentStr);
+                rawResponseForAudit = rawContentStr;
             } else {
-                task.setRawResponse(reasoningContent);
+                rawResponseForAudit = reasoningContent;
             }
 
             log.info("AI analysis raw response for question={}: {}...(len={})",
@@ -256,7 +255,9 @@ public class AiAnalysisTaskConsumer {
                     + "; content_class=" + (content != null ? content.getClass().getName() : "null")
                     + "; full_msg=" + msgDump;
                 log.warn("AI analysis returned empty content for question={}, hint={}", event.questionUuid(), hint);
-                failTask(task, "AI model returned empty response (" + hint + ")");
+                rabbitTemplate.convertAndSend(DbPersistConstants.DB_EXCHANGE, DbPersistConstants.ROUTING_DB_PERSIST,
+                        DbWriteBackEvent.aiLocalFailed(event.taskUuid(), event.questionUuid(),
+                                "AI model returned empty response (" + hint + ")", userPrompt, rawResponseForAudit));
                 publishResult(event, false, null, null, null,
                         "AI model returned empty response (" + hint + ")");
                 return;
@@ -286,31 +287,23 @@ public class AiAnalysisTaskConsumer {
 
             String reasoning = node.has("reasoning") ? node.get("reasoning").asText() : "";
 
-            // ---- Persist SUCCESS ----
-            task.setStatus("SUCCESS");
-            try {
-                task.setSuggestedTags(objectMapper.writeValueAsString(tags));
-            } catch (Exception ignored) {}
-            task.setSuggestedDifficulty(difficulty);
-            task.setReasoning(reasoning);
-            aiAnalysisTaskRepository.updateById(task);
+            // 异步落库：SUCCESS
+            String tagsJson = null;
+            try { tagsJson = objectMapper.writeValueAsString(tags); } catch (Exception ignored) {}
+            rabbitTemplate.convertAndSend(DbPersistConstants.DB_EXCHANGE, DbPersistConstants.ROUTING_DB_PERSIST,
+                    DbWriteBackEvent.aiLocalSuccess(event.taskUuid(), event.questionUuid(),
+                            tagsJson, difficulty, reasoning, userPrompt, rawResponseForAudit));
 
             publishResult(event, true, tags, difficulty, reasoning, null);
 
         } catch (Exception ex) {
             log.error("AI analysis failed for question={}", event.questionUuid(), ex);
-            failTask(task, ex.getMessage());
+            String errMsg = ex.getMessage();
+            if (errMsg != null && errMsg.length() > 2000) { errMsg = errMsg.substring(0, 2000); }
+            rabbitTemplate.convertAndSend(DbPersistConstants.DB_EXCHANGE, DbPersistConstants.ROUTING_DB_PERSIST,
+                    DbWriteBackEvent.aiLocalFailed(event.taskUuid(), event.questionUuid(),
+                            errMsg, userPrompt, rawResponseForAudit));
             publishResult(event, false, null, null, null, ex.getMessage());
-        }
-    }
-
-    private void failTask(AiAnalysisTask task, String errorMsg) {
-        task.setStatus("FAILED");
-        task.setErrorMsg(errorMsg != null && errorMsg.length() > 2000 ? errorMsg.substring(0, 2000) : errorMsg);
-        try {
-            aiAnalysisTaskRepository.updateById(task);
-        } catch (Exception ex) {
-            log.error("Failed to update AI task record taskUuid={}", task.getTaskUuid(), ex);
         }
     }
 

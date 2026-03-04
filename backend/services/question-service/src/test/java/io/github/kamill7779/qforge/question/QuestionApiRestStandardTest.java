@@ -19,6 +19,7 @@ import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.question.service.QuestionCommandService;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +67,8 @@ class QuestionApiRestStandardTest {
                                 new QuestionMainTagResponse("MAIN_KNOWLEDGE", "Knowledge", "UNCATEGORIZED", "Uncategorized")
                         ),
                         List.of(),
-                        0,
+                        BigDecimal.ZERO,
+                        0L,
                         List.of(),
                         LocalDateTime.of(2026, 3, 1, 0, 30, 0)
                 ),
@@ -79,7 +81,8 @@ class QuestionApiRestStandardTest {
                                 new QuestionMainTagResponse("MAIN_KNOWLEDGE", "Knowledge", "UNCATEGORIZED", "Uncategorized")
                         ),
                         List.of("function"),
-                        2,
+                        new BigDecimal("2"),
+                        1L,
                         List.of(new AnswerOverviewResponse("a-1", "LATEX_TEXT", "$x=1$", 1, false)),
                         LocalDateTime.of(2026, 3, 1, 0, 29, 0)
                 )

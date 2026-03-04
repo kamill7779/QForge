@@ -1,107 +1,84 @@
 package io.github.kamill7779.qforge.ocr.mq;
 
+import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
+import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskCreatedEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
 import io.github.kamill7779.qforge.ocr.client.GlmOcrClient;
 import io.github.kamill7779.qforge.ocr.client.StemXmlConverter;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
-import io.github.kamill7779.qforge.ocr.entity.OcrTask;
-import io.github.kamill7779.qforge.ocr.repository.OcrTaskRepository;
 import java.time.Instant;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.HttpStatusCodeException;
 
+/**
+ * OCR 任务消费者 —— 接收 {@link OcrTaskCreatedEvent}，调用外部 OCR API 处理，
+ * 结果通过 MQ 分别发往 question-service（业务通知）和 persist-service（异步落库）。
+ *
+ * <p>本消费者 <b>不直接访问数据库</b>，所有 DB 写入委托给 persist-service。</p>
+ */
 @Component
 public class OcrTaskConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(OcrTaskConsumer.class);
 
-    private final OcrTaskRepository ocrTaskRepository;
     private final GlmOcrClient glmOcrClient;
     private final StemXmlConverter stemXmlConverter;
     private final RabbitTemplate rabbitTemplate;
 
     public OcrTaskConsumer(
-            OcrTaskRepository ocrTaskRepository,
             GlmOcrClient glmOcrClient,
             StemXmlConverter stemXmlConverter,
             RabbitTemplate rabbitTemplate
     ) {
-        this.ocrTaskRepository = ocrTaskRepository;
         this.glmOcrClient = glmOcrClient;
         this.stemXmlConverter = stemXmlConverter;
         this.rabbitTemplate = rabbitTemplate;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.OCR_TASK_QUEUE)
-    @Transactional
     public void onTaskCreated(OcrTaskCreatedEvent event) {
         log.info("Received OCR task event: taskUuid={}, bizType={}", event.taskUuid(), event.bizType());
 
-        // Retry up to 3 times waiting for DB row to be visible (event may arrive before TX commit)
-        Optional<OcrTask> optional = Optional.empty();
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            optional = ocrTaskRepository.findByTaskUuid(event.taskUuid());
-            if (optional.isPresent()) break;
-            log.warn("OCR task row not ready yet (attempt {}/3), waiting 1s: {}", attempt, event.taskUuid());
-            try { Thread.sleep(1000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
-        }
-        if (optional.isEmpty()) {
-            log.error("OCR task row still not found after 3 attempts, discarding message: {}", event.taskUuid());
-            return;
-        }
-
-        OcrTask task = optional.get();
-        if (!"PENDING".equals(task.getStatus())) {
-            log.info("OCR task already processed (status={}), skipping: {}", task.getStatus(), task.getTaskUuid());
-            return;
-        }
-
-        task.setStatus("PROCESSING");
-        ocrTaskRepository.save(task);
+        // 通知 persist-service：PROCESSING
+        publishDbWriteBack(event.taskUuid(), "PROCESSING", null, null);
 
         try {
-            log.info("Calling GLM OCR for task: {}", task.getTaskUuid());
-            String ocrText = glmOcrClient.recognizeText(task.getImageBase64());
-            log.info("GLM OCR returned text (len={}) for task: {}", ocrText != null ? ocrText.length() : 0, task.getTaskUuid());
+            log.info("Calling GLM OCR for task: {}", event.taskUuid());
+            String ocrText = glmOcrClient.recognizeText(event.imageBase64());
+            log.info("GLM OCR returned text (len={}) for task: {}",
+                    ocrText != null ? ocrText.length() : 0, event.taskUuid());
 
             String resultText;
-            if ("QUESTION_STEM".equals(task.getBizType())) {
-                log.info("Converting OCR text to stem XML for task: {}", task.getTaskUuid());
+            if ("QUESTION_STEM".equals(event.bizType())) {
+                log.info("Converting OCR text to stem XML for task: {}", event.taskUuid());
                 resultText = stemXmlConverter.convertToStemXml(ocrText);
             } else {
                 resultText = ocrText;
             }
 
-            task.setStatus("SUCCESS");
-            task.setRecognizedText(resultText);
-            task.setErrorMsg(null);
-            ocrTaskRepository.save(task);
-            publishResult(task, "SUCCESS", resultText, null, null);
-            log.info("OCR task completed successfully: {}", task.getTaskUuid());
+            // 异步落库 + 业务通知
+            publishDbWriteBack(event.taskUuid(), "SUCCESS", resultText, null);
+            publishResult(event, "SUCCESS", resultText, null, null);
+            log.info("OCR task completed successfully: {}", event.taskUuid());
+
         } catch (HttpStatusCodeException httpEx) {
             String errorCode = "API_HTTP_" + httpEx.getStatusCode().value();
             log.error("OCR API HTTP error for task {}: status={}, body={}",
-                    task.getTaskUuid(), httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
-            task.setStatus("FAILED");
-            task.setErrorMsg(httpEx.getStatusCode() + ": " + httpEx.getResponseBodyAsString());
-            ocrTaskRepository.save(task);
-            publishResult(task, "FAILED", null, errorCode, httpEx.getMessage());
+                    event.taskUuid(), httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
+            String errorMsg = httpEx.getStatusCode() + ": " + httpEx.getResponseBodyAsString();
+            publishDbWriteBack(event.taskUuid(), "FAILED", null, errorMsg);
+            publishResult(event, "FAILED", null, errorCode, httpEx.getMessage());
+
         } catch (RuntimeException ex) {
             String errorCode = classifyError(ex);
-            log.error("OCR task failed [{}] for task {}: {}", errorCode, task.getTaskUuid(), ex.getMessage(), ex);
-            task.setStatus("FAILED");
-            task.setErrorMsg(ex.getMessage());
-            ocrTaskRepository.save(task);
-            publishResult(task, "FAILED", null, errorCode, ex.getMessage());
+            log.error("OCR task failed [{}] for task {}: {}", errorCode, event.taskUuid(), ex.getMessage(), ex);
+            publishDbWriteBack(event.taskUuid(), "FAILED", null, ex.getMessage());
+            publishResult(event, "FAILED", null, errorCode, ex.getMessage());
         }
     }
 
@@ -109,7 +86,6 @@ public class OcrTaskConsumer {
         String msg = ex.getMessage() != null ? ex.getMessage() : "";
         if (msg.contains("apiKey is missing")) return "API_KEY_MISSING";
         if (msg.contains("stem XML conversion failed")) return "XML_CONVERSION_FAILED";
-        // Check cause chain for network errors
         Throwable cursor = ex;
         while (cursor != null) {
             if (cursor instanceof java.net.ConnectException
@@ -123,42 +99,40 @@ public class OcrTaskConsumer {
         return "OCR_PROCESSING_ERROR";
     }
 
+    /** 投递异步落库事件到 persist-service。 */
+    private void publishDbWriteBack(String taskUuid, String status,
+                                     String recognizedText, String errorMsg) {
+        DbWriteBackEvent event = DbWriteBackEvent.ocrLocal(taskUuid, status, recognizedText, errorMsg);
+        rabbitTemplate.convertAndSend(
+                DbPersistConstants.DB_EXCHANGE,
+                DbPersistConstants.ROUTING_DB_PERSIST,
+                event
+        );
+    }
+
+    /** 投递 OCR 结果事件到 question-service（业务通知：Redis + WS push）。 */
     private void publishResult(
-            OcrTask task,
+            OcrTaskCreatedEvent event,
             String status,
             String recognizedText,
             String errorCode,
             String errorMessage
     ) {
         OcrTaskResultEvent resultEvent = new OcrTaskResultEvent(
-                task.getTaskUuid(),
-                task.getBizType(),
-                task.getBizId(),
+                event.taskUuid(),
+                event.bizType(),
+                event.bizId(),
                 status,
                 recognizedText,
                 errorCode,
                 errorMessage,
-                task.getRequestUser(),
+                event.requestUser(),
                 Instant.now().toString()
         );
-        // Delay publishing until after the transaction commits to ensure DB changes are visible.
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    rabbitTemplate.convertAndSend(
-                            RabbitTopologyConfig.OCR_EXCHANGE,
-                            RabbitTopologyConfig.ROUTING_TASK_RESULT,
-                            resultEvent
-                    );
-                }
-            });
-        } else {
-            rabbitTemplate.convertAndSend(
-                    RabbitTopologyConfig.OCR_EXCHANGE,
-                    RabbitTopologyConfig.ROUTING_TASK_RESULT,
-                    resultEvent
-            );
-        }
+        rabbitTemplate.convertAndSend(
+                RabbitTopologyConfig.OCR_EXCHANGE,
+                RabbitTopologyConfig.ROUTING_TASK_RESULT,
+                resultEvent
+        );
     }
 }
