@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +67,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     private static final String CATEGORY_SECONDARY_CUSTOM = "SECONDARY_CUSTOM";
     private static final String TAG_SCOPE_USER = "USER";
     private static final String TAG_CODE_UNCATEGORIZED = "UNCATEGORIZED";
+    private static final String ASSET_CACHE_PREFIX = "question:assets:";
 
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
@@ -81,6 +83,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     private final ObjectMapper objectMapper;
     private final TaskStateRedisService taskStateRedisService;
     private final QForgeBusinessProperties businessProperties;
+    private final StringRedisTemplate redis;
 
     public QuestionCommandServiceImpl(
             QuestionRepository questionRepository,
@@ -96,7 +99,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             RabbitTemplate rabbitTemplate,
             ObjectMapper objectMapper,
             TaskStateRedisService taskStateRedisService,
-            QForgeBusinessProperties businessProperties
+            QForgeBusinessProperties businessProperties,
+            StringRedisTemplate redis
     ) {
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
@@ -112,6 +116,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         this.objectMapper = objectMapper;
         this.taskStateRedisService = taskStateRedisService;
         this.businessProperties = businessProperties;
+        this.redis = redis;
     }
 
     @Override
@@ -379,6 +384,20 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     @Override
     public List<QuestionAssetResponse> listAssets(String questionUuid, String requestUser) {
+        // 优先从 Redis 缓存读取（OcrResultConsumer 写入，30s TTL）
+        try {
+            String cached = redis.opsForValue().get(ASSET_CACHE_PREFIX + questionUuid);
+            if (cached != null && !cached.isBlank()) {
+                List<QuestionAssetResponse> result = objectMapper.readValue(
+                        cached, new TypeReference<List<QuestionAssetResponse>>() {});
+                if (result != null && !result.isEmpty()) {
+                    return result;
+                }
+            }
+        } catch (Exception ignored) {
+            // Redis 不可用时 fallback 到 DB
+        }
+
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         List<QuestionAsset> assets = questionAssetRepository.findByQuestionId(question.getId());
         return assets.stream()

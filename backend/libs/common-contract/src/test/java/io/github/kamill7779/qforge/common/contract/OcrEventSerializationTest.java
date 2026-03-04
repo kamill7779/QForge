@@ -19,7 +19,8 @@ class OcrEventSerializationTest {
                 null,
                 null,
                 "admin",
-                "2026-02-28T12:00:00Z"
+                "2026-02-28T12:00:00Z",
+                null
         );
 
         String json = mapper.writeValueAsString(event);

@@ -2,13 +2,18 @@ package io.github.kamill7779.qforge.ocr.mq;
 
 import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
 import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
+import io.github.kamill7779.qforge.common.contract.ExtractedImage;
 import io.github.kamill7779.qforge.common.contract.OcrTaskCreatedEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
 import io.github.kamill7779.qforge.ocr.client.GlmOcrClient;
+import io.github.kamill7779.qforge.ocr.client.ImageRegionCropper;
 import io.github.kamill7779.qforge.ocr.client.OcrTextPreprocessor;
 import io.github.kamill7779.qforge.ocr.client.StemXmlConverter;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -29,19 +34,25 @@ public class OcrTaskConsumer {
 
     private final GlmOcrClient glmOcrClient;
     private final OcrTextPreprocessor ocrTextPreprocessor;
+    private final ImageRegionCropper imageRegionCropper;
     private final StemXmlConverter stemXmlConverter;
     private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper;
 
     public OcrTaskConsumer(
             GlmOcrClient glmOcrClient,
             OcrTextPreprocessor ocrTextPreprocessor,
+            ImageRegionCropper imageRegionCropper,
             StemXmlConverter stemXmlConverter,
-            RabbitTemplate rabbitTemplate
+            RabbitTemplate rabbitTemplate,
+            ObjectMapper objectMapper
     ) {
         this.glmOcrClient = glmOcrClient;
         this.ocrTextPreprocessor = ocrTextPreprocessor;
+        this.imageRegionCropper = imageRegionCropper;
         this.stemXmlConverter = stemXmlConverter;
         this.rabbitTemplate = rabbitTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.OCR_TASK_QUEUE)
@@ -58,6 +69,7 @@ public class OcrTaskConsumer {
                     ocrText != null ? ocrText.length() : 0, event.taskUuid());
 
             String resultText;
+            String extractedImagesJson = null;
             if ("QUESTION_STEM".equals(event.bizType())) {
                 // 预处理：解析 bbox 标记、清理 Markdown 格式
                 OcrTextPreprocessor.PreprocessResult preprocessed =
@@ -65,6 +77,22 @@ public class OcrTaskConsumer {
                 log.info("OCR text preprocessed for task {}: {} bbox regions, cleaned_len={}",
                         event.taskUuid(), preprocessed.bboxRegions().size(),
                         preprocessed.cleanedText() != null ? preprocessed.cleanedText().length() : 0);
+
+                // 图片裁剪：根据 bbox 从原始图片中裁剪子区域
+                if (!preprocessed.bboxRegions().isEmpty() && event.imageBase64() != null) {
+                    List<ExtractedImage> croppedImages =
+                            imageRegionCropper.crop(event.imageBase64(), preprocessed.bboxRegions());
+                    if (!croppedImages.isEmpty()) {
+                        try {
+                            extractedImagesJson = objectMapper.writeValueAsString(croppedImages);
+                            log.info("Cropped {} images for task {} (json_len={})",
+                                    croppedImages.size(), event.taskUuid(), extractedImagesJson.length());
+                        } catch (JsonProcessingException ex) {
+                            log.warn("Failed to serialize cropped images for task {}: {}",
+                                    event.taskUuid(), ex.getMessage());
+                        }
+                    }
+                }
 
                 log.info("Converting OCR text to stem XML for task: {}", event.taskUuid());
                 resultText = stemXmlConverter.convertToStemXml(preprocessed.cleanedText());
@@ -79,13 +107,13 @@ public class OcrTaskConsumer {
                 publishDbWriteBack(event.taskUuid(), "FAILED", null,
                         "OCR result is empty after conversion");
                 publishResult(event, "FAILED", null, "XML_EMPTY",
-                        "GLM returned empty content for stem XML conversion");
+                        "GLM returned empty content for stem XML conversion", null);
                 return;
             }
 
             // 异步落库 + 业务通知
             publishDbWriteBack(event.taskUuid(), "SUCCESS", resultText, null);
-            publishResult(event, "SUCCESS", resultText, null, null);
+            publishResult(event, "SUCCESS", resultText, null, null, extractedImagesJson);
             log.info("OCR task completed successfully: {}", event.taskUuid());
 
         } catch (HttpStatusCodeException httpEx) {
@@ -94,13 +122,13 @@ public class OcrTaskConsumer {
                     event.taskUuid(), httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
             String errorMsg = httpEx.getStatusCode() + ": " + httpEx.getResponseBodyAsString();
             publishDbWriteBack(event.taskUuid(), "FAILED", null, errorMsg);
-            publishResult(event, "FAILED", null, errorCode, httpEx.getMessage());
+            publishResult(event, "FAILED", null, errorCode, httpEx.getMessage(), null);
 
         } catch (RuntimeException ex) {
             String errorCode = classifyError(ex);
             log.error("OCR task failed [{}] for task {}: {}", errorCode, event.taskUuid(), ex.getMessage(), ex);
             publishDbWriteBack(event.taskUuid(), "FAILED", null, ex.getMessage());
-            publishResult(event, "FAILED", null, errorCode, ex.getMessage());
+            publishResult(event, "FAILED", null, errorCode, ex.getMessage(), null);
         }
     }
 
@@ -138,7 +166,8 @@ public class OcrTaskConsumer {
             String status,
             String recognizedText,
             String errorCode,
-            String errorMessage
+            String errorMessage,
+            String extractedImagesJson
     ) {
         OcrTaskResultEvent resultEvent = new OcrTaskResultEvent(
                 event.taskUuid(),
@@ -149,7 +178,8 @@ public class OcrTaskConsumer {
                 errorCode,
                 errorMessage,
                 event.requestUser(),
-                Instant.now().toString()
+                Instant.now().toString(),
+                extractedImagesJson
         );
         rabbitTemplate.convertAndSend(
                 RabbitTopologyConfig.OCR_EXCHANGE,
