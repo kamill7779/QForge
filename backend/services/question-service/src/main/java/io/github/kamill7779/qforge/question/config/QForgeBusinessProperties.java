@@ -17,8 +17,8 @@ public class QForgeBusinessProperties {
     /** 每道题最多内联图片张数（默认 10）。 */
     private int maxInlineImages = 10;
 
-    /** 每张内联图片二进制字节上限（默认 50 KB = 51200 B）。 */
-    private int maxImageBinaryBytes = 51_200;
+    /** 每张内联图片二进制字节上限（默认 512 KB = 524288 B）。 */
+    private int maxImageBinaryBytes = 524_288;
 
     /** AI 推理文本存入 DB 前的截断长度（默认 1024）。 */
     private int maxReasoningLength = 1024;

@@ -10,6 +10,7 @@
     "katex": "^0.16.11"
   },
   "devDependencies": {
-    "electron": "^31.7.7"
+    "electron": "^31.7.7",
+    "jest": "^29.7.0"
   }
 }

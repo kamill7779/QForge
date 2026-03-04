@@ -1308,7 +1308,13 @@ textarea {
   border-radius: 8px;
   background: #ffffff;
   padding: 8px 10px;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, opacity 0.2s ease, border-style 0.2s ease;
+}
+
+.stem-block.dragging {
+  opacity: 0.35;
+  border-style: dashed;
+  border-color: var(--primary);
 }
 
 .stem-block:focus-within {
@@ -1317,18 +1323,33 @@ textarea {
 
 .block-handle {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 6px;
   margin-bottom: 6px;
 }
 
-.choice-shortcut-hint {
-  font-size: 10px;
+.block-drag-handle {
+  cursor: grab;
   color: var(--muted);
-  font-weight: normal;
-  opacity: 0.7;
-  margin-left: auto;
-  margin-right: 6px;
+  font-size: 14px;
+  padding: 0 2px;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.stem-block:hover .block-drag-handle {
+  opacity: 0.6;
+}
+
+.block-drag-handle:hover {
+  opacity: 1 !important;
+  color: var(--primary);
+}
+
+.block-drag-handle:active {
+  cursor: grabbing;
 }
 
 .block-type-label {
@@ -1337,6 +1358,15 @@ textarea {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  flex: 1;
+}
+
+.choice-shortcut-hint {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: normal;
+  opacity: 0.7;
+  margin-right: 6px;
 }
 
 .block-remove-btn {
@@ -1354,6 +1384,7 @@ textarea {
   padding: 0;
   opacity: 0;
   transition: opacity 0.15s ease;
+  flex-shrink: 0;
 }
 
 .stem-block:hover .block-remove-btn {

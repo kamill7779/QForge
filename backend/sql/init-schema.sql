@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS q_question_asset (
     INDEX idx_q_asset_question     (question_id, asset_type),
     INDEX idx_q_asset_question_ref (question_id, ref_key),
     CONSTRAINT fk_q_asset_question FOREIGN KEY (question_id) REFERENCES q_question(id)
-) COMMENT '题目关联资源（图片 base64），每题最多 10 张，每张最多 30KB';
+) COMMENT '题目关联资源（图片 base64），每题最多 10 张，每张最多 512KB';
 
 ALTER TABLE q_question
     ADD CONSTRAINT fk_q_question_stem_image

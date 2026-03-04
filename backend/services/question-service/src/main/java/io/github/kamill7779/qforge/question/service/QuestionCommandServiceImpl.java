@@ -8,6 +8,7 @@ import io.github.kamill7779.qforge.question.client.OcrServiceCreateTaskRequest;
 import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
+import io.github.kamill7779.qforge.question.dto.AddAnswerResponse;
 import io.github.kamill7779.qforge.question.dto.AiTaskResponse;
 import io.github.kamill7779.qforge.question.dto.AnswerOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.ApplyAiRecommendationRequest;
@@ -216,10 +217,11 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     @Override
     @Transactional
-    public QuestionStatusResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
+    public AddAnswerResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        saveOneAnswer(question, request.getLatexText());
-        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+        Answer answer = saveOneAnswer(question, request.getLatexText());
+        validateAndSyncAnswerImages(question, answer.getAnswerUuid(), request.getInlineImages());
+        return new AddAnswerResponse(question.getQuestionUuid(), question.getStatus(), answer.getAnswerUuid());
     }
 
     @Override
@@ -235,6 +237,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 ));
         answer.setLatexText(request.getLatexText());
         answerRepository.save(answer);
+        validateAndSyncAnswerImages(question, answerUuid, request.getInlineImages());
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -408,7 +411,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                 .toList();
     }
 
-    private void saveOneAnswer(Question question, String latexText) {
+    private Answer saveOneAnswer(Question question, String latexText) {
         Answer answer = new Answer();
         answer.setAnswerUuid(UUID.randomUUID().toString());
         answer.setQuestionId(question.getId());
@@ -417,6 +420,89 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         answer.setSortOrder((int) answerRepository.countByQuestionId(question.getId()) + 1);
         answer.setOfficial(false);
         answerRepository.save(answer);
+        return answer;
+    }
+
+    /**
+     * 校验答案内联图片大小/数量后同步到 q_question_asset。
+     * assetType = ANSWER_IMAGE，fileName 存 answerUuid 以隔离不同答案。
+     */
+    private void validateAndSyncAnswerImages(Question question, String answerUuid,
+                                             Map<String, InlineImageEntry> inlineImages) {
+        if (inlineImages == null) {
+            return; // null 表示客户端未传图片字段，跳过
+        }
+        if (inlineImages.isEmpty()) {
+            // 显式传空 map → 清除该答案的所有图片
+            List<QuestionAsset> existing = questionAssetRepository
+                    .findByQuestionIdAndAssetTypeAndFileName(question.getId(), "ANSWER_IMAGE", answerUuid);
+            for (QuestionAsset asset : existing) {
+                questionAssetRepository.deleteById(asset.getId());
+            }
+            return;
+        }
+        int maxImages = businessProperties.getMaxInlineImages();
+        if (inlineImages.size() > maxImages) {
+            throw new BusinessValidationException(
+                    "ASSET_LIMIT_EXCEEDED",
+                    "An answer can have at most " + maxImages + " inline images",
+                    Map.of("count", inlineImages.size(), "limit", maxImages)
+            );
+        }
+        int maxBytes = businessProperties.getMaxImageBinaryBytes();
+        for (Map.Entry<String, InlineImageEntry> entry : inlineImages.entrySet()) {
+            String imageData = entry.getValue().imageData();
+            if (imageData != null && !imageData.isBlank()) {
+                long approxBytes = (long) (imageData.length() * 3L / 4);
+                if (approxBytes > maxBytes) {
+                    throw new BusinessValidationException(
+                            "ASSET_SIZE_EXCEEDED",
+                            "Image size must not exceed " + (maxBytes / 1024) + " KB",
+                            Map.of("ref", entry.getKey(),
+                                    "approxSizeBytes", approxBytes,
+                                    "limitBytes", maxBytes)
+                    );
+                }
+            }
+        }
+        syncAnswerImages(question, answerUuid, inlineImages);
+    }
+
+    /**
+     * 同步单个答案的内联图片：upsert 传入的图片，删除移除的图片。
+     * 与 syncInlineImages 类似，但使用 asset_type=ANSWER_IMAGE + fileName=answerUuid 隔离。
+     */
+    private void syncAnswerImages(Question question, String answerUuid,
+                                  Map<String, InlineImageEntry> inlineImages) {
+        List<QuestionAsset> existing = questionAssetRepository
+                .findByQuestionIdAndAssetTypeAndFileName(question.getId(), "ANSWER_IMAGE", answerUuid);
+        Map<String, QuestionAsset> existingByRef = existing.stream()
+                .filter(a -> a.getRefKey() != null)
+                .collect(Collectors.toMap(QuestionAsset::getRefKey, a -> a, (a, b) -> a));
+        Set<String> incomingRefs = inlineImages.keySet();
+
+        for (Map.Entry<String, InlineImageEntry> entry : inlineImages.entrySet()) {
+            String ref = entry.getKey();
+            InlineImageEntry img = entry.getValue();
+            QuestionAsset asset = existingByRef.get(ref);
+            if (asset == null) {
+                asset = new QuestionAsset();
+                asset.setAssetUuid(UUID.randomUUID().toString());
+                asset.setQuestionId(question.getId());
+                asset.setRefKey(ref);
+                asset.setAssetType("ANSWER_IMAGE");
+            }
+            asset.setImageData(img.imageData());
+            asset.setMimeType(img.mimeType() != null ? img.mimeType() : "image/png");
+            asset.setFileName(answerUuid);
+            questionAssetRepository.save(asset);
+        }
+
+        for (QuestionAsset asset : existing) {
+            if (asset.getRefKey() != null && !incomingRefs.contains(asset.getRefKey())) {
+                questionAssetRepository.deleteById(asset.getId());
+            }
+        }
     }
 
     /** Initialises default tags for a question if none have been set yet. */

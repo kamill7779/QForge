@@ -1,6 +1,7 @@
 package io.github.kamill7779.qforge.question.controller;
 
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
+import io.github.kamill7779.qforge.question.dto.AddAnswerResponse;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.AiTaskResponse;
@@ -87,7 +88,7 @@ public class QuestionController {
     }
 
     @PostMapping("/{questionUuid}/answers")
-    public ResponseEntity<QuestionStatusResponse> addAnswer(
+    public ResponseEntity<AddAnswerResponse> addAnswer(
             @PathVariable("questionUuid") String questionUuid,
             @Valid @RequestBody CreateAnswerRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser

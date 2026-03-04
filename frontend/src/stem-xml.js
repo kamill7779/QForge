@@ -1,6 +1,7 @@
 ﻿(function (global) {
   const ALLOWED_TAG_NAMES = [
     "stem",
+    "answer",
     "p",
     "image",
     "choices",
@@ -106,7 +107,7 @@
     if (!tokenCount || stack.length > 0 || !root) {
       return { ok: false, root: "" };
     }
-    if (!rootClosed && root !== "stem") {
+    if (!rootClosed && root !== "stem" && root !== "answer") {
       return { ok: false, root: "" };
     }
     return { ok: true, root };
@@ -253,8 +254,101 @@
     toStemXmlPayload,
     toEditorStemText,
     parseStemXmlDocument,
-    normalizeStemXmlForDom
+    normalizeStemXmlForDom,
+    // answer XML support
+    parseAnswerXmlDocument,
+    isValidAnswerXml,
+    toAnswerXmlPayload,
+    toEditorAnswerText
   };
+
+  /* ----------  Answer XML helpers  ---------- */
+
+  function parseAnswerXmlDocument(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return null;
+    if (typeof DOMParser === "undefined") return null;
+    if (!raw.startsWith("<answer")) return null;
+
+    const normalized = normalizeStemXmlForDom(raw);
+    try {
+      const doc = new DOMParser().parseFromString(normalized, "application/xml");
+      if (doc.querySelector("parsererror")) return null;
+      if (!doc.documentElement || doc.documentElement.tagName !== "answer") return null;
+      return doc;
+    } catch {
+      return null;
+    }
+  }
+
+  function isValidAnswerXml(xml) {
+    const raw = String(xml || "").trim();
+    if (!raw) return false;
+    if (typeof DOMParser !== "undefined") {
+      return Boolean(parseAnswerXmlDocument(raw));
+    }
+    const parsed = parseTagSequence(raw);
+    return parsed.ok && parsed.root === "answer";
+  }
+
+  function toAnswerXmlPayload(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return "";
+    if (isValidAnswerXml(raw)) return normalizeStemXmlForDom(raw);
+
+    if (raw.startsWith("<answer")) {
+      const normalized = normalizeStemXmlForDom(raw);
+      if (isValidAnswerXml(normalized)) return normalized;
+    }
+
+    const normalized = raw.replace(/\r\n/g, "\n");
+    const lines = normalized.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+    const paragraphs = lines.length ? lines : [normalized.trim()];
+    const body = paragraphs.map((line) => `<p>${escapeXml(line)}</p>`).join("");
+    return `<answer version="1">${body}</answer>`;
+  }
+
+  function toEditorAnswerText(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return "";
+
+    const doc = parseAnswerXmlDocument(raw);
+    if (doc) {
+      const root = doc.documentElement;
+      const lines = [];
+      for (const child of Array.from(root.childNodes || [])) {
+        if (child.nodeType !== 1) continue;
+        const name = String(child.tagName || "").toLowerCase();
+        if (name === "p") {
+          const text = textOfNode(child).trim();
+          if (text) lines.push(text);
+          continue;
+        }
+        if (name === "image") {
+          lines.push("[image]");
+          continue;
+        }
+        const fallback = textOfNode(child).trim();
+        if (fallback) lines.push(fallback);
+      }
+      const merged = lines.filter(Boolean).join("\n").trim();
+      return merged || raw;
+    }
+
+    // fallback: strip tags
+    const plain = raw
+      .replace(/<image\b[^>]*\/>/gi, "[image]")
+      .replace(/<p\b[^>]*>/gi, "")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]+>/g, "");
+
+    return decodeXml(plain)
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;

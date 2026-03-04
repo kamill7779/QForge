@@ -1,6 +1,7 @@
 package io.github.kamill7779.qforge.question.service;
 
 import io.github.kamill7779.qforge.question.dto.CreateQuestionRequest;
+import io.github.kamill7779.qforge.question.dto.AddAnswerResponse;
 import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
@@ -23,7 +24,7 @@ public interface QuestionCommandService {
     /** Validates stem XML then persists it. */
     QuestionStatusResponse updateStem(String questionUuid, UpdateStemRequest request, String requestUser);
 
-    QuestionStatusResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser);
+    AddAnswerResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser);
 
     /** Updates an existing answer's latex text. */
     QuestionStatusResponse updateAnswer(String questionUuid, String answerUuid, UpdateAnswerRequest request, String requestUser);

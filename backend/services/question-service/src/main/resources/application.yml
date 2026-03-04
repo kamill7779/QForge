@@ -48,7 +48,7 @@ clients:
 qforge:
   business:
     max-inline-images: 10            # 每题最多内联图片数
-    max-image-binary-bytes: 51200    # 每张图片字节上限（50 KB）
+    max-image-binary-bytes: 524288   # 每张图片字节上限（512 KB）
     max-reasoning-length: 1024       # AI 推理文本截断长度
     max-error-message-length: 2048   # AI 错误信息截断长度
 

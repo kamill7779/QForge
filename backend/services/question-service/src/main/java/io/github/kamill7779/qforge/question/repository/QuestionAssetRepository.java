@@ -69,6 +69,19 @@ public interface QuestionAssetRepository extends BaseMapper<QuestionAsset> {
         return Optional.ofNullable(asset);
     }
 
+    /**
+     * 按 asset_type + file_name 查找指定题目下某个答案的所有图片资产。
+     * file_name 存放 answerUuid，用于隔离不同答案的图片。
+     */
+    default List<QuestionAsset> findByQuestionIdAndAssetTypeAndFileName(Long questionId, String assetType, String fileName) {
+        return this.selectList(
+                Wrappers.<QuestionAsset>lambdaQuery()
+                        .eq(QuestionAsset::getQuestionId, questionId)
+                        .eq(QuestionAsset::getAssetType, assetType)
+                        .eq(QuestionAsset::getFileName, fileName)
+        );
+    }
+
     default void softDeleteByQuestionId(Long questionId) {
         List<QuestionAsset> assets = findByQuestionId(questionId);
         for (QuestionAsset asset : assets) {
