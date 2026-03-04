@@ -17,18 +17,15 @@ function parseStemXmlDoc(text){if(window.StemXml&&typeof window.StemXml.parseSte
 function parseAnswerXmlDoc(text){if(window.StemXml&&typeof window.StemXml.parseAnswerXmlDocument==="function")return window.StemXml.parseAnswerXmlDocument(text);try{const parser=new DOMParser();const doc=parser.parseFromString(String(text||""),"application/xml");if(doc.querySelector("parsererror"))return null;return doc.documentElement&&doc.documentElement.tagName==="answer"?doc:null}catch{return null}}
 function toAnswerXmlPayload(text){if(window.StemXml&&typeof window.StemXml.toAnswerXmlPayload==="function")return window.StemXml.toAnswerXmlPayload(text);return String(text||"").trim()}
 function toEditorAnswerText(text){if(window.StemXml&&typeof window.StemXml.toEditorAnswerText==="function")return window.StemXml.toEditorAnswerText(text);return String(text||"")}
-function imageDataUrl(v){const x=String(v||"").trim();if(!x)return"";if(x.startsWith("data:image/"))return x;return `data:image/png;base64,${x}`}
-function resolveStemImage(entry,ref){if(!entry)return"";const key=String(ref||"").trim();if(key&&entry.inlineImages&&entry.inlineImages[key])return entry.inlineImages[key];if(entry.stemImageBase64&&(!key||key==="original"||key==="stem-local"))return entry.stemImageBase64;return""}
-function answerTaskSeed(taskUuid){const seedRaw=String(taskUuid||"").replace(/[^0-9a-f]/gi,"").toLowerCase();return(seedRaw||"draft0000").slice(0,8).padEnd(8,"0")}
-function buildAnswerTaskRef(taskUuid,index){const n=Number(index||0);if(!Number.isFinite(n)||n<=0)return"";return`a${answerTaskSeed(taskUuid)}-img-${n}`}
-function resolveAnswerImage(entry,ref){if(!entry)return"";const key=String(ref||"").trim();if(!key)return"";if(entry.answerImages&&entry.answerImages[key])return entry.answerImages[key];if(entry.inlineImages&&entry.inlineImages[key])return entry.inlineImages[key];const fig=key.match(/^fig-(\\d+)$/i);if(fig){const idx=Number(fig[1]||0);const taskRef=buildAnswerTaskRef(entry.lastAnswerOcrTaskUuid,idx);if(taskRef&&entry.answerImages&&entry.answerImages[taskRef])return entry.answerImages[taskRef];const suffix=`-img-${idx}`;if(entry.answerImages){const hit=Object.keys(entry.answerImages).find(k=>k.endsWith(suffix));if(hit)return entry.answerImages[hit]}if(entry.inlineImages){const hit=Object.keys(entry.inlineImages).find(k=>k.endsWith(suffix));if(hit)return entry.inlineImages[hit]}}return""}
-function ensureInlineImages(entry){if(!entry.inlineImages||typeof entry.inlineImages!=="object")entry.inlineImages={};return entry.inlineImages}
-function generateImageRef(entry){const images=ensureInlineImages(entry);let i=1;while(images[`img-${i}`])i+=1;return`img-${i}`}
-function attachInlineImage(entry,base64){const data=String(base64||"").trim();if(!data)throw new Error("截图数据为空");const images=ensureInlineImages(entry);const ref=generateImageRef(entry);images[ref]=data;entry.updatedAt=Date.now();state.entries.set(entry.questionUuid,entry);return ref}
-// 统一图片引用生成，答案图片与题干一致
-function generateImageRef(entry){const images=ensureInlineImages(entry);let i=1;while(images[`img-${i}`])i+=1;return`img-${i}`}
-function attachAnswerInlineImage(entry,base64){const data=String(base64||"").trim();if(!data)throw new Error("截图数据为空");const images=ensureInlineImages(entry);const ref=generateImageRef(entry);images[ref]=data;entry.updatedAt=Date.now();state.entries.set(entry.questionUuid,entry);return ref}
-function generateAnswerImageRef(entry,answerUuid){if(!entry.answerImages||typeof entry.answerImages!=="object")entry.answerImages={};const seedRaw=String(answerUuid||entry?.lastAnswerOcrTaskUuid||entry?.questionUuid||"draft").replace(/[^0-9a-f]/gi,"").toLowerCase();const seed=(seedRaw||"draft0000").slice(0,8).padEnd(8,"0");let i=1;while(entry.answerImages[`a${seed}-img-${i}`])i+=1;return`a${seed}-img-${i}`}
+const imageRuntime=(window.QForgeImageRuntime&&typeof window.QForgeImageRuntime.createImageRuntime==="function")?window.QForgeImageRuntime.createImageRuntime(state):null
+if(!imageRuntime)throw new Error("QForgeImageRuntime not loaded")
+const imageDataUrl=imageRuntime.imageDataUrl
+const resolveStemImage=imageRuntime.resolveStemImage
+const resolveAnswerImage=imageRuntime.resolveAnswerImage
+const ensureInlineImages=imageRuntime.ensureInlineImages
+const generateImageRef=imageRuntime.generateImageRef
+const attachInlineImage=imageRuntime.attachInlineImage
+const generateAnswerImageRef=imageRuntime.generateAnswerImageRef
 function answerXmlToBlocks(xmlStr){const raw=String(xmlStr||"").trim();if(!raw)return[{type:"p",text:""}];if(raw.startsWith("<answer")){const doc=parseAnswerXmlDoc(raw);if(doc){const blocks=[];const root=doc.documentElement;for(const node of Array.from(root.childNodes)){if(node.nodeType===Node.TEXT_NODE){const t=(node.nodeValue||"").trim();if(t)blocks.push({type:"p",text:t});continue}if(node.nodeType!==Node.ELEMENT_NODE)continue;const tag=String(node.tagName||"").toLowerCase();if(tag==="p"){blocks.push(parsePNodeWithBlanks(node))}else if(tag==="image"){blocks.push({type:"image",ref:node.getAttribute("ref")||"img-1"})}}if(!blocks.length)blocks.push({type:"p",text:""});return blocks}}return[{type:"p",text:raw}]}
 function blocksToAnswerXml(blocks){let x='<answer version="1">';for(const b of blocks){if(b.type==="p"){x+=serializePBlock(b)}else if(b.type==="image"){x+=`<image ref="${escXml(b.ref||"img-1")}" />`}}x+="</answer>";return x}
 function pruneImageRefsFromXml(xmlText,refs){const dropping=new Set((refs||[]).filter(Boolean));if(!dropping.size)return String(xmlText||"");const blocks=xmlToBlocks(xmlText);const keepChoiceItems=(items=[])=>(items||[]).map(it=>({...it,imageRef:it.imageRef&&dropping.has(it.imageRef)?"":it.imageRef||""}));const next=blocks.filter(b=>!(b.type==="image"&&dropping.has((b.ref||"").trim()))).map(b=>b.type==="choices"?{...b,items:keepChoiceItems(b.items)}:b);return blocksToXml(next)}
@@ -294,26 +291,10 @@ async function api(path,method,body){return window.qforge.api.request(path,metho
 async function fetchAssets(questionUuid){const e=state.entries.get(questionUuid);if(!e||e.assetsLoaded)return;try{const r=await api(`/api/questions/${questionUuid}/assets`,"GET");const stemImgs={};const ansImgs={};for(const a of (r.data||[])){if(a.refKey&&a.imageData){if(/^a[0-9a-f]{8}-img-/.test(a.refKey))ansImgs[a.refKey]=a.imageData;else stemImgs[a.refKey]=a.imageData}}e.inlineImages=Object.assign({},e.inlineImages,stemImgs);e.answerImages=Object.assign({},e.answerImages,ansImgs);e.assetsLoaded=true;state.entries.set(questionUuid,e);saveWorkspace();renderAll()}catch(err){log(`图片加载失败: ${errMsg(err)}`)}}
 async function loadTags(){try{const r=await api("/api/tags","GET");state.tagCatalog=normalizeCatalog(r.data||{});for(const e of state.entries.values())ensureMainTags(e)}catch(e){log(`标签字典加载失败: ${errMsg(e)}`)}}
 function wsUrl(){const root=state.config.wsBaseUrl.endsWith("/")?state.config.wsBaseUrl.slice(0,-1):state.config.wsBaseUrl;return `${root}/ws/questions?user=${encodeURIComponent(state.username)}&token=${encodeURIComponent(state.token)}`}
-function upsertWs(msg){
-if(msg.event==="ai.analysis.succeeded"||msg.event==="ai.analysis.failed"){handleAiResult(msg);return}
-const p=msg.payload||{};if(!p.taskUuid)return;const bizType=p.bizType||"QUESTION_STEM";
-const old=state.ocrTasks.get(p.taskUuid)||{taskUuid:p.taskUuid,questionUuid:p.bizId||"",bizType,status:"PENDING",recognizedText:"",errorMessage:"",updatedAt:Date.now()};
-old.questionUuid=p.bizId||old.questionUuid;old.bizType=bizType;
-if(msg.event==="ocr.task.succeeded"){old.status="SUCCESS";old.recognizedText=p.recognizedText||"";old.errorMessage="";log(`OCR成功: ${p.taskUuid}`)}
-else if(msg.event==="ocr.task.failed"){old.status="FAILED";old.errorMessage=p.errorMessage||"Unknown error";log(`OCR失败: ${p.taskUuid}`)}
-old.updatedAt=Date.now();state.ocrTasks.set(p.taskUuid,old);
-const e=state.entries.get(p.bizId);
-if(e){
-if(bizType==="ANSWER_CONTENT"){
-e.lastAnswerOcrTaskUuid=p.taskUuid;e.lastAnswerOcrStatus=old.status;
-if(!e.answerDraft&&old.recognizedText)e.answerDraft=toAnswerXmlPayload(old.recognizedText);
-}else{
-e.lastOcrTaskUuid=p.taskUuid;e.lastOcrStatus=old.status;
-if(!e.stemDraft&&old.recognizedText)e.stemDraft=old.recognizedText;
-}
-e.updatedAt=Date.now();state.entries.set(e.questionUuid,e)
-}}
-function connectWs(){if(!state.username)return;if(state.ws){state.ws.close();state.ws=null}const ws=new WebSocket(wsUrl());state.ws=ws;ws.onopen=()=>{state.wsConnected=true;renderAll();log("WS已连接")};ws.onclose=()=>{state.wsConnected=false;renderAll();log("WS已断开")};ws.onerror=()=>{state.wsConnected=false;renderAll()};ws.onmessage=e=>{try{const msg=JSON.parse(e.data);upsertWs(msg);saveWorkspace();renderAll();if(msg.event==="ocr.task.succeeded"&&msg.payload?.bizId){const te=state.entries.get(msg.payload.bizId);if(te){te.assetsLoaded=false;state.entries.set(te.questionUuid,te)}fetchAssets(msg.payload.bizId)}}catch{log("收到无法解析的WS消息")}}}
+let ocrRuntime=null
+function ensureOcrRuntime(){if(ocrRuntime)return ocrRuntime;if(!(window.QForgeOcrRuntime&&typeof window.QForgeOcrRuntime.createOcrRuntime==="function"))throw new Error("QForgeOcrRuntime not loaded");ocrRuntime=window.QForgeOcrRuntime.createOcrRuntime({state,log,handleAiResult,toAnswerXmlPayload,saveWorkspace,renderAll,fetchAssets,wsUrl});return ocrRuntime}
+function upsertWs(msg){return ensureOcrRuntime().upsertWs(msg)}
+function connectWs(){return ensureOcrRuntime().connectWs()}
 async function toBase64(file){return await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const raw=String(r.result||"");const idx=raw.indexOf(",");res(idx>=0?raw.slice(idx+1):raw)};r.onerror=()=>rej(new Error("读取图片失败"));r.readAsDataURL(file)})}
 function createEntry(q){const stem=q.stemText||"";const ans=Array.isArray(q.answers)?q.answers:[];return normalizeEntry({questionUuid:q.questionUuid,status:q.status,stemText:stem,stemDraft:toEditorStemText(stem),stemConfirmed:Boolean(stem&&stem.trim()),mainTags:q.mainTags,secondaryTags:q.secondaryTags,difficulty:q.difficulty!=null?q.difficulty:null,answerCount:Number(q.answerCount||ans.length||0),answerDraft:"",answersLocal:ans.map(a=>a.latexText).filter(Boolean),answersServerData:ans.filter(a=>a.latexText).map(a=>({answerUuid:a.answerUuid||"",latexText:a.latexText||""})),answerViewIndex:0,lastOcrTaskUuid:"",lastOcrStatus:"",lastAnswerOcrTaskUuid:"",lastAnswerOcrStatus:"",stemImageBase64:"",inlineImages:{},answerImages:{},assetsLoaded:false,updatedAt:Number(q.updatedAt?new Date(q.updatedAt).getTime():Date.now())})}
 async function createTask(){const r=await api("/api/questions","POST",{});const e=createEntry(r.data);state.entries.set(e.questionUuid,e);state.selectedQuestionUuid=e.questionUuid;saveWorkspace();renderAll();log(`新建任务: ${e.questionUuid}`)}
