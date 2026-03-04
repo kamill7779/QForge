@@ -5,6 +5,7 @@ import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskCreatedEvent;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
 import io.github.kamill7779.qforge.ocr.client.GlmOcrClient;
+import io.github.kamill7779.qforge.ocr.client.OcrTextPreprocessor;
 import io.github.kamill7779.qforge.ocr.client.StemXmlConverter;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
 import java.time.Instant;
@@ -27,15 +28,18 @@ public class OcrTaskConsumer {
     private static final Logger log = LoggerFactory.getLogger(OcrTaskConsumer.class);
 
     private final GlmOcrClient glmOcrClient;
+    private final OcrTextPreprocessor ocrTextPreprocessor;
     private final StemXmlConverter stemXmlConverter;
     private final RabbitTemplate rabbitTemplate;
 
     public OcrTaskConsumer(
             GlmOcrClient glmOcrClient,
+            OcrTextPreprocessor ocrTextPreprocessor,
             StemXmlConverter stemXmlConverter,
             RabbitTemplate rabbitTemplate
     ) {
         this.glmOcrClient = glmOcrClient;
+        this.ocrTextPreprocessor = ocrTextPreprocessor;
         this.stemXmlConverter = stemXmlConverter;
         this.rabbitTemplate = rabbitTemplate;
     }
@@ -55,10 +59,28 @@ public class OcrTaskConsumer {
 
             String resultText;
             if ("QUESTION_STEM".equals(event.bizType())) {
+                // 预处理：解析 bbox 标记、清理 Markdown 格式
+                OcrTextPreprocessor.PreprocessResult preprocessed =
+                        ocrTextPreprocessor.preprocess(ocrText);
+                log.info("OCR text preprocessed for task {}: {} bbox regions, cleaned_len={}",
+                        event.taskUuid(), preprocessed.bboxRegions().size(),
+                        preprocessed.cleanedText() != null ? preprocessed.cleanedText().length() : 0);
+
                 log.info("Converting OCR text to stem XML for task: {}", event.taskUuid());
-                resultText = stemXmlConverter.convertToStemXml(ocrText);
+                resultText = stemXmlConverter.convertToStemXml(preprocessed.cleanedText());
             } else {
                 resultText = ocrText;
+            }
+
+            // 空结果检测：不允许空字符串标记为 SUCCESS
+            if (resultText == null || resultText.isBlank()) {
+                log.error("OCR result is empty for task {} (bizType={}), marking FAILED",
+                        event.taskUuid(), event.bizType());
+                publishDbWriteBack(event.taskUuid(), "FAILED", null,
+                        "OCR result is empty after conversion");
+                publishResult(event, "FAILED", null, "XML_EMPTY",
+                        "GLM returned empty content for stem XML conversion");
+                return;
             }
 
             // 异步落库 + 业务通知

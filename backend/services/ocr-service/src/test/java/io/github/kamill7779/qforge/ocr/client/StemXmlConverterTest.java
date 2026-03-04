@@ -11,25 +11,24 @@ import static org.mockito.Mockito.when;
 import ai.z.openapi.ZhipuAiClient;
 import ai.z.openapi.service.model.ChatCompletionCreateParams;
 import ai.z.openapi.service.model.ChatCompletionResponse;
-import io.github.kamill7779.qforge.ocr.config.ZhipuAiProperties;
+import io.github.kamill7779.qforge.ocr.config.StemXmlProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class StemXmlConverterTest {
 
     private ZhipuAiClient zhipuAiClient;
-    private ZhipuAiProperties properties;
+    private StemXmlProperties properties;
     private StemXmlConverter converter;
 
     @BeforeEach
     void setUp() {
         zhipuAiClient = mock(ZhipuAiClient.class, RETURNS_DEEP_STUBS);
 
-        properties = new ZhipuAiProperties();
-        properties.setApiKey("test-key");
-        properties.setModel("glm-5");
+        properties = new StemXmlProperties();
+        properties.setModel("glm-4-0520");
         properties.setTemperature(0.1f);
-        properties.setMaxTokens(2048);
+        properties.setMaxTokens(4096);
 
         converter = new StemXmlConverter(zhipuAiClient, properties);
     }
@@ -76,6 +75,25 @@ class StemXmlConverterTest {
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> converter.convertToStemXml("text"));
         assertEquals("GLM stem XML conversion failed: rate limited", ex.getMessage());
+    }
+
+    @Test
+    void shouldThrowWhenContentIsEmptyAfterRetries() {
+        // GLM returns empty content twice (MAX_RETRIES = 2)
+        mockSuccessResponse("");
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> converter.convertToStemXml("text"));
+        assert ex.getMessage().contains("empty content after 2 attempts");
+    }
+
+    @Test
+    void shouldThrowWhenContentIsNullAfterRetries() {
+        mockSuccessResponse(null);
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> converter.convertToStemXml("text"));
+        assert ex.getMessage().contains("empty content after 2 attempts");
     }
 
     /**

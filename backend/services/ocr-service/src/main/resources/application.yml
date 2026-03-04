@@ -52,12 +52,18 @@ ocr:
       retry-backoff-millis: ${GLM_OCR_RETRY_BACKOFF_MILLIS:800}
       prefer-ipv4: ${GLM_OCR_PREFER_IPV4:true}
 
-# ZhipuAI GLM 模型（OCR 后处理：文本转 stem XML）
+# ZhipuAI GLM 深度推理模型（AI 分析：标签 / 难度 / 解题思路）
 zhipuai:
   api-key: ${ZHIPUAI_API_KEY:}
   model: ${ZHIPUAI_MODEL:glm-5}
   temperature: 0.1
   max-tokens: 65536
+
+# StemXml 转换专用模型（非推理模型，快速稳定）
+stemxml:
+  model: ${STEMXML_MODEL:glm-4-0520}
+  temperature: 0.1
+  max-tokens: 4096
 
 springdoc:
   api-docs:

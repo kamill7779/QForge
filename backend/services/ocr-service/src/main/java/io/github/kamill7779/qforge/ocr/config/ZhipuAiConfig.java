@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
  * 初始化 ZhipuAI 官方 SDK 客户端，用于 OCR 后处理（文本转 XML）。
  */
 @Configuration
-@EnableConfigurationProperties(ZhipuAiProperties.class)
+@EnableConfigurationProperties({ZhipuAiProperties.class, StemXmlProperties.class})
 public class ZhipuAiConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ZhipuAiConfig.class);

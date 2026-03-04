@@ -5,21 +5,28 @@ import ai.z.openapi.service.model.ChatCompletionCreateParams;
 import ai.z.openapi.service.model.ChatCompletionResponse;
 import ai.z.openapi.service.model.ChatMessage;
 import ai.z.openapi.service.model.ChatMessageRole;
-import io.github.kamill7779.qforge.ocr.config.ZhipuAiProperties;
+import io.github.kamill7779.qforge.ocr.config.StemXmlProperties;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * OCR 后处理器：调用 GLM-5 将 OCR 纯文本转换为 stem XML 格式。
+ * OCR 后处理器：调用 GLM 将 OCR 纯文本转换为 stem XML 格式。
  * <p>
- * 流程：OCR (layout_parsing) → 纯文本 → GLM-5 → {@code <stem version="1">...}
+ * 流程：OCR (layout_parsing) → 纯文本 → GLM (glm-4-0520) → {@code <stem version="1">...}
+ * <p>
+ * 使用独立的 {@link StemXmlProperties} 配置（{@code stemxml.*}），
+ * 与 AI 分析（{@code zhipuai.*} / GLM-5）分离，避免深度推理模型的
+ * token 耗尽导致 content 为空的问题。
  */
 @Component
 public class StemXmlConverter {
 
     private static final Logger log = LoggerFactory.getLogger(StemXmlConverter.class);
+
+    /** 空内容重试次数 */
+    private static final int MAX_RETRIES = 2;
 
     private static final String SYSTEM_PROMPT = String.join("\n",
             "You are an XML conversion engine. Convert OCR-recognized math problem text into well-formed XML.",
@@ -80,9 +87,9 @@ public class StemXmlConverter {
     );
 
     private final ZhipuAiClient zhipuAiClient;
-    private final ZhipuAiProperties properties;
+    private final StemXmlProperties properties;
 
-    public StemXmlConverter(ZhipuAiClient zhipuAiClient, ZhipuAiProperties properties) {
+    public StemXmlConverter(ZhipuAiClient zhipuAiClient, StemXmlProperties properties) {
         this.zhipuAiClient = zhipuAiClient;
         this.properties = properties;
     }
@@ -92,7 +99,7 @@ public class StemXmlConverter {
      *
      * @param ocrText OCR 输出的纯文本（含 LaTeX）
      * @return stem XML 字符串
-     * @throws RuntimeException 如果 GLM 调用失败
+     * @throws RuntimeException 如果 GLM 调用失败或返回内容为空
      */
     public String convertToStemXml(String ocrText) {
         if (ocrText == null || ocrText.isBlank()) {
@@ -102,6 +109,20 @@ public class StemXmlConverter {
         log.info("Converting OCR text to stem XML via GLM (model={}, text_len={})",
                 properties.getModel(), ocrText.length());
 
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            String xml = doConvert(ocrText);
+            if (xml != null && !xml.isBlank()) {
+                log.info("Stem XML conversion complete (xml_len={}, attempt={})", xml.length(), attempt);
+                return xml;
+            }
+            log.warn("GLM returned empty content for stem XML conversion (attempt={}/{})", attempt, MAX_RETRIES);
+        }
+
+        throw new RuntimeException("GLM stem XML conversion returned empty content after "
+                + MAX_RETRIES + " attempts (model=" + properties.getModel() + ")");
+    }
+
+    private String doConvert(String ocrText) {
         ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
                 .model(properties.getModel())
                 .messages(List.of(
@@ -130,8 +151,6 @@ public class StemXmlConverter {
 
         // Strip markdown code fences if the model wrapped the output
         xml = stripCodeFences(xml);
-
-        log.info("Stem XML conversion complete (xml_len={})", xml.length());
         return xml;
     }
 

@@ -124,6 +124,7 @@ services:
       JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
       ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
       ZHIPUAI_MODEL: glm-5
+      STEMXML_MODEL: glm-4-0520
     command: >
       bash -c "
         mvn -q -DskipTests -pl libs/common-contract install &&
