@@ -11,7 +11,7 @@ public class AnswerXmlProperties {
 
     private String model = "glm-4-0520";
     private Float temperature = 0.1f;
-    private Integer maxTokens = 4096;
+    private Integer maxTokens = 65536;
 
     public String getModel() {
         return model;

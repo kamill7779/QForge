@@ -19,7 +19,7 @@ public class StemXmlProperties {
     private Float temperature = 0.1f;
 
     /** 最大生成 token 数 */
-    private Integer maxTokens = 4096;
+    private Integer maxTokens = 65536;
 
     public String getModel() {
         return model;
