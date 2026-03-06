@@ -80,3 +80,10 @@ springdoc:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+# Exam auto-parse LLM model (GLM-Z-Plus, 128K context)
+examparse:
+  ai:
+    model: ${EXAMPARSE_AI_MODEL:glm-4-plus}
+    temperature: 0.1
+    max-tokens: 32768

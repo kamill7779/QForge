@@ -36,6 +36,7 @@
           <nav class="main-tabs">
             <button class="tab-btn active" data-tab="entry">录题中心</button>
             <button class="tab-btn" data-tab="bank">题库</button>
+            <button class="tab-btn" data-tab="exam-parse">试卷解析</button>
           </nav>
         </div>
         <div class="topbar-right">
@@ -401,6 +402,50 @@
         </main>
       </div>
 
+      <div id="exam-parse-view" class="workspace ep-workspace hidden">
+        <aside class="left-pane">
+          <section class="card">
+            <h3>上传试卷</h3>
+            <div class="ep-upload-area" id="ep-upload-area">
+              <div class="ep-upload-icon">📄</div>
+              <div class="ep-upload-text">拖拽文件到此处，或点击选择</div>
+              <div class="ep-upload-hint">支持 PDF / JPG / PNG，可多选</div>
+              <input id="ep-file-input" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple class="ep-file-hidden" />
+            </div>
+            <div id="ep-file-chips" class="ep-file-chips"></div>
+            <label class="ep-answer-hint-line">
+              <input id="ep-has-answer" type="checkbox" /> 试卷含答案
+            </label>
+            <div class="row" style="margin-top:8px">
+              <button id="ep-start-btn" class="btn btn-primary" style="width:100%">开始解析</button>
+            </div>
+          </section>
+
+          <section class="card task-list-card">
+            <div class="ep-task-list-head">
+              <h3>解析任务</h3>
+              <button id="ep-refresh-btn" class="btn btn-ghost btn-mini">刷新</button>
+            </div>
+            <div id="ep-task-list" class="entry-list"></div>
+          </section>
+
+          <section class="card logs-card">
+            <h3>解析日志</h3>
+            <ul id="ep-log-list" class="event-log"></ul>
+          </section>
+        </aside>
+
+        <main class="right-pane">
+          <div id="ep-session-panel" class="ep-session-panel">
+            <div class="ep-empty-session">
+              <div class="ep-empty-icon">📋</div>
+              <div class="ep-empty-title">上传试卷开始解析</div>
+              <div class="ep-empty-desc">支持 PDF / 图片，可选多个文件一起上传</div>
+            </div>
+          </div>
+        </main>
+      </div>
+
       <footer class="status-bar">
         <div class="status-left">
           <span id="status-connection" class="status-chip disconnected">连接: 未连接</span>
@@ -423,6 +468,7 @@
     <script src="./runtime/image-runtime.js"></script>
     <script src="./runtime/ocr-runtime.js"></script>
     <script src="./runtime/answer-runtime.js"></script>
+    <script src="./runtime/exam-parse-runtime.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

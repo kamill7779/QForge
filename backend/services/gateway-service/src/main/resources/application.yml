@@ -4,6 +4,8 @@ spring:
   config:
     import:
       - optional:nacos:${spring.application.name}.yml
+  codec:
+    max-in-memory-size: 100MB
   cloud:
     nacos:
       discovery:
@@ -21,6 +23,10 @@ spring:
                 - Path=/api/auth/**
               filters:
                 - StripPrefix=1
+            - id: exam-parse-route
+              uri: lb://question-service
+              predicates:
+                - Path=/api/exam-parse/**
             - id: question-service-route
               uri: lb://question-service
               predicates:

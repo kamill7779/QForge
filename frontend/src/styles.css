@@ -1794,3 +1794,348 @@ textarea {
   font-size: 0.82rem;
   color: var(--text-light, #888);
 }
+
+/* ================================================================
+   试卷解析 (Exam Parse) 标签页
+   ================================================================ */
+
+/* — 工作区整体 — */
+.ep-workspace {
+  grid-template-columns: 328px 1fr;
+}
+
+/* — 上传区 — */
+.ep-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px 12px;
+  border: 2px dashed var(--border, #c8d6e5);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  text-align: center;
+}
+.ep-upload-area:hover,
+.ep-upload-area.drag-over {
+  border-color: var(--primary, #2d6cdf);
+  background: rgba(45, 108, 223, 0.04);
+}
+.ep-upload-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.ep-upload-text {
+  font-size: 0.92rem;
+  color: var(--text, #333);
+}
+.ep-upload-hint {
+  font-size: 0.78rem;
+  color: var(--text-light, #888);
+}
+.ep-file-hidden {
+  display: none;
+}
+
+/* — 文件预览标签 — */
+.ep-file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ep-file-chips:empty {
+  display: none;
+}
+.ep-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 8px;
+  background: var(--bg-light, #f0f4fa);
+  border: 1px solid var(--border, #d0d8e8);
+  border-radius: 14px;
+  font-size: 0.8rem;
+  color: var(--text, #333);
+  line-height: 1.3;
+  transition: background 0.15s;
+}
+.ep-file-chip:hover {
+  background: #e4ebf7;
+}
+.ep-file-chip-icon {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+.ep-file-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.ep-file-chip-size {
+  flex-shrink: 0;
+  color: var(--text-light, #999);
+  font-size: 0.72rem;
+}
+.ep-file-chip-x {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-light, #999);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+.ep-file-chip-x:hover {
+  color: #d32f2f;
+  background: rgba(211, 47, 47, 0.1);
+}
+
+.ep-answer-hint-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+/* — 任务列表头 — */
+.ep-task-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ep-task-list-head h3 {
+  margin: 0;
+}
+
+/* — 右侧会话面板 — */
+.ep-session-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding: 6px 0;
+  min-height: 0;
+  flex: 1;
+}
+
+/* 空态占位 */
+.ep-empty-session {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 60px 20px;
+  color: var(--text-light, #888);
+  text-align: center;
+}
+.ep-empty-icon {
+  font-size: 3rem;
+  line-height: 1;
+  opacity: 0.55;
+}
+.ep-empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text, #333);
+}
+.ep-empty-desc {
+  font-size: 0.85rem;
+}
+
+/* — 任务卡片 — */
+.ep-session-task {
+  padding: 14px;
+}
+.ep-task-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ep-task-id {
+  font-weight: 600;
+  font-size: 0.92rem;
+  font-family: "Cascadia Mono", "Fira Code", monospace;
+}
+.ep-task-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: var(--text-light, #888);
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.ep-task-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* — 进度条 — */
+.ep-progress-bar {
+  height: 6px;
+  background: var(--border, #e0e0e0);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.ep-progress-fill {
+  height: 100%;
+  background: var(--primary, #2d6cdf);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.ep-progress-text {
+  font-size: 0.78rem;
+  color: var(--text-light, #888);
+  margin-top: 2px;
+}
+
+/* — 错误信息 — */
+.ep-error-msg,
+.ep-q-error-msg {
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 0.82rem;
+  margin-top: 6px;
+}
+
+/* — 题目卡片列表 — */
+.ep-question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ep-question-card {
+  padding: 12px 14px;
+}
+.ep-question-card.ep-q-error {
+  border-left: 3px solid #ef4444;
+}
+.ep-q-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ep-q-seq {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.ep-q-type {
+  font-size: 0.82rem;
+  color: var(--text-light, #888);
+}
+.ep-q-section {
+  margin-top: 6px;
+}
+.ep-q-label {
+  font-size: 0.78rem;
+  color: var(--text-light, #888);
+  margin-bottom: 2px;
+}
+.ep-q-content {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  word-break: break-word;
+  background: var(--bg-light, #f5f8fc);
+  padding: 6px 10px;
+  border-radius: 5px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.ep-q-content p.stem-p { margin: 4px 0; }
+.ep-q-content .ep-inline-image {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  margin: 6px auto;
+  border-radius: 4px;
+  border: 1px solid var(--border, #e0e0e0);
+}
+.ep-q-content .ep-image-placeholder {
+  display: inline-block;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px dashed #ffc107;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 0.82rem;
+  margin: 2px 0;
+}
+.ep-q-content .empty-note {
+  color: var(--text-light, #999);
+  font-style: italic;
+}
+.ep-q-content .choices-container {
+  margin: 4px 0 4px 6px;
+}
+.ep-q-content .choice-item {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+.ep-q-content .choice-key {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ep-q-content .choice-content {
+  flex: 1;
+}
+
+/* — 等待动画 — */
+.ep-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: var(--text-light, #888);
+  font-size: 0.92rem;
+}
+.ep-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border, #e0e0e0);
+  border-top-color: var(--primary, #2d6cdf);
+  border-radius: 50%;
+  animation: ep-spin 0.8s linear infinite;
+}
+@keyframes ep-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* — 左侧任务列表条目进度 — */
+.ep-progress {
+  font-size: 0.78rem;
+  color: var(--primary, #2d6cdf);
+  font-weight: 600;
+}
+
+/* — 按钮变体 — */
+.btn-danger {
+  color: #fff;
+  background: #ef4444;
+  border-color: #ef4444;
+}
+.btn-danger:hover {
+  background: #dc2626;
+}

@@ -98,6 +98,96 @@ async function requestBackend({ endpointPath, method = "GET", token, body }) {
   };
 }
 
+async function requestBackendMultipart({ endpointPath, token, filePaths, fields }) {
+  if (!endpointPath || typeof endpointPath !== "string") {
+    throw new Error("endpointPath is required");
+  }
+  const target = endpointPath.startsWith("http")
+    ? endpointPath
+    : `${API_BASE_URL}${endpointPath}`;
+
+  const boundary = "----QForgeBoundary" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const CRLF = "\r\n";
+  const parts = [];
+
+  // text fields
+  for (const [key, val] of Object.entries(fields || {})) {
+    parts.push(
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="${key}"${CRLF}${CRLF}${val}`
+    );
+  }
+
+  // file fields
+  const fsSync = require("node:fs");
+  const pathModule = require("node:path");
+  for (const fp of (filePaths || [])) {
+    const filename = pathModule.basename(fp);
+    const ext = pathModule.extname(fp).toLowerCase();
+    const mime = ext === ".pdf" ? "application/pdf"
+      : ext === ".png" ? "image/png"
+      : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg"
+      : "application/octet-stream";
+    const fileContent = fsSync.readFileSync(fp);
+    parts.push(
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="files"; filename="${filename}"${CRLF}Content-Type: ${mime}${CRLF}${CRLF}`
+    );
+    parts.push(fileContent);
+  }
+
+  // closing boundary
+  const closing = `${CRLF}--${boundary}--${CRLF}`;
+
+  // build body as a single Buffer
+  const bufParts = [];
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (typeof p === "string") {
+      bufParts.push(Buffer.from(p, "utf-8"));
+    } else {
+      bufParts.push(p);
+    }
+    // add CRLF between text-header and next part
+    if (i < parts.length - 1 && typeof parts[i + 1] === "string") {
+      bufParts.push(Buffer.from(CRLF, "utf-8"));
+    }
+  }
+  bufParts.push(Buffer.from(closing, "utf-8"));
+
+  const bodyBuffer = Buffer.concat(bufParts);
+
+  const headers = {
+    "Content-Type": `multipart/form-data; boundary=${boundary}`,
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(target, {
+    method: "POST",
+    headers,
+    body: bodyBuffer
+  });
+
+  const raw = await response.text();
+  let data = null;
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = { raw };
+    }
+  }
+
+  if (!response.ok) {
+    const error = new Error(`Request failed: ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+
+  return { status: response.status, data };
+}
+
 function sendToMainWindow(channel, payload) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send(channel, payload);
@@ -240,6 +330,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle("api:request", async (_event, payload) => {
     return requestBackend(payload || {});
+  });
+
+  ipcMain.handle("api:upload-multipart", async (_event, payload) => {
+    return requestBackendMultipart(payload || {});
   });
 
   ipcMain.handle("credentials:load", loadCredentials);

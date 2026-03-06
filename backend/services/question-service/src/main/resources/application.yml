@@ -1,6 +1,10 @@
 spring:
   application:
     name: question-service
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
   config:
     import:
       - optional:nacos:${spring.application.name}.yml

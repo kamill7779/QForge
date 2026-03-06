@@ -20,6 +20,15 @@
         return;
       }
 
+      // 转发 exam-parse 事件
+      const evt = msg.event || "";
+      if (evt.startsWith("exam.parse.")) {
+        if (typeof deps.handleExamParseWs === "function") {
+          deps.handleExamParseWs(msg);
+        }
+        return;
+      }
+
       const p = msg.payload || {};
       if (!p.taskUuid) return;
 

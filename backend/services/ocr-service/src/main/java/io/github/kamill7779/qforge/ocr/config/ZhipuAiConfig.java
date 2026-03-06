@@ -14,7 +14,8 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties({
         ZhipuAiProperties.class,
         StemXmlProperties.class,
-        AnswerXmlProperties.class
+        AnswerXmlProperties.class,
+        ExamParseAiProperties.class
 })
 public class ZhipuAiConfig {
 

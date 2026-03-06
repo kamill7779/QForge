@@ -260,6 +260,7 @@ services:
       ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY}
       ZHIPUAI_MODEL: glm-5
       STEMXML_MODEL: glm-4-0520
+      EXAMPARSE_AI_MODEL: glm-4-plus
     # No fixed host port — supports multi-instance
     depends_on:
       mysql:

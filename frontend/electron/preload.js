@@ -9,7 +9,9 @@ contextBridge.exposeInMainWorld("qforge", {
   },
   api: {
     request: (endpointPath, method, token, body) =>
-      ipcRenderer.invoke("api:request", { endpointPath, method, token, body })
+      ipcRenderer.invoke("api:request", { endpointPath, method, token, body }),
+    uploadMultipart: (endpointPath, token, filePaths, fields) =>
+      ipcRenderer.invoke("api:upload-multipart", { endpointPath, token, filePaths, fields })
   },
   credentials: {
     load: () => ipcRenderer.invoke("credentials:load"),

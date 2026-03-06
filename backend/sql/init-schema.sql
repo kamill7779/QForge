@@ -221,3 +221,57 @@ WHERE NOT EXISTS (
     SELECT 1 FROM q_tag
     WHERE scope = 'SYSTEM' AND owner_user = '' AND category_code = 'MAIN_KNOWLEDGE' AND tag_code = 'UNCATEGORIZED'
 );
+
+-- =====================================================================
+-- 试卷自动解析 (Exam Auto-Parse) — 2026-03-06
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS q_exam_parse_task (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_uuid       CHAR(36)     NOT NULL UNIQUE,
+    owner_user      VARCHAR(128) NOT NULL,
+    status          VARCHAR(32)  NOT NULL DEFAULT 'PENDING',
+    -- PENDING / OCR_PROCESSING / SPLITTING / GENERATING / SUCCESS / PARTIAL_FAILED / FAILED
+    progress        TINYINT      NOT NULL DEFAULT 0,
+    file_count      INT          NOT NULL DEFAULT 0,
+    total_pages     INT          NOT NULL DEFAULT 0,
+    question_count  INT          NOT NULL DEFAULT 0,
+    has_answer_hint BOOLEAN      NOT NULL DEFAULT FALSE,
+    error_msg       VARCHAR(2048)         NULL,
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_ept_owner_user (owner_user),
+    INDEX idx_ept_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS q_exam_parse_source_file (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_uuid       CHAR(36)     NOT NULL,
+    file_index      INT          NOT NULL,
+    file_name       VARCHAR(255) NOT NULL,
+    file_type       VARCHAR(16)  NOT NULL,
+    page_count      INT          NOT NULL DEFAULT 1,
+    file_data       LONGTEXT     NOT NULL,
+    ocr_status      VARCHAR(32)  NOT NULL DEFAULT 'PENDING',
+    INDEX idx_epsf_task_uuid (task_uuid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS q_exam_parse_question (
+    id                 BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_uuid          CHAR(36)     NOT NULL,
+    seq_no             INT          NOT NULL,
+    question_type      VARCHAR(32)  NULL,
+    raw_stem_text      LONGTEXT     NULL,
+    stem_xml           LONGTEXT     NULL,
+    raw_answer_text    LONGTEXT     NULL,
+    answer_xml         LONGTEXT     NULL,
+    stem_images_json   TEXT         NULL,
+    answer_images_json TEXT         NULL,
+    source_pages       VARCHAR(255) NULL,
+    parse_error        TINYINT(1)   NOT NULL DEFAULT 0,
+    question_uuid      CHAR(36)     NULL,
+    confirm_status     VARCHAR(32)  NOT NULL DEFAULT 'PENDING',
+    error_msg          VARCHAR(1024)         NULL,
+    created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_epq_task_uuid_seq (task_uuid, seq_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
