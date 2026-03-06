@@ -108,9 +108,16 @@ public class ExamImageCropper {
             }
 
             // 替换文本中的 ref（保留原 ref 标签格式，替换为最终 ref）
-            replacedText = replacedText.replace(
-                    "ref=\"" + ref + "\"",
-                    "ref=\"" + finalRef + "\"");
+            if (replacedText.contains("ref=\"" + ref + "\"")) {
+                replacedText = replacedText.replace(
+                        "ref=\"" + ref + "\"",
+                        "ref=\"" + finalRef + "\"");
+            } else if (!cropped.isEmpty()) {
+                // LLM 拆题时可能丢失 <image> 标签，但通过 ###STEM_IMAGES### 声明了 ref。
+                // 将图片标签注入到文本末尾，确保下游能渲染。
+                replacedText = replacedText + "\n<image ref=\"" + finalRef + "\" />";
+                log.info("Injected missing <image ref='{}'/> tag into text for ref '{}'", finalRef, ref);
+            }
 
             idx++;
         }

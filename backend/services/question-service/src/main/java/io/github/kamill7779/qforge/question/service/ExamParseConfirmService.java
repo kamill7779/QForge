@@ -113,6 +113,7 @@ public class ExamParseConfirmService {
         List<ExtractedImage> stemImages = parseImages(epq.getStemImagesJson());
         for (ExtractedImage img : stemImages) {
             QuestionAsset asset = new QuestionAsset();
+            asset.setAssetUuid(UUID.randomUUID().toString());
             asset.setQuestionId(q.getId());
             asset.setAssetType("INLINE_IMAGE");
             asset.setRefKey(img.refKey());
@@ -137,6 +138,7 @@ public class ExamParseConfirmService {
             List<ExtractedImage> answerImages = parseImages(epq.getAnswerImagesJson());
             for (ExtractedImage img : answerImages) {
                 AnswerAsset asset = new AnswerAsset();
+                asset.setAssetUuid(UUID.randomUUID().toString());
                 asset.setQuestionId(q.getId());
                 asset.setAnswerId(answer.getId());
                 asset.setRefKey(img.refKey());

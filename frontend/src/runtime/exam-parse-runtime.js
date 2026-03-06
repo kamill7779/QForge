@@ -614,8 +614,20 @@
       span.textContent = text.substring(lastIdx);
       node.appendChild(span);
     }
-    // [配图] 文本标记也显示为提示
-    const placeholderMarkers = node.querySelectorAll ? [] : [];
+    // 如果 imageMap 中有图片但文本中没有对应的 <image> 标签（LLM 丢失了标签），
+    // 将所有孤立图片追加到内容末尾。
+    const usedRefs = new Set();
+    const allImgEls = node.querySelectorAll(".ep-inline-image");
+    allImgEls.forEach(el => usedRefs.add(el.alt));
+    for (const [ref, src] of Object.entries(imageMap)) {
+      if (!usedRefs.has(ref)) {
+        const img = document.createElement("img");
+        img.className = "ep-inline-image";
+        img.src = src;
+        img.alt = ref;
+        node.appendChild(img);
+      }
+    }
     // KaTeX 后处理
     if (typeof window.renderMathInElement === "function") {
       try { window.renderMathInElement(node, { delimiters: KATEX_DELIMITERS, throwOnError: false, strict: "ignore" }); } catch {}
@@ -695,16 +707,17 @@
       const stemImageMap = buildImageMap(q.stemImagesJson);
       const answerImageMap = buildImageMap(q.answerImagesJson);
 
-      // 题干
+      // 题干 —— 优先用 rawStemText（人类可读 + LaTeX）
+      // stemXml 由 LLM 转换，可能丢失 <image> 标签且格式不稳定
       const stemNode = panel.querySelector(`.ep-q-stem[data-seq="${q.seqNo}"]`);
       if (stemNode) {
-        renderRichContent(stemNode, q.stemXml || q.rawStemText || "", stemImageMap);
+        renderRichContent(stemNode, q.rawStemText || q.stemXml || "", stemImageMap);
       }
 
-      // 答案
+      // 答案 —— 同理优先 rawAnswerText
       const answerNode = panel.querySelector(`.ep-q-answer[data-seq="${q.seqNo}"]`);
       if (answerNode) {
-        renderRichContent(answerNode, q.answerXml || q.rawAnswerText || "", answerImageMap);
+        renderRichContent(answerNode, q.rawAnswerText || q.answerXml || "", answerImageMap);
       }
     }
   }

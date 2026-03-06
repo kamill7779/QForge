@@ -50,10 +50,17 @@ public class GlmOcrClientImpl implements GlmOcrClient {
 
     @Override
     public String recognizeText(String imageBase64) {
+        return recognizeText(imageBase64, OCR_PROMPT);
+    }
+
+    @Override
+    public String recognizeText(String imageBase64, String customPrompt) {
         if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
             log.error("GLM OCR apiKey is missing or blank");
             throw new RestClientException("GLM OCR apiKey is missing");
         }
+
+        String prompt = (customPrompt != null && !customPrompt.isBlank()) ? customPrompt : OCR_PROMPT;
 
         log.info("Starting OCR recognition (endpoint={}, model={}, imageLen={})",
                 properties.getEndpoint(), properties.getModel(),
@@ -62,7 +69,7 @@ public class GlmOcrClientImpl implements GlmOcrClient {
         int maxAttempts = Math.max(1, properties.getRetryMaxAttempts());
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                String result = doRecognizeText(imageBase64);
+                String result = doRecognizeText(imageBase64, prompt);
                 log.info("OCR recognition succeeded (resultLen={})", result != null ? result.length() : 0);
                 return result;
             } catch (RestClientException ex) {
@@ -77,7 +84,7 @@ public class GlmOcrClientImpl implements GlmOcrClient {
         throw new RestClientException("GLM OCR request failed after retry attempts");
     }
 
-    private String doRecognizeText(String imageBase64) {
+    private String doRecognizeText(String imageBase64, String prompt) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(properties.getApiKey());
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -85,7 +92,7 @@ public class GlmOcrClientImpl implements GlmOcrClient {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", properties.getModel());
         payload.put("file", toLayoutParsingFile(imageBase64));
-        payload.put("prompt", OCR_PROMPT);
+        payload.put("prompt", prompt);
 
         ResponseEntity<Map> responseEntity;
         try {

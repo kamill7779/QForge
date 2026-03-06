@@ -30,9 +30,10 @@ public class OcrTextPreprocessor {
 
     /**
      * 匹配 bbox 标记：{@code ![...](page=N,bbox=[x1, y1, x2, y2])}
+     * 支持整数和浮点坐标。
      */
     private static final Pattern BBOX_PATTERN = Pattern.compile(
-            "!\\[.*?]\\(page=(\\d+),bbox=\\[(\\d+),\\s*(\\d+),\\s*(\\d+),\\s*(\\d+)]\\)");
+            "!\\[.*?]\\(page=(\\d+),\\s*bbox=\\[([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)]\\)");
 
     /**
      * 匹配图片标签块：{@code <div align="center">\n图N\n</div>}
@@ -99,10 +100,10 @@ public class OcrTextPreprocessor {
             regions.add(new BboxRegion(
                     figIndex++,
                     Integer.parseInt(matcher.group(1)),
-                    Integer.parseInt(matcher.group(2)),
-                    Integer.parseInt(matcher.group(3)),
-                    Integer.parseInt(matcher.group(4)),
-                    Integer.parseInt(matcher.group(5))
+                    (int) Math.round(Double.parseDouble(matcher.group(2))),
+                    (int) Math.round(Double.parseDouble(matcher.group(3))),
+                    (int) Math.round(Double.parseDouble(matcher.group(4))),
+                    (int) Math.round(Double.parseDouble(matcher.group(5)))
             ));
         }
 

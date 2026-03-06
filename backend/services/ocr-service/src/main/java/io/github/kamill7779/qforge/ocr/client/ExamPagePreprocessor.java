@@ -20,9 +20,12 @@ public class ExamPagePreprocessor {
 
     private static final Logger log = LoggerFactory.getLogger(ExamPagePreprocessor.class);
 
-    /** 复用与 OcrTextPreprocessor 相同的 bbox 正则 */
+    /**
+     * bbox 正则：支持整数和浮点坐标。
+     * 匹配示例：![](page=0,bbox=[226, 241, 419, 364]) 或 ![](page=0,bbox=[226.5, 241.0, 419.5, 364.0])
+     */
     private static final Pattern BBOX_PATTERN = Pattern.compile(
-            "!\\[.*?]\\(page=(\\d+),bbox=\\[(\\d+),\\s*(\\d+),\\s*(\\d+),\\s*(\\d+)]\\)");
+            "!\\[.*?]\\(page=(\\d+),\\s*bbox=\\[([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)]\\)");
 
     private static final Pattern CAPTION_BLOCK_PATTERN = Pattern.compile(
             "<div\\s+align=\"center\">\\s*\\n?\\s*图\\d+\\s*\\n?\\s*</div>",
@@ -73,10 +76,10 @@ public class ExamPagePreprocessor {
         int figSeq = 1;
         StringBuilder sb = new StringBuilder();
         while (matcher.find()) {
-            int x1 = Integer.parseInt(matcher.group(2));
-            int y1 = Integer.parseInt(matcher.group(3));
-            int x2 = Integer.parseInt(matcher.group(4));
-            int y2 = Integer.parseInt(matcher.group(5));
+            int x1 = (int) Math.round(Double.parseDouble(matcher.group(2)));
+            int y1 = (int) Math.round(Double.parseDouble(matcher.group(3)));
+            int x2 = (int) Math.round(Double.parseDouble(matcher.group(4)));
+            int y2 = (int) Math.round(Double.parseDouble(matcher.group(5)));
 
             String ref = "fig-" + globalPage + "-" + figSeq;
             entries.add(new ImageRegistryEntry(ref, globalPage, x1, y1, x2, y2,
@@ -96,6 +99,10 @@ public class ExamPagePreprocessor {
 
         log.info("Exam page preprocessed: globalPage={}, {} image entries, text_len {} → {}",
                 globalPage, entries.size(), ocrText.length(), text.length());
+        if (entries.isEmpty() && ocrText.contains("![")) {
+            log.warn("OCR text contains '![' but no bbox matched. Raw snippet: {}",
+                    ocrText.substring(0, Math.min(400, ocrText.length())));
+        }
 
         return new PreprocessResult(text, Collections.unmodifiableList(entries));
     }
