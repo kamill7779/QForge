@@ -239,7 +239,7 @@ record CroppedImage(
 | `StemXmlConverter.java` | 使用 `StemXmlProperties` 替代 `ZhipuAiProperties`；新增空内容重试 (MAX_RETRIES=2)；空内容抛异常而非静默返回 |
 | `OcrTaskConsumer.java` | 注入 `OcrTextPreprocessor`；QUESTION_STEM 先预处理再转 XML；空结果检测 → FAILED |
 | `ZhipuAiConfig.java` | 注册 `StemXmlProperties` |
-| `application.yml` | 新增 `stemxml:` 配置节 (`model: glm-4-0520`, `max-tokens: 4096`) |
+| `application.yml` | 新增 `stemxml:` 配置节 (`model: glm-4-0520`, `max-tokens: 65536`) |
 | `docker-compose.yml` | 新增 `STEMXML_MODEL: glm-4-0520` |
 | `docker-compose.dev.yml` | 新增 `STEMXML_MODEL: glm-4-0520` |
 | `StemXmlConverterTest.java` | 改用 `StemXmlProperties`；新增空内容/null 重试测试 |
@@ -269,7 +269,7 @@ zhipuai:
 stemxml:
   model: ${STEMXML_MODEL:glm-4-0520}
   temperature: 0.1
-  max-tokens: 4096
+  max-tokens: 65536
 ```
 
 ### 4.2 环境变量
@@ -302,7 +302,7 @@ stemxml:
 stemxml:
   model: glm-4-0520     # 可热切换
   temperature: 0.1
-  max-tokens: 4096
+  max-tokens: 4655366
 ```
 
 ---

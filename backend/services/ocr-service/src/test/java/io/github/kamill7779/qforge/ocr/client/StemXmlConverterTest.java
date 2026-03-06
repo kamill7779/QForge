@@ -28,7 +28,7 @@ class StemXmlConverterTest {
         properties = new StemXmlProperties();
         properties.setModel("glm-4-0520");
         properties.setTemperature(0.1f);
-        properties.setMaxTokens(4096);
+        properties.setMaxTokens(65536);
 
         converter = new StemXmlConverter(zhipuAiClient, properties);
     }

@@ -63,13 +63,13 @@ zhipuai:
 stemxml:
   model: ${STEMXML_MODEL:glm-4-0520}
   temperature: 0.1
-  max-tokens: 4096
+  max-tokens: 65536
 
 # AnswerXml conversion model (independent from stemxml)
 answerxml:
   model: ${ANSWERXML_MODEL:glm-4-0520}
   temperature: 0.1
-  max-tokens: 4096
+  max-tokens: 65536
 
 springdoc:
   api-docs:
