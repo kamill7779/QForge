@@ -22,6 +22,7 @@ import type {
   InlineImageEntry
 } from '@/api/types'
 import { useNotificationStore } from './notification'
+import { useTagStore } from './tag'
 
 // ──────────────────── Types ────────────────────
 
@@ -490,9 +491,35 @@ export const useQuestionStore = defineStore('question', () => {
     tags: string[]
   ): Promise<void> {
     await questionApi.updateTags(token, uuid, { tags })
+    // Local update: classify tags using catalog instead of full syncQuestions
+    const entry = entries.value.get(uuid)
+    if (entry) {
+      const tagStore = useTagStore()
+      const knownCodes = new Map<string, { categoryCode: string; categoryName: string; tagName: string }>()
+      for (const cat of tagStore.mainCategories) {
+        for (const opt of cat.options) {
+          knownCodes.set(opt.tagCode, {
+            categoryCode: cat.categoryCode,
+            categoryName: cat.categoryName,
+            tagName: opt.tagName
+          })
+        }
+      }
+      const mainTags: QuestionMainTagResponse[] = []
+      const secondaryTags: string[] = []
+      for (const t of tags) {
+        const info = knownCodes.get(t)
+        if (info) {
+          mainTags.push({ categoryCode: info.categoryCode, categoryName: info.categoryName, tagCode: t, tagName: info.tagName })
+        } else {
+          secondaryTags.push(t)
+        }
+      }
+      entry.mainTags = mainTags
+      entry.secondaryTags = secondaryTags
+      markDirty()
+    }
     notif.log(`更新标签 ${uuid.slice(0, 8)}`)
-    // Re-sync to get updated tag data
-    await syncQuestions(token)
   }
 
   /** Update difficulty for a question. */
@@ -592,8 +619,32 @@ export const useQuestionStore = defineStore('question', () => {
       markDirty()
     }
     notif.log(`应用AI推荐 ${uuid.slice(0, 8)}`)
-    // Background sync to pick up tag changes (non-blocking)
-    syncQuestions(token).catch(() => { /* ignore */ })
+    // Tags were updated server-side; do a targeted local refresh
+    if (tags && tags.length && entry) {
+      const tagStore = useTagStore()
+      const knownCodes = new Map<string, { categoryCode: string; categoryName: string; tagName: string }>()
+      for (const cat of tagStore.mainCategories) {
+        for (const opt of cat.options) {
+          knownCodes.set(opt.tagCode, {
+            categoryCode: cat.categoryCode,
+            categoryName: cat.categoryName,
+            tagName: opt.tagName
+          })
+        }
+      }
+      const mainTags: QuestionMainTagResponse[] = []
+      const secondaryTags: string[] = []
+      for (const t of tags) {
+        const info = knownCodes.get(t)
+        if (info) {
+          mainTags.push({ categoryCode: info.categoryCode, categoryName: info.categoryName, tagCode: t, tagName: info.tagName })
+        } else {
+          secondaryTags.push(t)
+        }
+      }
+      entry.mainTags = mainTags
+      entry.secondaryTags = secondaryTags
+    }
   }
 
   // ── Actions — Selection ──

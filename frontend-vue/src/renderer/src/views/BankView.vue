@@ -810,7 +810,7 @@ function diffClass(d: number): string {
   margin: 16px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
   animation: fadeInUp 0.3s ease;
 }
 
