@@ -6,12 +6,14 @@
         v-if="!pending && !result"
         class="ai-trigger-btn"
         :disabled="disabled"
+        :title="disabled ? disabledTip : ''"
         @click="emit('requestAnalysis')"
       >
         🤖 AI 分析
       </button>
       <span v-if="pending" class="ai-status pending">
         ⏳ 分析中...
+        <button class="ai-cancel-btn" @click="emit('cancelAnalysis')">取消</button>
       </span>
     </div>
 
@@ -76,16 +78,19 @@ const props = withDefaults(
     pending?: boolean
     result?: AiTaskResponse | null
     disabled?: boolean
+    disabledTip?: string
   }>(),
   {
     pending: false,
-    disabled: false
+    disabled: false,
+    disabledTip: ''
   }
 )
 
 const emit = defineEmits<{
   requestAnalysis: []
   applyRecommendation: []
+  cancelAnalysis: []
 }>()
 
 const tagStore = useTagStore()
@@ -143,9 +148,27 @@ const diffLevel = computed(() => {
 }
 
 .ai-status.pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.85rem;
   color: var(--color-warning);
   animation: pulse 1.5s infinite;
+}
+
+.ai-cancel-btn {
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all var(--transition-fast);
+}
+.ai-cancel-btn:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 @keyframes pulse {

@@ -99,8 +99,20 @@ async function requestBackend({
     fetchBody = JSON.stringify(body)
   }
 
-  const res = await fetch(url, { method, headers, body: fetchBody })
-  return parseResponse(res)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30_000)
+
+  try {
+    const res = await fetch(url, { method, headers, body: fetchBody, signal: controller.signal })
+    return parseResponse(res)
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { status: 0, body: '请求超时（30s）' }
+    }
+    throw err
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 async function requestBackendMultipart({

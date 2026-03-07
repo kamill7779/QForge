@@ -186,9 +186,11 @@
             <AiAnalysisPanel
               :pending="questionStore.entryAi.pending.has(selected.questionUuid)"
               :result="questionStore.entryAi.lastResult?.questionUuid === selected.questionUuid ? questionStore.entryAi.lastResult : null"
-              :disabled="!selected.stemConfirmed"
+              :disabled="!selected.stemConfirmed || selected.answersLocal.length === 0"
+              disabled-tip="请先确认题干并添加答案"
               @request-analysis="requestAi"
               @apply-recommendation="applyAi"
+              @cancel-analysis="cancelAi"
             />
 
             <!-- Answer history -->
@@ -786,12 +788,21 @@ onBeforeUnmount(() => {
 
 async function requestAi() {
   if (!selected.value) return
+  if (selected.value.answersLocal.length === 0) {
+    notif.log('请先添加答案再进行AI分析')
+    return
+  }
   try {
     await questionStore.requestAiAnalysis(auth.token, selected.value.questionUuid, 'entry')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'AI分析请求失败'
     notif.log(msg)
   }
+}
+
+function cancelAi() {
+  if (!selected.value) return
+  questionStore.cancelAiAnalysis(selected.value.questionUuid, 'entry')
 }
 
 async function applyAi() {

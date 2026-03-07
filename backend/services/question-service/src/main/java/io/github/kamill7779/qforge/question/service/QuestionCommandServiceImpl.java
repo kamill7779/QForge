@@ -838,6 +838,16 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             );
         }
 
+        List<Answer> answers = answerRepository.findByQuestionIds(List.of(question.getId()));
+
+        if (answers.isEmpty()) {
+            throw new BusinessValidationException(
+                    "AI_ANALYSIS_MISSING_ANSWER",
+                    "At least one answer is required for AI analysis",
+                    Map.of("questionUuid", questionUuid)
+            );
+        }
+
         String taskUuid = UUID.randomUUID().toString();
 
         // Redis 热状态先行写入，消费者可立即查到
@@ -851,7 +861,6 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         aiTask.setRequestUser(requestUser);
         questionAiTaskRepository.insert(aiTask);
 
-        List<Answer> answers = answerRepository.findByQuestionIds(List.of(question.getId()));
         List<String> answerTexts = answers.stream()
                 .map(Answer::getLatexText)
                 .toList();

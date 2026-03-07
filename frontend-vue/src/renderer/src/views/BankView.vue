@@ -240,8 +240,11 @@
           <AiAnalysisPanel
             :pending="questionStore.bankAi.pending.has(bankEntry.questionUuid)"
             :result="questionStore.bankAi.lastResult?.questionUuid === bankEntry.questionUuid ? questionStore.bankAi.lastResult : null"
+            :disabled="bankEntry.answersServerData.length === 0"
+            disabled-tip="该题目尚无答案，无法进行AI分析"
             @request-analysis="bankRequestAi"
             @apply-recommendation="bankApplyAi"
+            @cancel-analysis="bankCancelAi"
           />
         </div>
       </div>
@@ -577,12 +580,21 @@ function onBankDifficultyChange(val: number | null) {
 
 async function bankRequestAi() {
   if (!bankEntry.value) return
+  if (bankEntry.value.answersServerData.length === 0) {
+    notif.log('该题目尚无答案，无法进行AI分析')
+    return
+  }
   try {
     await questionStore.requestAiAnalysis(auth.token, bankEntry.value.questionUuid, 'bank')
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'AI分析请求失败'
     notif.log(msg)
   }
+}
+
+function bankCancelAi() {
+  if (!bankEntry.value) return
+  questionStore.cancelAiAnalysis(bankEntry.value.questionUuid, 'bank')
 }
 
 async function bankApplyAi() {

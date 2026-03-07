@@ -78,6 +78,7 @@ export interface QuestionEntry {
 /** AI analysis state per view context. */
 export interface AiState {
   pending: Set<string>
+  pendingTimers: Map<string, ReturnType<typeof setTimeout>>
   lastResult: AiTaskResponse | null
   taskUuid: string | null
 }
@@ -172,11 +173,13 @@ export const useQuestionStore = defineStore('question', () => {
   // AI analysis
   const entryAi = ref<AiState>({
     pending: new Set(),
+    pendingTimers: new Map(),
     lastResult: null,
     taskUuid: null
   })
   const bankAi = ref<AiState>({
     pending: new Set(),
+    pendingTimers: new Map(),
     lastResult: null,
     taskUuid: null
   })
@@ -506,6 +509,9 @@ export const useQuestionStore = defineStore('question', () => {
 
   // ── Actions — AI ──
 
+  /** AI pending timeout (30s). */
+  const AI_PENDING_TIMEOUT = 30_000
+
   /** Request AI analysis for a question. */
   async function requestAiAnalysis(
     token: string,
@@ -517,13 +523,54 @@ export const useQuestionStore = defineStore('question', () => {
     ai.pending.add(uuid)
     ai.taskUuid = res.taskUuid
     notif.log(`AI分析请求 ${uuid.slice(0, 8)}`)
+
+    // Auto-timeout: clear pending after 30s if WS result never arrives
+    const timer = setTimeout(() => {
+      if (ai.pending.has(uuid)) {
+        ai.pending.delete(uuid)
+        ai.pendingTimers.delete(uuid)
+        ai.lastResult = {
+          taskUuid: res.taskUuid,
+          questionUuid: uuid,
+          status: 'FAILED',
+          suggestedTags: null,
+          suggestedDifficulty: null,
+          reasoning: null,
+          errorMessage: 'AI分析超时（30s），请重试',
+          appliedAt: null,
+          createdAt: new Date().toISOString()
+        }
+        notif.log('AI分析超时，请重试')
+      }
+    }, AI_PENDING_TIMEOUT)
+    ai.pendingTimers.set(uuid, timer)
   }
 
   /** Handle AI result from WebSocket. */
   function handleAiResult(result: AiTaskResponse, context: 'entry' | 'bank'): void {
     const ai = context === 'entry' ? entryAi.value : bankAi.value
+    // Clear timeout timer
+    const timer = ai.pendingTimers.get(result.questionUuid)
+    if (timer) {
+      clearTimeout(timer)
+      ai.pendingTimers.delete(result.questionUuid)
+    }
     ai.pending.delete(result.questionUuid)
     ai.lastResult = result
+  }
+
+  /** Cancel a pending AI analysis (user-initiated). */
+  function cancelAiAnalysis(uuid: string, context: 'entry' | 'bank'): void {
+    const ai = context === 'entry' ? entryAi.value : bankAi.value
+    const timer = ai.pendingTimers.get(uuid)
+    if (timer) {
+      clearTimeout(timer)
+      ai.pendingTimers.delete(uuid)
+    }
+    ai.pending.delete(uuid)
+    ai.lastResult = null
+    ai.taskUuid = null
+    notif.log('已取消AI分析')
   }
 
   /** Apply AI recommendation. */
@@ -535,8 +582,18 @@ export const useQuestionStore = defineStore('question', () => {
     difficulty?: number
   ): Promise<void> {
     await questionApi.applyAi(token, uuid, taskUuid, { tags, difficulty })
+    // Local update: difficulty can be set immediately.
+    // Tags are complex (mainTags structure) — we defer to a light sync.
+    const entry = entries.value.get(uuid)
+    if (entry) {
+      if (difficulty !== undefined) {
+        entry.difficulty = difficulty
+      }
+      markDirty()
+    }
     notif.log(`应用AI推荐 ${uuid.slice(0, 8)}`)
-    await syncQuestions(token)
+    // Background sync to pick up tag changes (non-blocking)
+    syncQuestions(token).catch(() => { /* ignore */ })
   }
 
   // ── Actions — Selection ──
@@ -620,8 +677,8 @@ export const useQuestionStore = defineStore('question', () => {
     screenshotIntent.value = 'question-ocr'
     bankSelectedUuid.value = ''
     bankAnswerIdx.value = 0
-    entryAi.value = { pending: new Set(), lastResult: null, taskUuid: null }
-    bankAi.value = { pending: new Set(), lastResult: null, taskUuid: null }
+    entryAi.value = { pending: new Set(), pendingTimers: new Map(), lastResult: null, taskUuid: null }
+    bankAi.value = { pending: new Set(), pendingTimers: new Map(), lastResult: null, taskUuid: null }
   }
 
   return {
@@ -664,6 +721,7 @@ export const useQuestionStore = defineStore('question', () => {
     requestAiAnalysis,
     handleAiResult,
     applyAiRecommendation,
+    cancelAiAnalysis,
     // actions — selection
     selectQuestion,
     selectBankQuestion,
