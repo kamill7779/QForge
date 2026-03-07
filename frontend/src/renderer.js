@@ -145,7 +145,7 @@ function renderLatexNode(node,text,placeholder,opts){
       const ref=(xmlNode.getAttribute("ref")||"").trim();
       const src=imageDataUrl(imageResolver(ref));
       if(src){const img=document.createElement("img");img.className="stem-image";img.src=src;img.alt=ref?`image-${ref}`:"stem-image";parentEl.appendChild(img)}
-      else{const note=document.createElement("span");note.className="empty-note";note.textContent=ref?`[配图: ${ref}]`:"[配图]";parentEl.appendChild(note)}
+      else{const note=document.createElement("span");note.className="empty-note";note.textContent=ref?`\u26a0 \u56fe\u7247\u672a\u8bc6\u522b: ${ref}`:"\u26a0 \u56fe\u7247\u672a\u8bc6\u522b";note.title="OCR\u672a\u68c0\u6d4b\u5230\u8be5\u56fe\u7247\u533a\u57df\uff0c\u6216LLM\u751f\u6210\u4e86\u65e0\u6548\u5f15\u7528";parentEl.appendChild(note)}
       return
     }
     if(tag==="choices"){

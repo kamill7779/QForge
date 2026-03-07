@@ -152,6 +152,26 @@
     return count;
   }
 
+  async function confirmSingle(taskUuid, seqNo) {
+    var r = await _api("/api/exam-parse/tasks/" + taskUuid + "/questions/" + seqNo + "/confirm", "POST");
+    var d = r.data || r;
+    epLog("第" + seqNo + "题已确认入库");
+    await refreshQuestions(taskUuid);
+    return d.questionUuid || "";
+  }
+
+  async function skipQuestion(taskUuid, seqNo) {
+    await _api("/api/exam-parse/tasks/" + taskUuid + "/questions/" + seqNo + "/skip", "POST");
+    epLog("第" + seqNo + "题已跳过");
+    await refreshQuestions(taskUuid);
+  }
+
+  async function unskipQuestion(taskUuid, seqNo) {
+    await _api("/api/exam-parse/tasks/" + taskUuid + "/questions/" + seqNo + "/unskip", "POST");
+    epLog("第" + seqNo + "题已恢复");
+    await refreshQuestions(taskUuid);
+  }
+
   async function deleteTask(taskUuid) {
     await _api("/api/exam-parse/tasks/" + taskUuid, "DELETE");
     epState.tasks.delete(taskUuid);
@@ -324,6 +344,21 @@
     return "neutral";
   }
 
+  /* 题型映射: 后端英文 → 中文显示 */
+  var QTYPE_MAP = {
+    SINGLE_CHOICE: "单选题", MULTI_CHOICE: "多选题", FILL_BLANK: "填空题",
+    TRUE_FALSE: "判断题", SHORT_ANSWER: "简答题", CALCULATION: "计算题",
+    PROOF: "证明题", DRAWING: "作图题", COMPREHENSIVE: "综合题",
+    "单选题": "单选题", "多选题": "多选题", "填空题": "填空题",
+    "判断题": "判断题", "解答题": "解答题", "计算题": "计算题",
+    "证明题": "证明题", "作图题": "作图题", "简答题": "简答题",
+    "综合题": "综合题", "其他": "其他",
+  };
+  function questionTypeLabel(raw) {
+    if (!raw) return "未知题型";
+    return QTYPE_MAP[raw] || raw;
+  }
+
   /* ================================================================
    *  DOM 渲染
    * ================================================================ */
@@ -420,7 +455,7 @@
         var bq = questions[i];
         var cls = bubbleCls(bq);
         var act = bq.seqNo === epState.activeSeqNo ? " active" : "";
-        var ttl = "第" + bq.seqNo + "题 - " + (bq.questionType || "未知题型") + " - " + focusStageLabel(getFocusStage(bq));
+        var ttl = "第" + bq.seqNo + "题 - " + questionTypeLabel(bq.questionType) + " - " + focusStageLabel(getFocusStage(bq));
         html += '<button class="ep-bubble ' + cls + act + '" data-seq="' + bq.seqNo + '" title="' + escHtml(ttl) + '">' + bq.seqNo + '</button>';
       }
       html += '</div>';
@@ -432,13 +467,28 @@
       var stage = getFocusStage(q);
       html += '<div class="ep-question-focus" id="ep-question-focus">';
       // 状态条
+      var isConfirmed = q.confirmStatus === "CONFIRMED";
+      var isSkipped = q.confirmStatus === "SKIPPED";
       html += '<div class="ep-focus-status-bar">' +
         '<span class="ep-q-seq">第 ' + q.seqNo + ' 题</span>' +
-        '<span class="ep-q-type">' + (q.questionType || "未知题型") + '</span>' +
-        '<span class="tag ' + confirmStatusCls(q.confirmStatus) + '">' + confirmStatusLabel(q.confirmStatus) + '</span>' +
-        '<span class="tag ' + focusStageCls(stage) + '">' + focusStageLabel(stage) + '</span>' +
-        '<div class="ep-focus-actions">';
-      if (stage === "PREVIEW" || stage === "ERROR") {
+        '<span class="ep-q-type-badge">' + questionTypeLabel(q.questionType) + '</span>';
+      // 只显示一个状态标签（避免"已入库""已入库"重复）
+      if (isConfirmed) {
+        html += '<span class="ep-status-tag tag-confirmed">已入库</span>';
+      } else if (isSkipped) {
+        html += '<span class="ep-status-tag tag-skipped">已跳过</span>';
+      } else {
+        var tagCls = stage === 'READY' ? 'tag-ready' : stage === 'ERROR' ? 'tag-error' :
+          (stage === 'EDITING_STEM' || stage === 'EDITING_ANSWER') ? 'tag-editing' : 'tag-preview';
+        html += '<span class="ep-status-tag ' + tagCls + '">' + focusStageLabel(stage) + '</span>';
+      }
+      html += '<div class="ep-focus-actions">';
+      if (isConfirmed) {
+        // 已确认 → 无操作
+      } else if (isSkipped) {
+        html += '<button class="btn btn-mini ep-unskip-btn">恢复</button>';
+      } else if (stage === "PREVIEW" || stage === "ERROR") {
+        html += '<button class="btn btn-primary btn-mini ep-confirm-single-btn">确认入库</button>';
         html += '<button class="btn btn-mini ep-edit-stem-btn">编辑题干</button>';
         if (q.answerXml || q.rawAnswerText) {
           html += '<button class="btn btn-mini ep-edit-answer-btn">编辑答案</button>';
@@ -451,8 +501,10 @@
         html += '<button class="btn btn-primary btn-mini ep-save-answer-btn">保存答案</button>';
         html += '<button class="btn btn-mini btn-ghost ep-cancel-edit-btn">取消</button>';
       } else if (stage === "READY") {
+        html += '<button class="btn btn-primary btn-mini ep-confirm-single-btn">确认入库</button>';
         html += '<button class="btn btn-mini ep-edit-stem-btn">编辑题干</button>';
         html += '<button class="btn btn-mini ep-edit-answer-btn">编辑答案</button>';
+        html += '<button class="btn btn-mini btn-ghost ep-skip-btn">跳过</button>';
       }
       html += '</div></div>';
 
@@ -468,8 +520,8 @@
       }
       html += '</div>'; // ep-focus-content
 
-      // 标签 & 难度 (非编辑模式下显示)
-      if (stage !== "EDITING_STEM" && stage !== "EDITING_ANSWER" && stage !== "CONFIRMED") {
+      // 标签 & 难度 (编辑模式下不显示)
+      if (stage !== "EDITING_STEM" && stage !== "EDITING_ANSWER") {
         html += buildTagsDifficultyHtml(q);
       }
       html += '</div>'; // ep-question-focus
@@ -485,7 +537,7 @@
       if (stg === "EDITING_STEM") postRenderStemEditor(q);
       else if (stg === "EDITING_ANSWER") postRenderAnswerEditor(q);
       else postRenderPreview(q);
-      if (stg !== "EDITING_STEM" && stg !== "EDITING_ANSWER" && stg !== "CONFIRMED") {
+      if (stg !== "EDITING_STEM" && stg !== "EDITING_ANSWER") {
         postRenderTagsDifficulty(q);
       }
     }
@@ -518,28 +570,33 @@
   /* ---------- 标签 & 难度 HTML ---------- */
   function buildTagsDifficultyHtml(q) {
     var fd = ensureFocusData(q);
+    var isLocked = q.confirmStatus === "CONFIRMED" || q.confirmStatus === "SKIPPED";
+    var disAttr = isLocked ? ' disabled' : '';
     var html = '<div class="ep-tags-difficulty" id="ep-tags-difficulty">';
     // 题型 select
+    var qtLabel = questionTypeLabel(q.questionType);
     html += '<div class="ep-td-row"><label class="ep-td-label">题型</label>' +
-      '<select id="ep-qtype-select" class="ep-td-input">' +
+      '<select id="ep-qtype-select" class="ep-td-input"' + disAttr + '>' +
       '<option value=""' + (!q.questionType ? ' selected' : '') + '>自动</option>';
     var types = ["单选题", "多选题", "填空题", "判断题", "解答题", "计算题", "证明题", "作图题", "简答题", "综合题", "其他"];
     for (var ti = 0; ti < types.length; ti++) {
-      var sel = q.questionType === types[ti] ? " selected" : "";
+      var sel = (q.questionType === types[ti] || qtLabel === types[ti]) ? " selected" : "";
       html += '<option value="' + types[ti] + '"' + sel + '>' + types[ti] + '</option>';
     }
     html += '</select></div>';
     // 主标签 (渲染 renderMainTagSelectorsTo)
     html += '<div class="ep-td-row"><label class="ep-td-label">主标签</label>' +
-      '<div id="ep-main-tags-area" class="ep-td-wide"></div></div>';
+      '<div id="ep-main-tags-area" class="ep-td-wide" data-locked="' + (isLocked ? '1' : '') + '"></div></div>';
     // 副标签 (capsule输入)
     var stags = (fd.secondaryTags || []);
     html += '<div class="ep-td-row"><label class="ep-td-label">副标签</label>';
     html += '<div class="ep-secondary-tags" id="ep-secondary-tags">';
     for (var si = 0; si < stags.length; si++) {
-      html += '<span class="ep-tag-capsule">' + escHtml(stags[si]) + '<button class="ep-tag-rm" data-tag="' + escHtml(stags[si]) + '">×</button></span>';
+      html += '<span class="ep-tag-capsule">' + escHtml(stags[si]) + (isLocked ? '' : '<button class="ep-tag-rm" data-tag="' + escHtml(stags[si]) + '">×</button>') + '</span>';
     }
-    html += '<input type="text" id="ep-stag-input" class="ep-td-input ep-stag-input" placeholder="输入标签 回车添加" />';
+    if (!isLocked) {
+      html += '<input type="text" id="ep-stag-input" class="ep-td-input ep-stag-input" placeholder="输入标签 回车添加" />';
+    }
     html += '</div></div>';
     // 难度 slider
     var diff = fd.difficulty != null ? Number(fd.difficulty) : null;
@@ -547,7 +604,7 @@
     var diffVal = diff != null ? Math.round(diff * 100) : 50;
     var diffCls = diff != null ? dl(diff).cls : "d-unset";
     html += '<div class="ep-td-row"><label class="ep-td-label">难度</label>' +
-      '<input type="range" id="ep-diff-slider" min="0" max="100" value="' + diffVal + '" class="ep-diff-slider' + (diff == null ? ' unset' : '') + '" />' +
+      '<input type="range" id="ep-diff-slider" min="0" max="100" value="' + diffVal + '" class="ep-diff-slider' + (diff == null ? ' unset' : '') + '"' + disAttr + ' />' +
       '<span id="ep-diff-val" class="ep-diff-val">' + (diff != null ? diff.toFixed(2) : '-') + '</span>' +
       '<span id="ep-diff-badge" class="difficulty-badge ' + diffCls + '">' + diffLabel + '</span></div>';
     html += '</div>';
@@ -560,7 +617,7 @@
     return { label: "简单", cls: "d-easy" };
   }
 
-  function renderEpMainTags(container, categories, mainTags, onChanged) {
+  function renderEpMainTags(container, categories, mainTags, onChanged, locked) {
     container.innerHTML = "";
     if (!categories || !categories.length) {
       container.innerHTML = '<div class="empty-note">暂无主标签字典</div>';
@@ -584,6 +641,7 @@
       }
       var cur = map[c.categoryCode];
       sel.value = cur ? cur.tagCode : (c.options[0] ? c.options[0].tagCode : "UNCATEGORIZED");
+      if (locked) sel.disabled = true;
       (function (cat) {
         sel.addEventListener("change", function () {
           var opt = null;
@@ -607,13 +665,14 @@
   /* ---------- 后渲染: 标签 & 难度 ---------- */
   function postRenderTagsDifficulty(q) {
     var fd = ensureFocusData(q);
-    // 主标签 (EP 自己的实现，不依赖 global renderMainTagSelectorsTo)
+    var isLocked = q.confirmStatus === "CONFIRMED" || q.confirmStatus === "SKIPPED";
+    // 主标签
     var mainArea = $("ep-main-tags-area");
     if (mainArea && _state && _state.tagCatalog && _state.tagCatalog.mainCategories) {
       renderEpMainTags(mainArea, _state.tagCatalog.mainCategories, fd.mainTags || [], function (tags) {
         fd.mainTags = tags;
         saveLocalState();
-      });
+      }, isLocked);
     }
     // 副标签 input
     var stagInput = $("ep-stag-input");
@@ -978,11 +1037,49 @@
     if (q) {
       bindAll(".ep-edit-stem-btn", function () { setFocusStage(q, "EDITING_STEM"); if (_render) _render(); });
       bindAll(".ep-edit-answer-btn", function () { setFocusStage(q, "EDITING_ANSWER"); if (_render) _render(); });
-      bindAll(".ep-skip-btn", function () {
-        setFocusStage(q, "SKIPPED");
-        var idx = questions.findIndex(function (x) { return x.seqNo === q.seqNo; });
-        if (idx < questions.length - 1) selectQuestion(questions[idx + 1].seqNo);
-        else if (_render) _render();
+      // 单题确认入库
+      bindAll(".ep-confirm-single-btn", async function () {
+        var btn = document.querySelector(".ep-confirm-single-btn");
+        if (btn) { btn.disabled = true; btn.textContent = "入库中…"; }
+        try {
+          // 先同步当前题的元数据
+          await syncFocusMetadataToBackend(task.taskUuid, [q]);
+          await confirmSingle(task.taskUuid, q.seqNo);
+          if (typeof window.__qforgeSyncQuestions === "function") {
+            window.__qforgeSyncQuestions().catch(function () {});
+          }
+          // 自动跳到下一个 PENDING 题
+          var nextPending = questions.find(function (x) {
+            return x.seqNo > q.seqNo && x.confirmStatus === "PENDING";
+          });
+          if (nextPending) selectQuestion(nextPending.seqNo);
+          else if (_render) _render();
+        } catch (err) {
+          epLog("单题入库失败: " + err.message);
+          if (btn) { btn.disabled = false; btn.textContent = "确认入库"; }
+        }
+      });
+      // 跳过（持久化到后端）
+      bindAll(".ep-skip-btn", async function () {
+        try {
+          await skipQuestion(task.taskUuid, q.seqNo);
+          setFocusStage(q, "SKIPPED");
+          var idx = questions.findIndex(function (x) { return x.seqNo === q.seqNo; });
+          if (idx < questions.length - 1) selectQuestion(questions[idx + 1].seqNo);
+          else if (_render) _render();
+        } catch (err) {
+          epLog("跳过失败: " + err.message);
+        }
+      });
+      // 恢复已跳过
+      bindAll(".ep-unskip-btn", async function () {
+        try {
+          await unskipQuestion(task.taskUuid, q.seqNo);
+          setFocusStage(q, "PREVIEW");
+          if (_render) _render();
+        } catch (err) {
+          epLog("恢复失败: " + err.message);
+        }
       });
       bindAll(".ep-cancel-edit-btn", function () { setFocusStage(q, "PREVIEW"); if (_render) _render(); });
       bindAll(".ep-save-stem-btn", async function () {
@@ -1177,7 +1274,9 @@
         node.appendChild(img);
       } else {
         var ph = document.createElement("span");
-        ph.className = "ep-image-placeholder"; ph.textContent = "[配图: " + ref + "]";
+        ph.className = "ep-image-placeholder";
+        ph.textContent = "\u26a0 \u56fe\u7247\u672a\u8bc6\u522b: " + ref;
+        ph.title = "OCR\u672a\u68c0\u6d4b\u5230\u8be5\u56fe\u7247\u533a\u57df\uff0c\u6216LLM\u751f\u6210\u4e86\u65e0\u6548\u5f15\u7528\u3002\u53ef\u5c1d\u8bd5\u91cd\u65b0\u89e3\u6790\u6216\u624b\u52a8\u63d2\u5165\u914d\u56fe\u3002";
         node.appendChild(ph);
       }
       lastIdx = match.index + match[0].length;
@@ -1225,6 +1324,9 @@
     refreshQuestions: refreshQuestions,
     updateQuestion: updateQuestion,
     confirmTask: confirmTask,
+    confirmSingle: confirmSingle,
+    skipQuestion: skipQuestion,
+    unskipQuestion: unskipQuestion,
     deleteTask: deleteTask,
     handleWsMessage: handleWsMessage,
     handleScreenshot: handleScreenshot,

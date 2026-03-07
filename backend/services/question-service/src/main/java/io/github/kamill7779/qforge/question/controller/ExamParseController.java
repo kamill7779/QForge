@@ -115,6 +115,64 @@ public class ExamParseController {
     }
 
     /**
+     * 单题确认入库。
+     */
+    @PostMapping("/tasks/{taskUuid}/questions/{seqNo}/confirm")
+    public ResponseEntity<Map<String, Object>> confirmSingleQuestion(
+            @PathVariable("taskUuid") String taskUuid,
+            @PathVariable("seqNo") int seqNo,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
+
+        String questionUuid = confirmService.confirmSingle(taskUuid, seqNo, requestUser);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("taskUuid", taskUuid);
+        body.put("seqNo", seqNo);
+        body.put("questionUuid", questionUuid);
+        body.put("message", "第 " + seqNo + " 题已确认入库");
+
+        return ResponseEntity.ok(body);
+    }
+
+    /**
+     * 单题跳过。
+     */
+    @PostMapping("/tasks/{taskUuid}/questions/{seqNo}/skip")
+    public ResponseEntity<Map<String, Object>> skipQuestion(
+            @PathVariable("taskUuid") String taskUuid,
+            @PathVariable("seqNo") int seqNo,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
+
+        confirmService.skipQuestion(taskUuid, seqNo, requestUser);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("taskUuid", taskUuid);
+        body.put("seqNo", seqNo);
+        body.put("message", "第 " + seqNo + " 题已跳过");
+
+        return ResponseEntity.ok(body);
+    }
+
+    /**
+     * 恢复已跳过的题目为 PENDING 状态。
+     */
+    @PostMapping("/tasks/{taskUuid}/questions/{seqNo}/unskip")
+    public ResponseEntity<Map<String, Object>> unskipQuestion(
+            @PathVariable("taskUuid") String taskUuid,
+            @PathVariable("seqNo") int seqNo,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
+
+        confirmService.unskipQuestion(taskUuid, seqNo, requestUser);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("taskUuid", taskUuid);
+        body.put("seqNo", seqNo);
+        body.put("message", "第 " + seqNo + " 题已恢复");
+
+        return ResponseEntity.ok(body);
+    }
+
+    /**
      * 取消/删除解析任务及暂存数据。
      */
     @DeleteMapping("/tasks/{taskUuid}")

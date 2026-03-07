@@ -154,6 +154,74 @@ public class ExamParseConfirmService {
         return questionUuid;
     }
 
+    /**
+     * 单题确认入库。
+     */
+    @Transactional
+    public String confirmSingle(String taskUuid, int seqNo, String ownerUser) {
+        ExamParseTask task = taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
+                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+
+        ExamParseQuestion epq = examQuestionRepository.findByTaskUuidAndSeqNo(taskUuid, seqNo)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "题目不存在: taskUuid=" + taskUuid + ", seqNo=" + seqNo));
+
+        if (!"PENDING".equals(epq.getConfirmStatus())) {
+            throw new IllegalStateException("题目状态不是 PENDING，无法确认: " + epq.getConfirmStatus());
+        }
+
+        String questionUuid = confirmSingleQuestion(epq, ownerUser);
+        epq.setQuestionUuid(questionUuid);
+        epq.setConfirmStatus("CONFIRMED");
+        examQuestionRepository.save(epq);
+
+        log.info("Single question confirmed: taskUuid={}, seqNo={}, questionUuid={}",
+                taskUuid, seqNo, questionUuid);
+        return questionUuid;
+    }
+
+    /**
+     * 单题跳过。
+     */
+    @Transactional
+    public void skipQuestion(String taskUuid, int seqNo, String ownerUser) {
+        taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
+                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+
+        ExamParseQuestion epq = examQuestionRepository.findByTaskUuidAndSeqNo(taskUuid, seqNo)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "题目不存在: taskUuid=" + taskUuid + ", seqNo=" + seqNo));
+
+        if (!"PENDING".equals(epq.getConfirmStatus())) {
+            throw new IllegalStateException("题目状态不是 PENDING，无法跳过: " + epq.getConfirmStatus());
+        }
+
+        epq.setConfirmStatus("SKIPPED");
+        examQuestionRepository.save(epq);
+        log.info("Question skipped: taskUuid={}, seqNo={}", taskUuid, seqNo);
+    }
+
+    /**
+     * 恢复已跳过的题目。
+     */
+    @Transactional
+    public void unskipQuestion(String taskUuid, int seqNo, String ownerUser) {
+        taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
+                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+
+        ExamParseQuestion epq = examQuestionRepository.findByTaskUuidAndSeqNo(taskUuid, seqNo)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "题目不存在: taskUuid=" + taskUuid + ", seqNo=" + seqNo));
+
+        if (!"SKIPPED".equals(epq.getConfirmStatus())) {
+            throw new IllegalStateException("题目状态不是 SKIPPED，无法恢复: " + epq.getConfirmStatus());
+        }
+
+        epq.setConfirmStatus("PENDING");
+        examQuestionRepository.save(epq);
+        log.info("Question unskipped: taskUuid={}, seqNo={}", taskUuid, seqNo);
+    }
+
     @SuppressWarnings("unchecked")
     private List<ExtractedImage> parseImages(String json) {
         if (json == null || json.isBlank()) return List.of();
