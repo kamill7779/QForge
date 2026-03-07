@@ -10,7 +10,14 @@ export type QuestionStatus = 'DRAFT' | 'READY'
 export type OcrBizType = 'QUESTION_STEM' | 'ANSWER_CONTENT'
 export type OcrTaskStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
 export type AiTaskStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'APPLIED'
-export type ExamParseTaskStatus = 'PENDING' | 'PROCESSING' | 'CONFIRMED' | 'FAILED'
+export type ExamParseTaskStatus =
+  | 'PENDING'
+  | 'OCR_PROCESSING'
+  | 'SPLITTING'
+  | 'GENERATING'
+  | 'SUCCESS'
+  | 'PARTIAL_FAILED'
+  | 'FAILED'
 export type ExamParseConfirmStatus = 'PENDING' | 'CONFIRMED' | 'SKIPPED'
 
 // ──────────────────── Auth ────────────────────

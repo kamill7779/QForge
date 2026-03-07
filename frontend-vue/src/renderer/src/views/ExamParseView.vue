@@ -74,7 +74,7 @@
           </div>
           <!-- Progress bar -->
           <div
-            v-if="task.status === 'PROCESSING' && task.progress !== null"
+            v-if="['PROCESSING', 'OCR_PROCESSING', 'SPLITTING', 'GENERATING', 'PENDING'].includes(task.status) && task.progress !== null"
             class="progress-bar"
           >
             <div class="progress-fill" :style="{ width: (task.progress ?? 0) + '%' }"></div>
@@ -612,8 +612,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown))
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
     PENDING: '等待中',
+    OCR_PROCESSING: 'OCR识别中',
+    SPLITTING: '拆题中',
+    GENERATING: '生成中',
     PROCESSING: '解析中',
     SUCCESS: '已完成',
+    PARTIAL_FAILED: '部分失败',
     CONFIRMED: '已确认',
     FAILED: '失败'
   }

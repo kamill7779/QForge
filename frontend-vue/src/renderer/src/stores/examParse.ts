@@ -415,8 +415,8 @@ export const useExamParseStore = defineStore('examParse', () => {
     }
     epLog(`任务完成 ${taskUuid.slice(0, 8)} → ${status}`)
 
-    // Auto-load questions on success
-    if (status === 'SUCCESS' || status === 'COMPLETED') {
+    // Auto-load questions on success (including partial success)
+    if (status === 'SUCCESS' || status === 'PARTIAL_FAILED' || status === 'COMPLETED') {
       try {
         const auth = useAuthStore()
         if (auth.token) {

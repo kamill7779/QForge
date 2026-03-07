@@ -425,8 +425,20 @@ export const useQuestionStore = defineStore('question', () => {
     if (entry) {
       if (task.bizType === 'QUESTION_STEM') {
         entry.lastOcrStatus = status
+        // Auto-backfill stemDraft when OCR succeeds and draft is empty
+        if (status === 'SUCCESS' && recognizedText && !entry.stemDraft) {
+          entry.stemDraft = recognizedText
+          notif.log(`OCR识别完成，已自动填充题干`)
+          markDirty()
+        }
       } else {
         entry.lastAnswerOcrStatus = status
+        // Auto-backfill answerDraft when OCR succeeds and draft is empty
+        if (status === 'SUCCESS' && recognizedText && !entry.answerDraft) {
+          entry.answerDraft = recognizedText
+          notif.log(`OCR识别完成，已自动填充答案`)
+          markDirty()
+        }
       }
     }
   }

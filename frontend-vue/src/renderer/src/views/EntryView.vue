@@ -596,27 +596,53 @@ function findNextEmptyChoiceSlot(
 
 onMounted(() => {
   cleanupCaptured = window.qforge.screenshot.onCaptured(async (payload: { imageBase64: string; intent?: string }) => {
-    const entry = selected.value
-    if (!entry) return
-
     const intent = payload.intent ?? 'ocr'
 
-    // ── OCR: context-aware (stem vs answer based on entry stage) ──
+    // ── OCR: auto-create entry if none selected (like old createByShot) ──
     if (intent === 'ocr') {
-      if (entry.stage === 'PENDING_ANSWER') {
+      let entry = selected.value
+      const stage = entry ? stageOf(entry) : null
+
+      // No entry or current entry is COMPLETED → create a new one automatically
+      if (!entry || stage === 'COMPLETED') {
+        try {
+          const uuid = await questionStore.createQuestion(auth.token)
+          questionStore.selectQuestion(uuid)
+          questionStore.setStageFilter('PENDING_STEM')
+          entry = questionStore.entries.get(uuid) ?? null
+          if (!entry) {
+            notif.log('创建题目失败')
+            return
+          }
+        } catch (e: any) {
+          notif.log(`截图录题失败: ${e?.message || e}`)
+          return
+        }
+      }
+
+      const entryStage = stageOf(entry)
+      if (entryStage === 'PENDING_ANSWER') {
         await questionStore.submitOcr(auth.token, entry.questionUuid, 'ANSWER_CONTENT', payload.imageBase64)
       } else {
-        // Default to stem OCR (PENDING_STEM, PENDING_CONFIRM, etc.)
+        // Default to stem OCR (PENDING_STEM)
         entry.stemImageBase64 = payload.imageBase64
         await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
       }
       return
     }
 
+    // Below intents require an existing entry
+    const entry = selected.value
+    if (!entry) {
+      notif.log('请先选择一道题目')
+      return
+    }
+    const entryStage = stageOf(entry)
+
     // ── Insert image: context-aware (stem editor vs answer editor) ──
     if (intent === 'insert-image') {
       const seed = refSeed(entry.questionUuid)
-      if (entry.stage === 'PENDING_ANSWER') {
+      if (entryStage === 'PENDING_ANSWER') {
         const existingRefs = Object.keys(entry.answerImages)
         const newRef = nextFigureRef(existingRefs)
         const scopedRef = `a${seed}-${newRef}`
@@ -636,7 +662,7 @@ onMounted(() => {
 
     // ── Choice image (global shortcut): auto-find next empty slot ──
     if (intent === 'choice-image') {
-      const isAnswer = entry.stage === 'PENDING_ANSWER'
+      const isAnswer = entryStage === 'PENDING_ANSWER'
       const editorRef = isAnswer ? answerEditorRef.value : stemEditorRef.value
       const slot = findNextEmptyChoiceSlot(editorRef)
       if (!slot) {

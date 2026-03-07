@@ -33,4 +33,14 @@ public class GlobalExceptionHandler {
                 "details", Map.of("errors", ex.getBindingResult().toString())
         ));
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(Map.of(
+                "code", "INVALID_ARGUMENT",
+                "message", ex.getMessage() != null ? ex.getMessage() : "Invalid argument",
+                "traceId", UUID.randomUUID().toString().replace("-", ""),
+                "details", Map.of()
+        ));
+    }
 }

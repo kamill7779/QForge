@@ -44,8 +44,32 @@ export function xmlToBlocks(xmlStr: string, rootTag: RootTag = 'stem'): Block[] 
   const raw = String(xmlStr || '').trim()
   if (!raw) return [{ type: 'p', text: '' }]
 
-  const doc = parseXmlDocument(raw, rootTag)
-  if (!doc) return [{ type: 'p', text: raw }]
+  // Try standard parse first
+  let doc = parseXmlDocument(raw, rootTag)
+
+  // If parse failed and input looks like XML, try escaping bare & (LaTeX often has unescaped &)
+  if (!doc && raw.startsWith(`<${rootTag}`)) {
+    const escaped = raw.replace(/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[\da-fA-F]+;)/g, '&amp;')
+    doc = parseXmlDocument(escaped, rootTag)
+  }
+
+  // If still no doc but looks like XML, try to extract text content as fallback
+  if (!doc) {
+    if (raw.startsWith(`<${rootTag}`)) {
+      // Strip XML tags and split into paragraphs — better than showing raw XML
+      const stripped = raw
+        .replace(new RegExp(`^<${rootTag}[^>]*>`, ''), '')
+        .replace(new RegExp(`</${rootTag}>$`, ''), '')
+      const textChunks = stripped
+        .split(/<\/?(?:p|choices|choice|image|blanks|blank|answer-area)[^>]*>/g)
+        .map(s => s.trim())
+        .filter(Boolean)
+      if (textChunks.length > 0) {
+        return textChunks.map(t => ({ type: 'p' as const, text: t }))
+      }
+    }
+    return [{ type: 'p', text: raw }]
+  }
 
   const blocks: Block[] = []
   const root = doc.documentElement
