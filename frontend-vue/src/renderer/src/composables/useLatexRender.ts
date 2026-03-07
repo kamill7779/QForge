@@ -78,8 +78,10 @@ function processNode(
     case 'p': {
       const p = document.createElement('p')
       p.className = 'stem-p'
-      const text = textOfNode(xmlNode as Element)
-      p.textContent = text
+      // Recursively process children so inline images / nested elements are preserved
+      for (const child of Array.from(xmlNode.childNodes)) {
+        processNode(child, p, resolver)
+      }
       parentEl.appendChild(p)
       break
     }
@@ -189,6 +191,16 @@ function processChoiceNode(
 }
 
 /**
+ * Strip known XML wrapper tags so raw fallback doesn't show <answer>/<stem>/<p> etc.
+ */
+function stripXmlTags(text: string): string {
+  return text
+    .replace(/<\/?(?:stem|answer|p|choices|choice|image|blanks|blank|answer-area)[^>]*>/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/**
  * Composable for rendering XML + LaTeX into DOM.
  */
 export function useLatexRender() {
@@ -222,7 +234,8 @@ export function useLatexRender() {
     // Parse XML
     const doc = parseXmlDocument(text, mode)
     if (!doc) {
-      container.textContent = text
+      // XML parse failed (e.g. unescaped < in LaTeX math). Strip known tags and render as text + KaTeX.
+      container.textContent = stripXmlTags(text)
       applyKatex(container)
       return
     }
