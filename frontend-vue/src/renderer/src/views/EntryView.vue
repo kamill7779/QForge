@@ -691,12 +691,12 @@ function stageLabel(stage: QuestionStage): string {
 .question-card {
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border-light, rgba(255,255,255,0.04));
+  border-bottom: 1px solid var(--color-border-light, #e8eef8);
   transition: background 0.15s;
 }
 
 .question-card:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(45, 108, 223, 0.04);
 }
 
 .question-card.selected {
@@ -723,9 +723,9 @@ function stageLabel(stage: QuestionStage): string {
   border-radius: 3px;
 }
 
-.badge-pending-stem { background: var(--color-warning, #f59e0b); color: #000; }
-.badge-pending-answer { background: var(--color-info, #3b82f6); color: #fff; }
-.badge-completed { background: var(--color-success, #22c55e); color: #fff; }
+.badge-pending-stem { background: var(--color-warning-bg, #fff1d6); color: var(--color-warning, #8c6306); }
+.badge-pending-answer { background: var(--color-info-bg, #e8f0ff); color: var(--color-info, #2f4f8e); }
+.badge-completed { background: var(--color-success-bg, #ddf4e8); color: var(--color-success, #176b3d); }
 
 .card-info {
   font-size: 11px;
@@ -842,16 +842,16 @@ function stageLabel(stage: QuestionStage): string {
 
 .btn-primary {
   padding: 6px 14px;
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
 }
 
-.btn-primary:hover { opacity: 0.9; }
-.btn-primary:disabled { opacity: 0.4; cursor: default; }
+.btn-primary:hover { filter: brightness(0.95); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-secondary {
   padding: 6px 14px;
@@ -863,15 +863,15 @@ function stageLabel(stage: QuestionStage): string {
   font-size: 13px;
 }
 
-.btn-secondary:hover { background: rgba(255,255,255,0.06); }
-.btn-secondary:disabled { opacity: 0.4; cursor: default; }
+.btn-secondary:hover { background: rgba(45, 108, 223, 0.06); }
+.btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-accent {
   padding: 6px 14px;
-  background: var(--color-success, #22c55e);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
 }
@@ -880,10 +880,10 @@ function stageLabel(stage: QuestionStage): string {
 
 .context-menu {
   position: fixed;
-  background: var(--color-bg-elevated, #2d2d2d);
+  background: var(--color-bg-elevated, #fff);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   min-width: 120px;
   z-index: 9999;
   padding: 4px;
@@ -897,7 +897,7 @@ function stageLabel(stage: QuestionStage): string {
   color: var(--color-text-primary);
 }
 
-.ctx-item:hover { background: rgba(255,255,255,0.08); }
+.ctx-item:hover { background: rgba(45, 108, 223, 0.08); }
 .ctx-item.danger { color: var(--color-danger, #ef4444); }
 .ctx-item.disabled { color: var(--color-text-muted); cursor: default; pointer-events: none; }
 </style>

@@ -127,6 +127,7 @@ async function logout() {
   padding: 0 16px;
   height: 48px;
   background: var(--color-bg-header);
+  backdrop-filter: blur(8px);
   color: var(--color-text-header);
   gap: 16px;
   flex-shrink: 0;
@@ -154,11 +155,11 @@ async function logout() {
 }
 
 .tab-link:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(45, 108, 223, 0.08);
 }
 
 .tab-link.active {
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: #fff;
 }
 
@@ -172,16 +173,16 @@ async function logout() {
 
 .btn-logout {
   padding: 4px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--color-border-strong, #bccce8);
   border-radius: 6px;
   background: transparent;
-  color: #e0e0e0;
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 12px;
 }
 
 .btn-logout:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(45, 108, 223, 0.08);
 }
 
 .app-main {

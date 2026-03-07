@@ -624,12 +624,12 @@ function diffClass(d: number): string {
 .bank-card {
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border-light, rgba(255,255,255,0.04));
+  border-bottom: 1px solid var(--color-border-light, #e8eef8);
   transition: background 0.15s;
 }
 
 .bank-card:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(45, 108, 223, 0.04);
 }
 
 .bank-card.selected {
@@ -656,11 +656,11 @@ function diffClass(d: number): string {
   border-radius: 3px;
 }
 
-.d-easy { background: var(--color-difficulty-easy, #22c55e); color: #fff; }
-.d-medium-easy { background: var(--color-difficulty-medium-easy, #84cc16); color: #000; }
-.d-medium { background: var(--color-difficulty-medium, #eab308); color: #000; }
-.d-hard { background: var(--color-difficulty-hard, #f97316); color: #fff; }
-.d-very-hard { background: var(--color-difficulty-very-hard, #ef4444); color: #fff; }
+.d-easy { background: #ddf4e8; color: #176b3d; }
+.d-medium-easy { background: #ecfccb; color: #3f6212; }
+.d-medium { background: #fef9c3; color: #854d0e; }
+.d-hard { background: #ffedd5; color: #9a3412; }
+.d-very-hard { background: #fde3e3; color: #af3535; }
 
 .card-info {
   font-size: 11px;
@@ -739,15 +739,15 @@ function diffClass(d: number): string {
 
 .btn-primary {
   padding: 6px 14px;
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
 }
 
-.btn-primary:hover { opacity: 0.9; }
+.btn-primary:hover { filter: brightness(0.95); }
 
 .btn-secondary {
   padding: 6px 14px;
@@ -759,7 +759,7 @@ function diffClass(d: number): string {
   font-size: 13px;
 }
 
-.btn-secondary:hover { background: rgba(255,255,255,0.06); }
+.btn-secondary:hover { background: rgba(45, 108, 223, 0.06); }
 
 .btn-sm {
   padding: 3px 10px;
@@ -771,6 +771,6 @@ function diffClass(d: number): string {
   cursor: pointer;
 }
 
-.btn-sm:hover { background: rgba(255,255,255,0.06); }
+.btn-sm:hover { background: rgba(45, 108, 223, 0.06); }
 .btn-sm.danger { color: var(--color-danger, #ef4444); border-color: var(--color-danger, #ef4444); }
 </style>

@@ -770,11 +770,11 @@ function focusStageLabel(stage: FocusStage): string {
 .task-card {
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border-light, rgba(255,255,255,0.04));
+  border-bottom: 1px solid var(--color-border-light, #e8eef8);
   transition: background 0.15s;
 }
 
-.task-card:hover { background: rgba(255,255,255,0.04); }
+.task-card:hover { background: rgba(45, 108, 223, 0.04); }
 
 .task-card.selected {
   background: rgba(var(--color-accent-rgb, 59, 130, 246), 0.15);
@@ -800,10 +800,10 @@ function focusStageLabel(stage: FocusStage): string {
   border-radius: 3px;
 }
 
-.status-pending { background: var(--color-warning, #f59e0b); color: #000; }
-.status-processing { background: var(--color-info, #3b82f6); color: #fff; }
-.status-confirmed { background: var(--color-success, #22c55e); color: #fff; }
-.status-failed { background: var(--color-danger, #ef4444); color: #fff; }
+.status-pending { background: var(--color-warning-bg, #fff1d6); color: var(--color-warning, #8c6306); }
+.status-processing { background: var(--color-info-bg, #e8f0ff); color: var(--color-info, #2f4f8e); }
+.status-confirmed { background: var(--color-success-bg, #ddf4e8); color: var(--color-success, #176b3d); }
+.status-failed { background: var(--color-danger-bg, #fde3e3); color: var(--color-danger, #af3535); }
 
 .task-meta {
   font-size: 11px;
@@ -1000,11 +1000,11 @@ function focusStageLabel(stage: FocusStage): string {
 
 .fs-preview { background: var(--color-bg-secondary); color: var(--color-text-secondary); }
 .fs-editing-stem,
-.fs-editing-answer { background: var(--color-warning, #f59e0b); color: #000; }
-.fs-ready { background: var(--color-info, #3b82f6); color: #fff; }
-.fs-confirmed { background: var(--color-success, #22c55e); color: #fff; }
-.fs-skipped { background: var(--color-text-muted); color: #fff; }
-.fs-error { background: var(--color-danger, #ef4444); color: #fff; }
+.fs-editing-answer { background: var(--color-warning-bg, #fff1d6); color: var(--color-warning, #8c6306); }
+.fs-ready { background: var(--color-info-bg, #e8f0ff); color: var(--color-info, #2f4f8e); }
+.fs-confirmed { background: var(--color-success-bg, #ddf4e8); color: var(--color-success, #176b3d); }
+.fs-skipped { background: #e8eef8; color: var(--color-text-muted); }
+.fs-error { background: var(--color-danger-bg, #fde3e3); color: var(--color-danger, #af3535); }
 
 .focus-actions {
   margin-left: auto;
@@ -1089,16 +1089,16 @@ function focusStageLabel(stage: FocusStage): string {
 
 .btn-primary {
   padding: 6px 14px;
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
 }
 
-.btn-primary:hover { opacity: 0.9; }
-.btn-primary:disabled { opacity: 0.4; cursor: default; }
+.btn-primary:hover { filter: brightness(0.95); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-danger {
   padding: 6px 14px;
@@ -1122,5 +1122,5 @@ function focusStageLabel(stage: FocusStage): string {
   cursor: pointer;
 }
 
-.btn-sm:hover { background: rgba(255,255,255,0.06); }
+.btn-sm:hover { background: rgba(45, 108, 223, 0.06); }
 </style>
