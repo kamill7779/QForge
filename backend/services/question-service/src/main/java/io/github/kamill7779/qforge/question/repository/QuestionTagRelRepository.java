@@ -28,6 +28,22 @@ public interface QuestionTagRelRepository extends BaseMapper<QuestionTagRel> {
         );
     }
 
+    default int deleteByQuestionId(Long questionId) {
+        return this.delete(
+                Wrappers.<QuestionTagRel>lambdaQuery()
+                        .eq(QuestionTagRel::getQuestionId, questionId)
+        );
+    }
+
+    default boolean existsByQuestionIdAndTagId(Long questionId, Long tagId) {
+        Long count = this.selectCount(
+                Wrappers.<QuestionTagRel>lambdaQuery()
+                        .eq(QuestionTagRel::getQuestionId, questionId)
+                        .eq(QuestionTagRel::getTagId, tagId)
+        );
+        return count != null && count > 0;
+    }
+
     default QuestionTagRel save(QuestionTagRel entity) {
         if (entity.getId() == null) {
             this.insert(entity);

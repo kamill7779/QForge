@@ -34,6 +34,18 @@ public interface TagRepository extends BaseMapper<Tag> {
         return Optional.ofNullable(tag);
     }
 
+    /** Find a SYSTEM tag by tagCode (any category). */
+    default Optional<Tag> findSystemTagByCode(String tagCode) {
+        Tag tag = this.selectOne(
+                Wrappers.<Tag>lambdaQuery()
+                        .eq(Tag::getScope, "SYSTEM")
+                        .eq(Tag::getOwnerUser, "")
+                        .eq(Tag::getTagCode, tagCode)
+                        .last("LIMIT 1")
+        );
+        return Optional.ofNullable(tag);
+    }
+
     default List<Tag> findSystemTagsByCategory(String categoryCode) {
         return this.selectList(
                 Wrappers.<Tag>lambdaQuery()

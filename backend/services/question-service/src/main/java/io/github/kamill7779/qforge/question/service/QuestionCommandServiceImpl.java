@@ -55,6 +55,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -666,6 +667,10 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     }
 
     private void saveQuestionTagRel(Long questionId, Long tagId, String categoryCode, String createdBy) {
+        // Skip if relation already exists (idempotent)
+        if (questionTagRelRepository.existsByQuestionIdAndTagId(questionId, tagId)) {
+            return;
+        }
         QuestionTagRel rel = new QuestionTagRel();
         rel.setQuestionId(questionId);
         rel.setTagId(tagId);
@@ -790,25 +795,40 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     public QuestionStatusResponse updateTags(String questionUuid, UpdateTagsRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
 
-        // Remove existing secondary tags
-        List<QuestionTagRel> existingRels = questionTagRelRepository.findByQuestionIds(List.of(question.getId()));
-        for (QuestionTagRel rel : existingRels) {
-            if (CATEGORY_SECONDARY_CUSTOM.equals(rel.getCategoryCode())) {
-                questionTagRelRepository.deleteById(rel.getId());
-            }
+        // Delete ALL existing tag relations — full replace strategy
+        questionTagRelRepository.deleteByQuestionId(question.getId());
+
+        if (request.getTags() == null || request.getTags().isEmpty()) {
+            return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
         }
 
-        // Create or find tags and create relations
-        TagCategory secondaryCategory = tagCategoryRepository.findEnabledByCode(CATEGORY_SECONDARY_CUSTOM)
-                .orElse(null);
-        if (secondaryCategory != null && request.getTags() != null) {
-            for (String tagText : request.getTags()) {
-                if (tagText == null || tagText.isBlank()) {
-                    continue;
+        // Classify each tag: system tag (main category) vs free-text (secondary)
+        Set<Long> insertedTagIds = new java.util.HashSet<>();
+        for (String tagText : request.getTags()) {
+            if (tagText == null || tagText.isBlank()) {
+                continue;
+            }
+
+            // 1) Try as a known SYSTEM tag code (main categories like GRADE_7, FUNCTION, etc.)
+            Optional<Tag> systemTag = tagRepository.findSystemTagByCode(tagText);
+            if (systemTag.isPresent()) {
+                Tag t = systemTag.get();
+                if (insertedTagIds.add(t.getId())) {
+                    saveQuestionTagRel(question.getId(), t.getId(), t.getCategoryCode(), requestUser);
                 }
-                String normalizedCode = toCustomTagCode(tagText);
-                Tag tag = tagRepository.findUserTagByCategoryAndCode(requestUser, CATEGORY_SECONDARY_CUSTOM, normalizedCode)
-                        .orElseGet(() -> createUserCustomTag(requestUser, tagText));
+                continue;
+            }
+
+            // 2) Otherwise treat as secondary custom tag
+            TagCategory secondaryCategory = tagCategoryRepository
+                    .findEnabledByCode(CATEGORY_SECONDARY_CUSTOM).orElse(null);
+            if (secondaryCategory == null) continue;
+
+            String normalizedCode = toCustomTagCode(tagText);
+            Tag tag = tagRepository
+                    .findUserTagByCategoryAndCode(requestUser, CATEGORY_SECONDARY_CUSTOM, normalizedCode)
+                    .orElseGet(() -> createUserCustomTag(requestUser, tagText));
+            if (insertedTagIds.add(tag.getId())) {
                 saveQuestionTagRel(question.getId(), tag.getId(), CATEGORY_SECONDARY_CUSTOM, requestUser);
             }
         }
