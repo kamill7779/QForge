@@ -15,10 +15,9 @@ const API_BASE_URL = process.env.QFORGE_API_BASE_URL || 'http://localhost:8080'
 const WS_BASE_URL = process.env.QFORGE_WS_BASE_URL || 'ws://localhost:8080'
 
 const SHORTCUTS = {
-  SCREENSHOT: process.env.QFORGE_SHORTCUT_SCREENSHOT || 'CommandOrControl+Alt+A',
-  IMAGE: process.env.QFORGE_SHORTCUT_IMAGE || 'CommandOrControl+Alt+S',
-  QUICK_INSERT: process.env.QFORGE_SHORTCUT_QUICK_INSERT || 'CommandOrControl+Alt+D',
-  CHOICE_IMAGE: process.env.QFORGE_SHORTCUT_CHOICE_IMAGE || 'CommandOrControl+Alt+F'
+  OCR: process.env.QFORGE_SHORTCUT_OCR || 'CommandOrControl+Alt+A',
+  INSERT_IMAGE: process.env.QFORGE_SHORTCUT_INSERT_IMAGE || 'CommandOrControl+Alt+Q',
+  CHOICE_IMAGE: process.env.QFORGE_SHORTCUT_CHOICE_IMAGE || 'CommandOrControl+Alt+1'
 }
 
 // ──────────────────── Credential helpers ────────────────────
@@ -176,7 +175,7 @@ async function captureTargetDisplay(targetWindow: BrowserWindow) {
   return { imageDataUrl: match.thumbnail.toDataURL(), display: targetDisplay }
 }
 
-function openScreenshotWindow(meta: { imageDataUrl: string; display: Electron.Display }) {
+function openScreenshotWindow(meta: { imageDataUrl: string; display: Electron.Display }, intent = 'ocr') {
   if (screenshotWindow && !screenshotWindow.isDestroyed()) screenshotWindow.close()
 
   const { bounds } = meta.display
@@ -204,7 +203,8 @@ function openScreenshotWindow(meta: { imageDataUrl: string; display: Electron.Di
   screenshotWindow.webContents.once('did-finish-load', () => {
     screenshotWindow?.webContents.send('screenshot:init', {
       imageDataUrl: meta.imageDataUrl,
-      shortcut: SHORTCUTS.SCREENSHOT
+      shortcut: SHORTCUTS.OCR,
+      intent
     })
   })
 
@@ -272,11 +272,11 @@ ipcMain.handle('credentials:load', () => loadCredentials())
 ipcMain.handle('credentials:save', (_e, payload) => saveCredentials(payload))
 ipcMain.handle('credentials:clear', () => clearCredentials())
 
-ipcMain.handle('screenshot:trigger', async () => {
+ipcMain.handle('screenshot:trigger', async (_e, params?: { intent?: string }) => {
   if (!mainWindow) return { success: false, error: 'No window' }
   try {
     const meta = await captureTargetDisplay(mainWindow)
-    openScreenshotWindow(meta)
+    openScreenshotWindow(meta, params?.intent || 'ocr')
     return { success: true }
   } catch (err: unknown) {
     return { success: false, error: (err as Error).message }
@@ -293,25 +293,20 @@ ipcMain.on('screenshot:confirm', (_e, payload) => {
 // ──────────────────── Global Shortcuts ────────────────────
 
 function registerShortcuts() {
-  const shortcutActions: Record<string, string> = {
-    [SHORTCUTS.SCREENSHOT]: 'screenshot',
-    [SHORTCUTS.IMAGE]: 'stem-image',
-    [SHORTCUTS.QUICK_INSERT]: 'quick-insert',
+  const shortcutIntents: Record<string, string> = {
+    [SHORTCUTS.OCR]: 'ocr',
+    [SHORTCUTS.INSERT_IMAGE]: 'insert-image',
     [SHORTCUTS.CHOICE_IMAGE]: 'choice-image'
   }
 
-  for (const [accelerator, action] of Object.entries(shortcutActions)) {
+  for (const [accelerator, intent] of Object.entries(shortcutIntents)) {
     if (!accelerator) continue
     try {
       globalShortcut.register(accelerator, () => {
-        if (action === 'screenshot') {
-          if (!mainWindow) return
-          captureTargetDisplay(mainWindow)
-            .then((meta) => openScreenshotWindow(meta))
-            .catch(() => {})
-        } else {
-          mainWindow?.webContents.send('global-shortcut', action)
-        }
+        if (!mainWindow) return
+        captureTargetDisplay(mainWindow)
+          .then((meta) => openScreenshotWindow(meta, intent))
+          .catch(() => {})
       })
     } catch {
       /* ignore */

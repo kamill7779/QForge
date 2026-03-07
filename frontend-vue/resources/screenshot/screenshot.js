@@ -274,7 +274,8 @@ function confirmCapture() {
   window.qforgeScreenshot.confirm({
     imageBase64,
     width: Math.floor(box.w),
-    height: Math.floor(box.h)
+    height: Math.floor(box.h),
+    intent: pendingIntent
   });
 }
 
@@ -282,9 +283,12 @@ function cancelCapture() {
   window.qforgeScreenshot.cancel();
 }
 
+let pendingIntent = 'ocr';
+
 window.qforgeScreenshot.onInit((payload) => {
   const imageDataUrl = payload.imageDataUrl || "";
   const shortcut = payload.shortcut || "CommandOrControl+Alt+A";
+  pendingIntent = payload.intent || 'ocr';
   tip.textContent = `按住左键框选，拖动可调整，Enter确认，Esc取消（快捷键 ${shortcut}）`;
 
   const image = new Image();

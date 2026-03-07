@@ -18,6 +18,7 @@
             multiple
             accept=".pdf,.png,.jpg,.jpeg"
             class="file-input"
+            @click.stop
             @change="onFileSelect"
           />
           <span class="upload-hint">点击或拖拽上传 PDF / 图片</span>
@@ -612,6 +613,7 @@ function statusLabel(status: string): string {
   const map: Record<string, string> = {
     PENDING: '等待中',
     PROCESSING: '解析中',
+    SUCCESS: '已完成',
     CONFIRMED: '已确认',
     FAILED: '失败'
   }
@@ -821,7 +823,8 @@ function focusStageLabel(stage: FocusStage): string {
 
 .status-pending { background: var(--color-warning-bg); color: var(--color-warning); }
 .status-processing { background: rgba(108, 92, 231, 0.10); color: var(--color-accent); }
-.status-confirmed { background: var(--color-success-bg); color: var(--color-success); }
+.status-success { background: var(--color-success-bg); color: var(--color-success); }
+.status-confirmed { background: rgba(108, 92, 231, 0.10); color: var(--color-accent); }
 .status-failed { background: var(--color-danger-bg); color: var(--color-danger); }
 
 .task-meta {

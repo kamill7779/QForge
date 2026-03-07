@@ -523,13 +523,11 @@ async function completeAction() {
 // ── OCR ──
 
 function triggerStemOcr() {
-  questionStore.screenshotIntent = 'question-ocr'
-  window.qforge.screenshot.trigger({ intent: 'question-ocr' })
+  window.qforge.screenshot.trigger({ intent: 'ocr' })
 }
 
 function triggerAnswerOcr() {
-  questionStore.screenshotIntent = 'answer-ocr'
-  window.qforge.screenshot.trigger({ intent: 'answer-ocr' })
+  window.qforge.screenshot.trigger({ intent: 'ocr' })
 }
 
 function useStemOcrResult() {
@@ -553,46 +551,111 @@ const pendingChoiceImageTarget = ref<{
 
 function onScreenshotInsertImage() {
   pendingChoiceImageTarget.value = null
-  questionStore.screenshotIntent = 'insert-image'
   window.qforge.screenshot.trigger({ intent: 'insert-image' })
 }
 
 function onChoiceScreenshot(blockIndex: number, choiceIndex: number) {
   pendingChoiceImageTarget.value = { blockIndex, choiceIndex, isAnswer: false }
-  questionStore.screenshotIntent = 'insert-image'
-  window.qforge.screenshot.trigger({ intent: 'choice-image-auto' })
+  window.qforge.screenshot.trigger({ intent: 'choice-image-manual' })
 }
 
 function onAnswerScreenshotInsert() {
   pendingChoiceImageTarget.value = null
-  questionStore.screenshotIntent = 'answer-insert-image'
-  window.qforge.screenshot.trigger({ intent: 'answer-insert-image' })
+  window.qforge.screenshot.trigger({ intent: 'insert-image' })
 }
 
 function onAnswerChoiceScreenshot(blockIndex: number, choiceIndex: number) {
   pendingChoiceImageTarget.value = { blockIndex, choiceIndex, isAnswer: true }
-  questionStore.screenshotIntent = 'insert-image'
-  window.qforge.screenshot.trigger({ intent: 'choice-image-auto' })
+  window.qforge.screenshot.trigger({ intent: 'choice-image-manual' })
 }
 
 // Handle screenshot result from Electron
 let cleanupCaptured: (() => void) | null = null
 let cleanupError: (() => void) | null = null
 
+/**
+ * Find the next choice slot with empty imageRef.
+ * Searches the given editor's blocks for the first choices block
+ * with an unfilled choice item.
+ */
+function findNextEmptyChoiceSlot(
+  editorRef: InstanceType<typeof StemEditor> | null
+): { blockIndex: number; choiceIndex: number } | null {
+  if (!editorRef?.blocks) return null
+  const blocks = editorRef.blocks
+  for (let bi = 0; bi < blocks.length; bi++) {
+    const b = blocks[bi]
+    if (b.type === 'choices') {
+      for (let ci = 0; ci < b.items.length; ci++) {
+        if (!b.items[ci].imageRef) return { blockIndex: bi, choiceIndex: ci }
+      }
+    }
+  }
+  return null
+}
+
 onMounted(() => {
   cleanupCaptured = window.qforge.screenshot.onCaptured(async (payload: { imageBase64: string; intent?: string }) => {
     const entry = selected.value
     if (!entry) return
 
-    const intent = payload.intent ?? questionStore.screenshotIntent
+    const intent = payload.intent ?? 'ocr'
 
-    if (intent === 'question-ocr') {
-      entry.stemImageBase64 = payload.imageBase64
-      await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
-    } else if (intent === 'answer-ocr') {
-      await questionStore.submitOcr(auth.token, entry.questionUuid, 'ANSWER_CONTENT', payload.imageBase64)
-    } else if (intent === 'choice-image-auto') {
-      // Insert image to a specific choice item
+    // ── OCR: context-aware (stem vs answer based on entry stage) ──
+    if (intent === 'ocr') {
+      if (entry.stage === 'PENDING_ANSWER') {
+        await questionStore.submitOcr(auth.token, entry.questionUuid, 'ANSWER_CONTENT', payload.imageBase64)
+      } else {
+        // Default to stem OCR (PENDING_STEM, PENDING_CONFIRM, etc.)
+        entry.stemImageBase64 = payload.imageBase64
+        await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
+      }
+      return
+    }
+
+    // ── Insert image: context-aware (stem editor vs answer editor) ──
+    if (intent === 'insert-image') {
+      const seed = refSeed(entry.questionUuid)
+      if (entry.stage === 'PENDING_ANSWER') {
+        const existingRefs = Object.keys(entry.answerImages)
+        const newRef = nextFigureRef(existingRefs)
+        const scopedRef = `a${seed}-${newRef}`
+        entry.answerImages[scopedRef] = payload.imageBase64
+        answerEditorRef.value?.addImageBlock(scopedRef)
+        notif.log(`答案插图已插入 ${scopedRef}`)
+      } else {
+        const existingRefs = Object.keys(entry.inlineImages)
+        const newRef = nextFigureRef(existingRefs)
+        const scopedRef = `a${seed}-${newRef}`
+        entry.inlineImages[scopedRef] = payload.imageBase64
+        stemEditorRef.value?.addImageBlock(scopedRef)
+        notif.log(`题干插图已插入 ${scopedRef}`)
+      }
+      return
+    }
+
+    // ── Choice image (global shortcut): auto-find next empty slot ──
+    if (intent === 'choice-image') {
+      const isAnswer = entry.stage === 'PENDING_ANSWER'
+      const editorRef = isAnswer ? answerEditorRef.value : stemEditorRef.value
+      const slot = findNextEmptyChoiceSlot(editorRef)
+      if (!slot) {
+        notif.log('所有选项已有插图，无空位可填充')
+        return
+      }
+      const seed = refSeed(entry.questionUuid)
+      const imageStore = isAnswer ? entry.answerImages : entry.inlineImages
+      const existingRefs = Object.keys(imageStore)
+      const newRef = nextFigureRef(existingRefs)
+      const scopedRef = `a${seed}-${newRef}`
+      imageStore[scopedRef] = payload.imageBase64
+      editorRef?.setChoiceImageRef(slot.blockIndex, slot.choiceIndex, scopedRef)
+      notif.log(`选项 ${editorRef?.blocks?.[slot.blockIndex]?.type === 'choices' ? (editorRef.blocks[slot.blockIndex] as any).items[slot.choiceIndex]?.key : ''} 插图已插入`)
+      return
+    }
+
+    // ── Choice image (manual click): insert to specific slot ──
+    if (intent === 'choice-image-manual') {
       const target = pendingChoiceImageTarget.value
       if (!target) {
         notif.log('当前没有可插图的选项')
@@ -605,43 +668,17 @@ onMounted(() => {
       const scopedRef = `a${seed}-${newRef}`
       imageStore[scopedRef] = payload.imageBase64
 
-      // Set the choice imageRef in the editor
       const editorRef = target.isAnswer ? answerEditorRef.value : stemEditorRef.value
       editorRef?.setChoiceImageRef(target.blockIndex, target.choiceIndex, scopedRef)
-
       notif.log(`选项插图已插入 ${scopedRef}`)
       pendingChoiceImageTarget.value = null
-    } else if (intent === 'insert-image') {
-      // Stem image insertion
-      const seed = refSeed(entry.questionUuid)
-      const existingRefs = Object.keys(entry.inlineImages)
-      const newRef = nextFigureRef(existingRefs)
-      const scopedRef = `a${seed}-${newRef}`
-      entry.inlineImages[scopedRef] = payload.imageBase64
-
-      // Actually insert image block into editor
-      stemEditorRef.value?.addImageBlock(scopedRef)
-
-      notif.log(`题干插图已插入 ${scopedRef}`)
-    } else if (intent === 'answer-insert-image') {
-      // Answer image insertion
-      const seed = refSeed(entry.questionUuid)
-      const existingRefs = Object.keys(entry.answerImages)
-      const newRef = nextFigureRef(existingRefs)
-      const scopedRef = `a${seed}-${newRef}`
-      entry.answerImages[scopedRef] = payload.imageBase64
-
-      // Actually insert image block into answer editor
-      answerEditorRef.value?.addImageBlock(scopedRef)
-
-      notif.log(`答案插图已插入 ${scopedRef}`)
+      return
     }
   })
 
   // Handle screenshot errors
   cleanupError = window.qforge.screenshot.onError((payload: { error: string }) => {
     notif.log(`截图服务异常: ${payload.error || '未知错误'}`)
-    questionStore.screenshotIntent = 'question-ocr'
     pendingChoiceImageTarget.value = null
   })
 })

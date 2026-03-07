@@ -14,6 +14,7 @@ import type {
   ExamParseConfirmStatus
 } from '@/api/types'
 import { useNotificationStore } from './notification'
+import { useAuthStore } from './auth'
 
 // ──────────────────── Types ────────────────────
 
@@ -391,16 +392,21 @@ export const useExamParseStore = defineStore('examParse', () => {
       task.questionCount = list.length
     }
 
+    // Auto-select first question for the active task
+    if (activeTaskUuid.value === taskUuid && activeSeqNo.value === 0) {
+      activeSeqNo.value = question.seqNo
+    }
+
     epLog(`收到解析结果: 第${question.seqNo}题`)
   }
 
   /** Handle a WS task completed event. */
-  function handleWsTaskCompleted(
+  async function handleWsTaskCompleted(
     taskUuid: string,
     status: string,
     questionCount?: number,
     errorMsg?: string
-  ): void {
+  ): Promise<void> {
     const task = tasks.value.get(taskUuid)
     if (task) {
       task.status = status as ExamParseTask['status']
@@ -408,6 +414,25 @@ export const useExamParseStore = defineStore('examParse', () => {
       if (errorMsg) task.errorMsg = errorMsg
     }
     epLog(`任务完成 ${taskUuid.slice(0, 8)} → ${status}`)
+
+    // Auto-load questions on success
+    if (status === 'SUCCESS' || status === 'COMPLETED') {
+      try {
+        const auth = useAuthStore()
+        if (auth.token) {
+          await refreshQuestions(auth.token, taskUuid)
+          // Auto-select first question if this is the active task
+          if (activeTaskUuid.value === taskUuid && activeSeqNo.value === 0) {
+            const qs = questions.value.get(taskUuid) ?? []
+            if (qs.length > 0) {
+              activeSeqNo.value = qs[0].seqNo
+            }
+          }
+        }
+      } catch (err) {
+        epLog(`自动加载题目失败: ${err}`)
+      }
+    }
   }
 
   /** Handle task progress update from WS. */
