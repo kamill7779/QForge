@@ -5,7 +5,7 @@
  * Eliminates 6× duplication of renderLatexNode / renderAnswerLatex.
  */
 
-import { parseXmlDocument, textOfNode } from '@/lib/stemXml'
+import { parseXmlDocument, textOfNode, toXmlPayload } from '@/lib/stemXml'
 import type { RootTag } from '@/lib/stemXml'
 
 // KaTeX auto-render delimiters
@@ -231,10 +231,36 @@ export function useLatexRender() {
       return
     }
 
-    // Parse XML
-    const doc = parseXmlDocument(text, mode)
+    // Parse XML (try direct parse, then sanitized via toXmlPayload)
+    let doc = parseXmlDocument(text, mode)
     if (!doc) {
-      // XML parse failed (e.g. unescaped < in LaTeX math). Strip known tags and render as text + KaTeX.
+      // toXmlPayload sanitizes LaTeX < > & inside math delimiters and retries
+      const sanitized = toXmlPayload(text, mode)
+      doc = parseXmlDocument(sanitized, mode)
+    }
+
+    // Detect double-encoded XML: if the first <p>'s text starts with <stem or <answer,
+    // decode entities and re-parse from the inner text.
+    if (doc) {
+      const firstP = doc.documentElement.getElementsByTagName('p')[0]
+      if (firstP) {
+        const pText = (firstP.textContent || '').trim()
+        if (pText.startsWith('<stem') || pText.startsWith('<answer')) {
+          // The inner text is the original XML — try parsing it
+          let innerDoc = parseXmlDocument(pText, mode)
+          if (!innerDoc) {
+            const innerSanitized = toXmlPayload(pText, mode)
+            innerDoc = parseXmlDocument(innerSanitized, mode)
+          }
+          if (innerDoc) {
+            doc = innerDoc
+          }
+        }
+      }
+    }
+
+    if (!doc) {
+      // XML parse failed even after sanitization. Strip tags and render as text + KaTeX.
       container.textContent = stripXmlTags(text)
       applyKatex(container)
       return

@@ -40,6 +40,49 @@ export function decodeXml(text: string): string {
 // ──────────────────── Internal Helpers ────────────────────
 
 /**
+ * Escape bare `<`, `>`, `&` that appear inside LaTeX math delimiters
+ * (`$...$`, `$$...$$`, `\(...\)`, `\[...\]`) so the XML parser won't choke.
+ *
+ * Strategy: split the text on XML tag boundaries, then within non-tag segments
+ * escape any bare `<` / `>` / `&` that are NOT part of XML tags or entities.
+ */
+function escapeLatexInXml(xml: string): string {
+  // Escape & and < > that are not part of XML tags or existing entities.
+  // We walk through the string preserving XML tags (<tag>, </tag>, <tag />)
+  // and XML entities (&amp; etc.) while escaping anything else.
+  const TAG_RE = /<\/?[a-zA-Z][^>]*\/?>/g
+  const parts: string[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = TAG_RE.exec(xml)) !== null) {
+    // Text segment before this tag
+    if (match.index > lastIndex) {
+      parts.push(escapeNonTagText(xml.slice(lastIndex, match.index)))
+    }
+    // The tag itself — keep as-is
+    parts.push(match[0])
+    lastIndex = match.index + match[0].length
+  }
+  // Remaining text after last tag
+  if (lastIndex < xml.length) {
+    parts.push(escapeNonTagText(xml.slice(lastIndex)))
+  }
+  return parts.join('')
+}
+
+/**
+ * Escape `&`, `<`, `>` in a text segment that is NOT an XML tag.
+ * Preserves existing XML entities like `&amp;` `&lt;` `&#123;`.
+ */
+function escapeNonTagText(text: string): string {
+  return text
+    .replace(/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[\da-fA-F]+;)/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/**
  * Ensure the XML string has a version attribute on its root tag.
  * If missing, strip existing root tags and re-wrap with version="1".
  */
@@ -111,7 +154,8 @@ export function isValidXml(xml: string, rootTag: RootTag): boolean {
  *
  * - Empty input → `<rootTag version="1"><p></p></rootTag>`
  * - Input starting with `<rootTag` that is valid XML → returned as-is
- * - Input starting with `<rootTag` that is invalid → fully escaped and wrapped
+ * - Input starting with `<rootTag` that has LaTeX issues → sanitize & retry
+ * - Input starting with `<rootTag` that is truly malformed → escaped and wrapped
  * - Plain text → split by newlines into `<p>` paragraphs
  */
 export function toXmlPayload(input: string, rootTag: RootTag): string {
@@ -120,7 +164,10 @@ export function toXmlPayload(input: string, rootTag: RootTag): string {
   const trimmed = input.trim()
   if (trimmed.startsWith(`<${rootTag}`)) {
     if (isValidXml(trimmed, rootTag)) return trimmed
-    // Malformed XML — escape everything
+    // Try sanitizing LaTeX math (< > & inside math delimiters)
+    const sanitized = escapeLatexInXml(trimmed)
+    if (isValidXml(sanitized, rootTag)) return sanitized
+    // Truly malformed — escape everything
     return `<${rootTag} version="1"><p>${escapeXml(trimmed)}</p></${rootTag}>`
   }
 

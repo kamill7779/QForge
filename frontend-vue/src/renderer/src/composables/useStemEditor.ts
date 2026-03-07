@@ -6,7 +6,7 @@
  */
 
 import { ref, watch, type Ref } from 'vue'
-import { parseXmlDocument, escapeXml, textOfNode } from '@/lib/stemXml'
+import { parseXmlDocument, escapeXml, textOfNode, toXmlPayload } from '@/lib/stemXml'
 import type { RootTag } from '@/lib/stemXml'
 
 // ──────────────────── Types ────────────────────
@@ -47,10 +47,10 @@ export function xmlToBlocks(xmlStr: string, rootTag: RootTag = 'stem'): Block[] 
   // Try standard parse first
   let doc = parseXmlDocument(raw, rootTag)
 
-  // If parse failed and input looks like XML, try escaping bare & (LaTeX often has unescaped &)
+  // If parse failed and input looks like XML, try sanitizing (LaTeX often has unescaped < > &)
   if (!doc && raw.startsWith(`<${rootTag}`)) {
-    const escaped = raw.replace(/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[\da-fA-F]+;)/g, '&amp;')
-    doc = parseXmlDocument(escaped, rootTag)
+    const sanitized = toXmlPayload(raw, rootTag)
+    doc = parseXmlDocument(sanitized, rootTag)
   }
 
   // If still no doc but looks like XML, try to extract text content as fallback

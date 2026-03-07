@@ -106,4 +106,23 @@ describe('stemXml — parameterized core', () => {
     expect(isValidStemXml('<answer version="1"><p>x</p></answer>')).toBe(false)
     expect(isValidAnswerXml('<stem version="1"><p>x</p></stem>')).toBe(false)
   })
+
+  it('toXmlPayload sanitizes LaTeX with bare < instead of double-encoding', () => {
+    // OCR often produces XML with unescaped < in LaTeX math: $A < B$
+    const ocrXml = '<stem version="1"><p>given $A < B$ solve</p></stem>'
+    const result = toStemXmlPayload(ocrXml)
+    // Must NOT double-wrap — should contain sanitized content
+    expect(result).not.toContain('&lt;stem')
+    expect(isValidStemXml(result)).toBe(true)
+    // The < inside LaTeX should be escaped for XML validity
+    expect(result).toContain('&lt;')
+    expect(result).toContain('solve')
+  })
+
+  it('toXmlPayload sanitizes LaTeX with bare & inside math', () => {
+    const ocrXml = '<stem version="1"><p>$x & y$</p></stem>'
+    const result = toStemXmlPayload(ocrXml)
+    expect(result).not.toContain('&lt;stem')
+    expect(isValidStemXml(result)).toBe(true)
+  })
 })
