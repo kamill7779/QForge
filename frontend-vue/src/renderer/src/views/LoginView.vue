@@ -42,8 +42,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const auth = useAuthStore()
 
 const username = ref('')
 const password = ref('')
@@ -68,17 +70,12 @@ async function handleLogin() {
   error.value = ''
 
   try {
-    const res = await window.qforge.auth.login(username.value, password.value)
-    if (res.status >= 400) {
-      const body = res.body as { message?: string }
-      error.value = body?.message || `登录失败 (${res.status})`
-      return
-    }
-    const body = res.body as { token: string }
-    await window.qforge.credentials.save({ username: username.value, token: body.token })
+    // auth.login() correctly reads accessToken from backend response
+    // and saves credentials (remember=true for desktop app)
+    await auth.login(username.value, password.value, true)
     router.replace('/')
   } catch (e: unknown) {
-    error.value = (e as Error).message || '网络错误'
+    error.value = (e as Error).message || '登录失败，请检查用户名和密码'
   } finally {
     loading.value = false
   }
