@@ -34,6 +34,7 @@ import { useTagStore } from '@/stores/tag'
 import { useWebSocketStore } from '@/stores/websocket'
 import { useExamParseStore } from '@/stores/examParse'
 import { useNotificationStore } from '@/stores/notification'
+import { registerOn401, unregisterOn401 } from '@/api/client'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -42,6 +43,15 @@ const tagStore = useTagStore()
 const wsStore = useWebSocketStore()
 const epStore = useExamParseStore()
 const notif = useNotificationStore()
+
+// ── 401 interceptor: redirect to login on expired token ──
+let redirecting = false
+registerOn401(() => {
+  if (redirecting) return
+  redirecting = true
+  notif.log('登录已过期，请重新登录')
+  auth.logout().finally(() => router.replace('/login'))
+})
 
 /**
  * Auto-save workspace when entries change.
@@ -105,6 +115,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (saveTimer) clearTimeout(saveTimer)
   wsStore.disconnect()
+  unregisterOn401()
 })
 
 async function logout() {

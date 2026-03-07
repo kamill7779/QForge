@@ -620,13 +620,18 @@ onMounted(() => {
         }
       }
 
-      const entryStage = stageOf(entry)
-      if (entryStage === 'PENDING_ANSWER') {
-        await questionStore.submitOcr(auth.token, entry.questionUuid, 'ANSWER_CONTENT', payload.imageBase64)
-      } else {
-        // Default to stem OCR (PENDING_STEM)
-        entry.stemImageBase64 = payload.imageBase64
-        await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
+      try {
+        const entryStage = stageOf(entry)
+        if (entryStage === 'PENDING_ANSWER') {
+          await questionStore.submitOcr(auth.token, entry.questionUuid, 'ANSWER_CONTENT', payload.imageBase64)
+        } else {
+          // Default to stem OCR (PENDING_STEM)
+          entry.stemImageBase64 = payload.imageBase64
+          await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
+        }
+        notif.log('OCR 已提交，等待识别结果…')
+      } catch (e: any) {
+        notif.log(`OCR 提交失败: ${e?.message || e}`)
       }
       return
     }

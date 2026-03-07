@@ -431,6 +431,9 @@ export const useQuestionStore = defineStore('question', () => {
           notif.log(`OCR识别完成，已自动填充题干`)
           markDirty()
         }
+        if (status === 'FAILED') {
+          notif.log(`题干OCR识别失败${errorMsg ? ': ' + errorMsg : ''}`)
+        }
       } else {
         entry.lastAnswerOcrStatus = status
         // Auto-backfill answerDraft when OCR succeeds and draft is empty
@@ -438,6 +441,9 @@ export const useQuestionStore = defineStore('question', () => {
           entry.answerDraft = recognizedText
           notif.log(`OCR识别完成，已自动填充答案`)
           markDirty()
+        }
+        if (status === 'FAILED') {
+          notif.log(`答案OCR识别失败${errorMsg ? ': ' + errorMsg : ''}`)
         }
       }
     }

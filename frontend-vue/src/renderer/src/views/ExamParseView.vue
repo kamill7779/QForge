@@ -371,10 +371,17 @@ async function startParse() {
   try {
     // Electron: need file paths, not File objects.
     // In the Electron context, the files have a `path` property.
-    const paths = uploadFiles.value.map((f) => (f as any).path as string)
+    const paths = uploadFiles.value
+      .map((f) => (f as any).path as string)
+      .filter((p): p is string => !!p)
+    if (paths.length === 0) {
+      notif.log('无法读取文件路径，请重新选择文件')
+      return
+    }
     await epStore.createTask(auth.token, paths, hasAnswerHint.value)
     uploadFiles.value = []
     hasAnswerHint.value = false
+    notif.log('解析任务已提交')
   } catch (err: any) {
     notif.log(`上传失败: ${err.message ?? err}`)
   } finally {

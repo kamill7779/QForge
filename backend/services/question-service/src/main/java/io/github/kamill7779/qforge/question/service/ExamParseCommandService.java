@@ -33,7 +33,7 @@ public class ExamParseCommandService {
 
     private static final int MAX_FILES = 10;
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
-            "pdf", "jpg", "jpeg", "png", "webp");
+            "pdf", "jpg", "jpeg", "png");
 
     private final ExamParseTaskRepository taskRepository;
     private final ExamParseSourceFileRepository sourceFileRepository;

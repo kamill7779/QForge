@@ -11,14 +11,25 @@ export class ApiError extends Error {
 
   constructor(status: number, body: unknown) {
     const msg =
-      typeof body === 'object' && body !== null && 'message' in body
-        ? (body as { message: string }).message
-        : `HTTP ${status}`
+      status === 401
+        ? '登录已过期，请重新登录'
+        : typeof body === 'object' && body !== null && 'message' in body
+          ? (body as { message: string }).message
+          : `HTTP ${status}`
     super(msg)
     this.name = 'ApiError'
     this.status = status
     this.body = body
   }
+}
+
+/** Global 401 callback — set by AppShell to redirect to login. */
+let on401: (() => void) | null = null
+export function registerOn401(cb: () => void): void { on401 = cb }
+export function unregisterOn401(): void { on401 = null }
+
+function handle401(status: number): void {
+  if (status === 401 && on401) on401()
 }
 
 /**
@@ -32,7 +43,10 @@ export async function apiRequest<T = unknown>(
   body?: unknown
 ): Promise<T> {
   const res = await window.qforge.api.request(path, method, token, body)
-  if (res.status >= 400) throw new ApiError(res.status, res.body)
+  if (res.status >= 400) {
+    handle401(res.status)
+    throw new ApiError(res.status, res.body)
+  }
   return res.body as T
 }
 
@@ -47,6 +61,9 @@ export async function apiUpload<T = unknown>(
   fields?: Record<string, string>
 ): Promise<T> {
   const res = await window.qforge.api.uploadMultipart(path, token, filePaths, fields)
-  if (res.status >= 400) throw new ApiError(res.status, res.body)
+  if (res.status >= 400) {
+    handle401(res.status)
+    throw new ApiError(res.status, res.body)
+  }
   return res.body as T
 }

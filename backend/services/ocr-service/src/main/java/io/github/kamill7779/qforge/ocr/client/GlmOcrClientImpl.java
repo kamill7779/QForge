@@ -168,10 +168,30 @@ public class GlmOcrClientImpl implements GlmOcrClient {
                 || imageBase64.startsWith("data:")) {
             return imageBase64;
         }
-        String mimeType = properties.getImageMimeType();
-        if (mimeType == null || mimeType.isBlank()) {
-            mimeType = "image/png";
-        }
+        // Auto-detect MIME type from base64 magic bytes
+        String mimeType = detectMimeFromBase64(imageBase64);
         return "data:" + mimeType + ";base64," + imageBase64;
+    }
+
+    /**
+     * Detect image MIME type from the first few characters of a base64-encoded string.
+     * Falls back to the configured default or image/png.
+     */
+    private String detectMimeFromBase64(String base64) {
+        if (base64.length() >= 4) {
+            // PNG: starts with iVBOR (base64 of 0x89 P N G)
+            if (base64.startsWith("iVBOR")) return "image/png";
+            // JPEG: starts with /9j/ (base64 of 0xFF 0xD8 0xFF)
+            if (base64.startsWith("/9j/")) return "image/jpeg";
+            // PDF: starts with JVBER (base64 of %PDF)
+            if (base64.startsWith("JVBER")) return "application/pdf";
+            // GIF: starts with R0lG (base64 of GIF8)
+            if (base64.startsWith("R0lG")) return "image/gif";
+            // WebP: starts with UklG (base64 of RIFF)
+            if (base64.startsWith("UklG")) return "image/png"; // Zhipu doesn't support webp, treat as png fallback
+        }
+        String fallback = properties.getImageMimeType();
+        if (fallback != null && !fallback.isBlank()) return fallback;
+        return "image/png";
     }
 }
