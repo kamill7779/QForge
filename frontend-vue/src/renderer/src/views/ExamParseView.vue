@@ -633,45 +633,45 @@ function focusStageLabel(stage: FocusStage): string {
 </script>
 
 <style scoped>
-/* ===== Layout: grid 300px sidebar ===== */
+/* ===== Layout: grid 280px sidebar ===== */
 .exam-parse-view {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 280px 1fr;
   height: 100%;
   overflow: hidden;
   gap: 0;
 }
 
-/* ===== Sidebar (dark pane) ===== */
+/* ===== Sidebar (light warm) ===== */
 .ep-sidebar {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--color-border-dark);
+  border-right: 1px solid var(--color-border);
   background: var(--color-bg-sidebar);
 }
 
 /* Upload panel */
 .upload-panel {
   padding: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .upload-area {
-  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border: 2px dashed var(--color-border-strong);
   border-radius: var(--radius-md);
   padding: 22px 16px;
   text-align: center;
   cursor: pointer;
   transition: all var(--transition-fast);
   position: relative;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-bg-card);
 }
 
 .upload-area:hover,
 .upload-area.dragover {
   border-color: var(--color-accent);
-  background: rgba(108, 92, 231, 0.08);
+  background: var(--color-bg-hover);
 }
 
 .file-input {
@@ -683,7 +683,7 @@ function focusStageLabel(stage: FocusStage): string {
 
 .upload-hint {
   font-size: 0.85rem;
-  color: rgba(223, 230, 233, 0.5);
+  color: var(--color-text-muted);
 }
 
 /* File chips */
@@ -699,10 +699,10 @@ function focusStageLabel(stage: FocusStage): string {
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  background: rgba(108, 92, 231, 0.12);
+  background: var(--color-accent-muted);
   border-radius: 8px;
   font-size: 0.82rem;
-  color: #a29bfe;
+  color: var(--color-accent);
 }
 
 .chip-name {
@@ -713,21 +713,21 @@ function focusStageLabel(stage: FocusStage): string {
 }
 
 .chip-size {
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
   font-size: 0.75rem;
 }
 
 .chip-remove {
   background: none;
   border: none;
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
   cursor: pointer;
   font-size: 0.95rem;
   padding: 0 2px;
   border-radius: 50%;
   transition: all var(--transition-fast);
 }
-.chip-remove:hover { color: #fab1a0; background: rgba(225, 112, 85, 0.15); }
+.chip-remove:hover { color: var(--color-danger); background: var(--color-danger-bg); }
 
 .upload-options {
   display: flex;
@@ -738,7 +738,7 @@ function focusStageLabel(stage: FocusStage): string {
 
 .checkbox-label {
   font-size: 0.85rem;
-  color: rgba(223, 230, 233, 0.6);
+  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -751,10 +751,10 @@ function focusStageLabel(stage: FocusStage): string {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--color-border-light);
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--color-text-on-dark);
+  color: var(--color-text-primary);
 }
 
 .btn-icon {
@@ -763,7 +763,7 @@ function focusStageLabel(stage: FocusStage): string {
   cursor: pointer;
   font-size: 0.9rem;
   padding: 2px 4px;
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
   transition: color var(--transition-fast);
 }
 .btn-icon:hover { color: var(--color-accent); }
@@ -781,19 +781,20 @@ function focusStageLabel(stage: FocusStage): string {
 .task-card {
   padding: 10px 12px;
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-light);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-bg-card);
   transition: all var(--transition-fast);
 }
 
 .task-card:hover {
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .task-card.selected {
   border-color: var(--color-accent);
-  background: rgba(108, 92, 231, 0.12);
+  background: var(--color-accent-muted);
   box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
@@ -807,7 +808,7 @@ function focusStageLabel(stage: FocusStage): string {
 .task-uuid {
   font-family: var(--font-mono);
   font-size: 0.82rem;
-  color: var(--color-text-on-dark);
+  color: var(--color-text-primary);
   font-weight: 600;
 }
 
@@ -818,20 +819,20 @@ function focusStageLabel(stage: FocusStage): string {
   font-weight: 600;
 }
 
-.status-pending { background: rgba(253, 203, 110, 0.2); color: #ffeaa7; }
-.status-processing { background: rgba(108, 92, 231, 0.2); color: #a29bfe; }
-.status-confirmed { background: rgba(0, 184, 148, 0.2); color: #55efc4; }
-.status-failed { background: rgba(225, 112, 85, 0.2); color: #fab1a0; }
+.status-pending { background: var(--color-warning-bg); color: var(--color-warning); }
+.status-processing { background: rgba(108, 92, 231, 0.10); color: var(--color-accent); }
+.status-confirmed { background: var(--color-success-bg); color: var(--color-success); }
+.status-failed { background: var(--color-danger-bg); color: var(--color-danger); }
 
 .task-meta {
   font-size: 0.78rem;
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
   display: flex;
   gap: 8px;
 }
 
 .tag-answer {
-  color: #a29bfe;
+  color: var(--color-accent);
   font-weight: 600;
 }
 
@@ -839,7 +840,7 @@ function focusStageLabel(stage: FocusStage): string {
 .progress-bar {
   margin-top: 6px;
   height: 5px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-secondary);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -853,10 +854,10 @@ function focusStageLabel(stage: FocusStage): string {
 
 .task-error {
   font-size: 0.78rem;
-  color: #fab1a0;
+  color: var(--color-danger);
   margin-top: 4px;
   padding: 4px 8px;
-  background: rgba(225, 112, 85, 0.1);
+  background: var(--color-danger-bg);
   border-radius: 6px;
   border-left: 3px solid var(--color-danger);
 }
@@ -866,15 +867,15 @@ function focusStageLabel(stage: FocusStage): string {
   max-height: 160px;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .log-header {
   padding: 8px 14px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: rgba(223, 230, 233, 0.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border-light);
   text-transform: uppercase;
   letter-spacing: 0.6px;
 }
@@ -888,11 +889,12 @@ function focusStageLabel(stage: FocusStage): string {
 .log-item {
   font-size: 0.75rem;
   padding: 2px 0;
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
 }
 
 .log-ts {
-  color: rgba(223, 230, 233, 0.25);
+  color: var(--color-text-muted);
+  opacity: 0.6;
   margin-right: 6px;
   font-family: var(--font-mono);
 }
@@ -990,11 +992,11 @@ function focusStageLabel(stage: FocusStage): string {
 
 .bubble.b-preview { background: var(--color-bg-panel); color: var(--color-text-muted); }
 .bubble.b-editing-stem,
-.bubble.b-editing-answer { background: rgba(253, 203, 110, 0.15); color: var(--color-warning); border-color: var(--color-warning); }
+.bubble.b-editing-answer { background: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning); }
 .bubble.b-ready { background: rgba(108, 92, 231, 0.1); color: var(--color-accent); border-color: var(--color-accent); }
-.bubble.b-confirmed { background: rgba(0, 184, 148, 0.12); color: var(--color-success); border-color: var(--color-success); }
+.bubble.b-confirmed { background: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success); }
 .bubble.b-skipped { background: var(--color-bg-panel); color: var(--color-text-muted); text-decoration: line-through; opacity: 0.5; }
-.bubble.b-error { background: rgba(214, 48, 49, 0.1); color: var(--color-danger); border-color: var(--color-danger); }
+.bubble.b-error { background: var(--color-danger-bg); color: var(--color-danger); border-color: var(--color-danger); }
 
 .bubble.active {
   transform: scale(1.26);
@@ -1054,11 +1056,11 @@ function focusStageLabel(stage: FocusStage): string {
 
 .fs-preview { background: var(--color-bg-panel); color: var(--color-text-muted); }
 .fs-editing-stem,
-.fs-editing-answer { background: rgba(253, 203, 110, 0.15); color: var(--color-warning); }
+.fs-editing-answer { background: var(--color-warning-bg); color: var(--color-warning); }
 .fs-ready { background: rgba(108, 92, 231, 0.1); color: var(--color-accent); }
-.fs-confirmed { background: rgba(0, 184, 148, 0.12); color: var(--color-success); }
+.fs-confirmed { background: var(--color-success-bg); color: var(--color-success); }
 .fs-skipped { background: var(--color-bg-panel); color: var(--color-text-muted); }
-.fs-error { background: rgba(214, 48, 49, 0.1); color: var(--color-danger); }
+.fs-error { background: var(--color-danger-bg); color: var(--color-danger); }
 
 .focus-actions {
   margin-left: auto;

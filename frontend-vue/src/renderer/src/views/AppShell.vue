@@ -123,13 +123,13 @@ async function logout() {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  background: var(--color-bg-primary);
 }
 
 .app-header {
-  height: 56px;
-  border-bottom: 1px solid var(--color-border-dark);
+  height: 52px;
+  border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-header);
-  backdrop-filter: blur(16px) saturate(160%);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -139,78 +139,60 @@ async function logout() {
   z-index: 100;
 }
 
-/* Subtle accent glow line under header */
-.app-header::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--color-accent-glow), transparent);
-}
-
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .logo-mark {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   background: linear-gradient(135deg, var(--color-accent), #a29bfe);
   color: #fff;
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: -0.5px;
-  box-shadow: 0 2px 12px var(--color-accent-glow);
-  transition: transform var(--transition-fast);
-}
-
-.logo-mark:hover {
-  transform: scale(1.08) rotate(-3deg);
+  flex-shrink: 0;
 }
 
 .app-title {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: var(--color-text-header);
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--color-text-primary);
 }
 
 .tab-nav {
   display: flex;
   gap: 2px;
-  margin-left: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  margin-left: 16px;
+  background: var(--color-bg-secondary);
   border-radius: var(--radius-md);
   padding: 3px;
 }
 
 .tab-link {
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 6px 16px;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 18px;
   background: transparent;
-  color: rgba(223, 230, 233, 0.6);
+  color: var(--color-text-secondary);
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   transition: all var(--transition-fast);
-  letter-spacing: 0.3px;
 }
 
 .tab-link:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text-header);
+  background: var(--color-bg-hover);
+  color: var(--color-accent);
   text-decoration: none;
 }
 
@@ -218,7 +200,7 @@ async function logout() {
   background: var(--color-accent);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 2px 8px var(--color-accent-glow);
+  box-shadow: 0 1px 4px rgba(var(--color-accent-rgb), 0.25);
 }
 
 .header-actions {
@@ -230,19 +212,19 @@ async function logout() {
 
 .user-pill {
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text-on-dark);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
   padding: 4px 12px;
   font-size: 12px;
-  letter-spacing: 0.3px;
+  font-weight: 500;
 }
 
 .btn-logout {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 4px 12px;
   background: transparent;
-  color: rgba(223, 230, 233, 0.7);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
@@ -250,14 +232,13 @@ async function logout() {
 }
 
 .btn-logout:hover {
-  background: rgba(214, 48, 49, 0.15);
-  border-color: rgba(214, 48, 49, 0.3);
-  color: #fab1a0;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .app-main {
   flex: 1;
   overflow: hidden;
-  animation: fadeIn 0.3s ease;
 }
 </style>

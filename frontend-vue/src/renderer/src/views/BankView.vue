@@ -564,12 +564,12 @@ function diffClass(d: number): string {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 300px 1fr;
   gap: 0;
   overflow: hidden;
 }
 
-/* ── Sidebar (dark pane) ── */
+/* ── Sidebar (light warm) ── */
 
 .bank-sidebar {
   min-height: 0;
@@ -578,21 +578,21 @@ function diffClass(d: number): string {
   gap: 0;
   overflow: hidden;
   background: var(--color-bg-sidebar);
-  border-right: 1px solid var(--color-border-dark);
+  border-right: 1px solid var(--color-border);
 }
 
 .filter-section {
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .filter-label {
   display: block;
   font-size: 12px;
-  color: rgba(223, 230, 233, 0.5);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.6px;
   font-weight: 600;
@@ -603,10 +603,10 @@ function diffClass(d: number): string {
 .filter-select {
   width: 100%;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  color: var(--color-text-on-dark);
+  color: var(--color-text-primary);
   font-size: 13px;
   outline: none;
   transition: all var(--transition-fast);
@@ -615,13 +615,12 @@ function diffClass(d: number): string {
 .search-input:focus,
 .filter-select:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
-  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px var(--color-accent-muted);
 }
 
 .filter-select option {
-  background: var(--color-bg-sidebar);
-  color: var(--color-text-on-dark);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
 }
 
 .bank-list-card {
@@ -634,9 +633,9 @@ function diffClass(d: number): string {
 
 .bank-count {
   font-size: 12px;
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
   padding: 10px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .bank-list {
@@ -650,21 +649,22 @@ function diffClass(d: number): string {
 }
 
 .bank-card {
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-light);
   border-radius: 8px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-bg-card);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .bank-card:hover {
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .bank-card.selected {
   border-color: var(--color-accent);
-  background: rgba(108, 92, 231, 0.12);
+  background: var(--color-accent-muted);
   box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
@@ -679,7 +679,7 @@ function diffClass(d: number): string {
   font-weight: 600;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--color-text-on-dark);
+  color: var(--color-text-primary);
   word-break: break-all;
 }
 
@@ -693,28 +693,28 @@ function diffClass(d: number): string {
   font-weight: 600;
 }
 
-.d-easy { background: rgba(0, 184, 148, 0.2); color: #55efc4; }
-.d-medium-easy { background: rgba(0, 206, 209, 0.2); color: #81ecec; }
-.d-medium { background: rgba(253, 203, 110, 0.25); color: #ffeaa7; }
-.d-hard { background: rgba(225, 112, 85, 0.25); color: #fab1a0; }
-.d-very-hard { background: rgba(162, 155, 254, 0.25); color: #a29bfe; }
+.d-easy { background: var(--color-d-easy-bg); color: var(--color-d-easy); }
+.d-medium-easy { background: var(--color-d-medium-easy-bg); color: var(--color-d-medium-easy); }
+.d-medium { background: var(--color-d-medium-bg); color: var(--color-d-medium); }
+.d-hard { background: var(--color-d-hard-bg); color: var(--color-d-hard); }
+.d-very-hard { background: var(--color-d-very-hard-bg); color: var(--color-d-very-hard); }
 
 .card-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
   font-size: 11px;
 }
 
 .empty-list {
-  color: rgba(223, 230, 233, 0.3);
+  color: var(--color-text-muted);
   font-size: 13px;
   padding: 20px 12px;
   text-align: center;
 }
 
-/* ── Main (right pane — light) ── */
+/* ── Main (right pane) ── */
 
 .bank-main {
   min-height: 0;

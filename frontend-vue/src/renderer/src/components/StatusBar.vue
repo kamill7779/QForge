@@ -41,10 +41,10 @@ const stageCounts = computed(() => questionStore.stageCounts)
   gap: 12px;
   padding: 0 14px;
   height: 28px;
-  background: var(--color-bg-sidebar);
-  border-top: 1px solid var(--color-border-dark);
+  background: var(--color-bg-footer);
+  border-top: 1px solid var(--color-border);
   font-size: 0.78rem;
-  color: rgba(223, 230, 233, 0.6);
+  color: var(--color-text-secondary);
   flex-shrink: 0;
 }
 
@@ -67,10 +67,10 @@ const stageCounts = computed(() => questionStore.stageCounts)
 .status-connection {
   border-radius: var(--radius-pill);
   padding: 2px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
   font-size: 0.72rem;
-  color: rgba(223, 230, 233, 0.5);
+  color: var(--color-text-muted);
 }
 
 .status-stage-summary {
@@ -79,7 +79,7 @@ const stageCounts = computed(() => questionStore.stageCounts)
 }
 
 .status-shortcut {
-  opacity: 0.4;
+  opacity: 0.5;
   font-size: 0.72rem;
 }
 </style>

@@ -654,12 +654,12 @@ function stageLabel(stage: QuestionStage): string {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 280px 1fr;
   gap: 0;
   overflow: hidden;
 }
 
-/* ── Sidebar (dark pane) ── */
+/* ── Sidebar (light warm) ── */
 
 .entry-sidebar {
   min-height: 0;
@@ -668,31 +668,31 @@ function stageLabel(stage: QuestionStage): string {
   gap: 0;
   overflow: hidden;
   background: var(--color-bg-sidebar);
-  border-right: 1px solid var(--color-border-dark);
+  border-right: 1px solid var(--color-border);
 }
 
 .create-panel {
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .stage-filter {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .filter-btn {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 8px 6px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(223, 230, 233, 0.6);
+  padding: 7px 6px;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 13px;
   display: flex;
@@ -703,14 +703,15 @@ function stageLabel(stage: QuestionStage): string {
 }
 
 .filter-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text-on-dark);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-bg-hover);
 }
 
 .filter-btn.active {
   border-color: var(--color-accent);
-  background: rgba(108, 92, 231, 0.2);
-  color: #a29bfe;
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
   font-weight: 600;
 }
 
@@ -738,21 +739,22 @@ function stageLabel(stage: QuestionStage): string {
 }
 
 .question-card {
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-light);
   border-radius: 8px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-bg-card);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .question-card:hover {
-  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .question-card.selected {
   border-color: var(--color-accent);
-  background: rgba(108, 92, 231, 0.12);
+  background: var(--color-accent-muted);
   box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
@@ -767,7 +769,7 @@ function stageLabel(stage: QuestionStage): string {
   font-weight: 600;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--color-text-on-dark);
+  color: var(--color-text-primary);
   word-break: break-all;
 }
 
@@ -779,20 +781,20 @@ function stageLabel(stage: QuestionStage): string {
   font-weight: 600;
 }
 
-.badge-pending-stem { background: rgba(225, 112, 85, 0.2); color: #fab1a0; }
-.badge-pending-answer { background: rgba(9, 132, 227, 0.2); color: #74b9ff; }
-.badge-completed { background: rgba(0, 184, 148, 0.2); color: #55efc4; }
+.badge-pending-stem { background: var(--color-warning-bg); color: var(--color-warning); }
+.badge-pending-answer { background: var(--color-info-bg); color: var(--color-info); }
+.badge-completed { background: var(--color-success-bg); color: var(--color-success); }
 
 .card-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: rgba(223, 230, 233, 0.4);
+  color: var(--color-text-muted);
   font-size: 11px;
 }
 
 .empty-list {
-  color: rgba(223, 230, 233, 0.3);
+  color: var(--color-text-muted);
   font-size: 13px;
   padding: 20px 12px;
   text-align: center;
