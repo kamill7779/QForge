@@ -64,13 +64,19 @@
   /* Shadows — 原版柔和投影 */
   --shadow-sm: 0 1px 3px rgba(23, 49, 95, 0.06);
   --shadow-md: 0 12px 26px rgba(23, 49, 95, 0.08);
+  --shadow-soft: 0 12px 26px rgba(23, 49, 95, 0.08);
 
-  /* Difficulty colors */
-  --color-d-easy: #10b981;
-  --color-d-medium-easy: #84cc16;
-  --color-d-medium: #f59e0b;
-  --color-d-hard: #f97316;
-  --color-d-very-hard: #ef4444;
+  /* Difficulty colors — 原版配色 */
+  --color-d-easy: #176b3d;
+  --color-d-easy-bg: #ddf4e8;
+  --color-d-medium-easy: #3d6b17;
+  --color-d-medium-easy-bg: #e8f5cc;
+  --color-d-medium: #8c6306;
+  --color-d-medium-bg: #fff1d6;
+  --color-d-hard: #af3535;
+  --color-d-hard-bg: #fde3e3;
+  --color-d-very-hard: #7a2ea0;
+  --color-d-very-hard-bg: #f3e0fa;
 
   /* ─── Backward-compat aliases (components use short names) ─── */
   --bg-primary: var(--color-bg-card);

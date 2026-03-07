@@ -42,22 +42,33 @@ watchEffect(() => {
 
 <style scoped>
 .latex-preview {
-  padding: var(--spacing-md);
+  padding: 16px 18px;
   min-height: 3em;
-  line-height: 1.7;
-  font-size: 15px;
+  line-height: 1.8;
+  font-size: 0.92rem;
   overflow-x: auto;
+  background: #f7faff;
+  border: 1px solid #ccd8ef;
+  border-radius: 10px;
+  color: #1f355c;
 }
 
 .latex-preview.compact {
-  padding: var(--spacing-sm);
+  padding: 10px 12px;
   min-height: 2em;
-  font-size: 14px;
+  font-size: 0.88rem;
 }
 
 .latex-preview .empty-note {
-  color: var(--text-tertiary);
-  font-style: italic;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff8e1;
+  color: #e65100;
+  border: 1px dashed #ffb74d;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
 }
 
 .latex-preview :deep(.stem-p) {
@@ -66,14 +77,16 @@ watchEffect(() => {
 
 .latex-preview :deep(.stem-image) {
   max-width: 100%;
-  max-height: 300px;
+  max-height: 360px;
   display: block;
-  margin: 8px 0;
-  border-radius: var(--radius-sm);
+  margin: 10px auto;
+  border-radius: 6px;
+  border: 1px solid #d2ddf1;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .latex-preview :deep(.choices-container) {
-  margin: 8px 0;
+  margin: 10px 0 10px 4px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -82,14 +95,15 @@ watchEffect(() => {
 .latex-preview :deep(.choice-item) {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
   padding: 2px 0;
 }
 
 .latex-preview :deep(.choice-key) {
-  font-weight: 600;
-  min-width: 1.5em;
-  color: var(--accent-primary);
+  font-weight: 700;
+  min-width: 24px;
+  white-space: nowrap;
+  color: var(--color-accent);
 }
 
 .latex-preview :deep(.choice-content) {
@@ -105,27 +119,16 @@ watchEffect(() => {
 .latex-preview :deep(.blank-item) {
   display: inline-block;
   min-width: 60px;
-  border-bottom: 2px solid var(--border-default);
+  border-bottom: 2px solid #c9d6ed;
   text-align: center;
-  color: var(--text-tertiary);
+  color: #8a9bba;
   padding: 2px 8px;
 }
 
 .latex-preview :deep(.answer-area) {
   margin: 8px 0;
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-sm);
+  border: 1px dashed #c9d6ed;
+  border-radius: 8px;
   padding: 8px;
-}
-
-.latex-preview :deep(.answer-area-label) {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
-}
-
-.latex-preview :deep(.answer-area-line) {
-  height: 28px;
-  border-bottom: 1px solid var(--border-subtle);
 }
 </style>

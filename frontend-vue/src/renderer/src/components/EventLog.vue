@@ -28,36 +28,39 @@ const emit = defineEmits<{
 
 <style scoped>
 .event-log {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-secondary);
+  border: 1px solid #d2ddf1;
+  border-radius: 10px;
+  background: #fbfdff;
   overflow: hidden;
+  box-shadow: var(--shadow-soft);
 }
 
 .log-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  border-bottom: 1px solid #e8eef8;
+  background: #f6f9ff;
 }
 
 .log-header h4 {
   margin: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 0.85rem;
+  color: #1f355c;
+  font-weight: 700;
 }
 
 .clear-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 12px;
-  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  color: #8a9bba;
   padding: 2px 6px;
 }
 .clear-btn:hover {
-  color: var(--danger);
+  color: #af3535;
 }
 
 .log-list {
@@ -65,13 +68,14 @@ const emit = defineEmits<{
   margin: 0;
   padding: 0;
   max-height: 200px;
+  min-height: 60px;
   overflow-y: auto;
 }
 
 .log-item {
-  padding: 3px 10px;
-  font-size: 12px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid #f0f4fb;
   display: flex;
   gap: 8px;
 }
@@ -80,19 +84,20 @@ const emit = defineEmits<{
 }
 
 .log-ts {
-  color: var(--text-tertiary);
-  font-family: monospace;
+  color: #8a9bba;
+  font-family: var(--font-mono);
   white-space: nowrap;
+  font-size: 0.78rem;
 }
 
 .log-msg {
-  color: var(--text-secondary);
+  color: #3a5b97;
 }
 
 .log-empty {
   padding: 12px 10px;
-  font-size: 12px;
-  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  color: #8a9bba;
   text-align: center;
   font-style: italic;
 }

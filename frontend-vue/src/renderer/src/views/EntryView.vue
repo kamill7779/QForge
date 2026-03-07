@@ -5,25 +5,27 @@
       <!-- Create Panel -->
       <div class="create-panel">
         <button class="btn-primary" @click="createSingle">+ 新建题目</button>
-        <button class="btn-secondary" @click="createBatch">批量新建</button>
+        <button class="btn-secondary btn-mini" @click="createBatch">批量新建</button>
       </div>
 
-      <!-- Stage Filter -->
-      <div class="stage-filter">
-        <button
-          v-for="s in stages"
-          :key="s.key"
-          class="filter-btn"
-          :class="{ active: questionStore.stageFilter === s.key }"
-          @click="questionStore.setStageFilter(s.key)"
-        >
-          {{ s.label }}
-          <span class="count-badge">{{ questionStore.stageCounts[s.key] }}</span>
-        </button>
-      </div>
+      <!-- Task List Card -->
+      <div class="question-list-card">
+        <!-- Stage Filter -->
+        <div class="stage-filter">
+          <button
+            v-for="s in stages"
+            :key="s.key"
+            class="filter-btn"
+            :class="{ active: questionStore.stageFilter === s.key }"
+            @click="questionStore.setStageFilter(s.key)"
+          >
+            {{ s.label }}
+            <span class="count-badge">{{ questionStore.stageCounts[s.key] }}</span>
+          </button>
+        </div>
 
-      <!-- Question List -->
-      <div class="question-list">
+        <!-- Question List -->
+        <div class="question-list">
         <div
           v-for="entry in questionStore.filteredEntries"
           :key="entry.questionUuid"
@@ -52,6 +54,7 @@
           暂无题目
         </div>
       </div>
+      </div><!-- end question-list-card -->
 
       <!-- Event Log -->
       <EventLog :logs="notif.recentLogs" @clear="notif.clear()" />
@@ -625,46 +628,56 @@ function stageLabel(stage: QuestionStage): string {
 
 <style scoped>
 .entry-view {
-  display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 328px 1fr;
+  gap: 12px;
+  padding: 12px;
   overflow: hidden;
 }
 
-/* ── Sidebar ── */
+/* ── Sidebar (left pane) ── */
 
 .entry-sidebar {
-  width: 280px;
-  min-width: 280px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-sidebar);
-  border-right: 1px solid var(--color-border);
+  gap: 10px;
   overflow: hidden;
 }
 
 .create-panel {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  padding: 14px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid var(--color-border);
+}
+
+.quick-hint {
+  width: 100%;
+  color: var(--color-text-secondary);
+  font-size: 13px;
 }
 
 .stage-filter {
-  display: flex;
-  gap: 4px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .filter-btn {
-  flex: 1;
-  padding: 4px 8px;
-  font-size: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-text-secondary);
+  border: 1px solid #c9d5ec;
+  border-radius: 8px;
+  padding: 8px 6px;
+  background: #f6f9ff;
+  color: #3a5b97;
   cursor: pointer;
+  font-size: 13px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -672,9 +685,10 @@ function stageLabel(stage: QuestionStage): string {
 }
 
 .filter-btn.active {
-  background: var(--color-accent);
-  color: #fff;
   border-color: var(--color-accent);
+  background: #e5eeff;
+  color: #1f4cb1;
+  font-weight: 600;
 }
 
 .count-badge {
@@ -682,71 +696,91 @@ function stageLabel(stage: QuestionStage): string {
   opacity: 0.7;
 }
 
+.question-list-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  padding: 14px;
+}
+
 .question-list {
   flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .question-card {
-  padding: 8px 12px;
+  border: 1px solid #d2ddf1;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfdff;
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border-light, #e8eef8);
-  transition: background 0.15s;
+  transition: background 0.12s;
 }
 
 .question-card:hover {
-  background: rgba(45, 108, 223, 0.04);
+  background: #f0f5ff;
 }
 
 .question-card.selected {
-  background: rgba(var(--color-accent-rgb, 59, 130, 246), 0.15);
-  border-left: 3px solid var(--color-accent);
+  border-color: var(--color-accent);
+  background: #eaf1ff;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .card-uuid {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--color-text-primary);
+  font-weight: 600;
+  word-break: break-all;
 }
 
 .card-badge {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
 }
 
-.badge-pending-stem { background: var(--color-warning-bg, #fff1d6); color: var(--color-warning, #8c6306); }
-.badge-pending-answer { background: var(--color-info-bg, #e8f0ff); color: var(--color-info, #2f4f8e); }
-.badge-completed { background: var(--color-success-bg, #ddf4e8); color: var(--color-success, #176b3d); }
+.badge-pending-stem { background: var(--color-warning-bg); color: var(--color-warning); }
+.badge-pending-answer { background: var(--color-info-bg); color: var(--color-info); }
+.badge-completed { background: var(--color-success-bg); color: var(--color-success); }
 
 .card-info {
-  font-size: 11px;
-  color: var(--color-text-muted);
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 .empty-list {
-  padding: 24px;
-  text-align: center;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 13px;
+  padding: 6px;
 }
 
-/* ── Main ── */
+/* ── Main area (right pane) ── */
 
 .entry-main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  padding-right: 2px;
 }
 
 .empty-state {
@@ -754,57 +788,77 @@ function stageLabel(stage: QuestionStage): string {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--color-text-muted);
-  font-size: 15px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
 }
 
 .work-card {
-  max-width: 1200px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  padding: 14px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
 
 .card-title {
+  margin: 0 0 10px;
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 16px;
-  color: var(--color-text-primary);
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px 12px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin-bottom: 10px;
 }
 
 .work-columns {
-  display: flex;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(280px, 1.2fr) minmax(220px, 1fr);
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
 }
 
 .editor-col {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+  min-height: 0;
 }
 
 .preview-col {
+  border: 1px solid #ccd8ef;
+  border-radius: 10px;
+  background: #f7faff;
   flex: 1;
-  min-width: 0;
+  min-height: 0;
   padding: 12px;
-  background: var(--color-bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  overflow-y: auto;
-  max-height: calc(100vh - 180px);
+  overflow: auto;
+  white-space: pre-wrap;
+  color: #1f355c;
 }
 
 .stem-readonly {
-  padding: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-bg-secondary);
+  padding: 12px;
+  border: 1px solid #dbe4f4;
+  border-radius: 12px;
+  background: #f7faff;
 }
 
 .stem-readonly h4,
 .section h4 {
   font-size: 13px;
-  color: var(--color-text-muted);
-  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
 }
 
 .ocr-row {
@@ -822,13 +876,14 @@ function stageLabel(stage: QuestionStage): string {
 
 .answer-history {
   padding: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border: 1px solid #d4def1;
+  border-radius: 8px;
+  background: #fcfdff;
 }
 
 .answer-history h4 {
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
 
@@ -838,66 +893,77 @@ function stageLabel(stage: QuestionStage): string {
   padding: 2px 0;
 }
 
-/* ── Buttons ── */
+/* ── Buttons (原版 .btn 体系) ── */
 
 .btn-primary {
-  padding: 6px 14px;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 9px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
 }
 
-.btn-primary:hover { filter: brightness(0.95); }
+.btn-primary:hover { filter: brightness(0.98); }
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-secondary {
-  padding: 6px 14px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border: 1px solid #c8d5eb;
+  border-radius: 10px;
+  padding: 9px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  color: #274989;
 }
 
-.btn-secondary:hover { background: rgba(45, 108, 223, 0.06); }
+.btn-secondary:hover { filter: brightness(0.98); background: #e9f0ff; }
 .btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-accent {
-  padding: 6px 14px;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 9px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.btn-mini {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
 }
 
 /* ── Context Menu ── */
 
 .context-menu {
   position: fixed;
-  background: var(--color-bg-elevated, #fff);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  min-width: 120px;
   z-index: 9999;
-  padding: 4px;
+  min-width: 210px;
+  padding: 6px;
+  border: 1px solid #c7d6ef;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(23, 48, 90, 0.18);
 }
 
 .ctx-item {
-  padding: 6px 12px;
-  font-size: 13px;
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  padding: 8px 10px;
+  color: #1f3660;
   cursor: pointer;
-  border-radius: 4px;
-  color: var(--color-text-primary);
 }
 
-.ctx-item:hover { background: rgba(45, 108, 223, 0.08); }
-.ctx-item.danger { color: var(--color-danger, #ef4444); }
+.ctx-item:hover { background: #eef4ff; }
+.ctx-item.danger { color: #b73333; }
+.ctx-item.danger:hover { background: #fdecec; }
 .ctx-item.disabled { color: var(--color-text-muted); cursor: default; pointer-events: none; }
 </style>

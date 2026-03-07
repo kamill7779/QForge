@@ -99,10 +99,10 @@ const diffLevel = computed(() => {
 
 <style scoped>
 .ai-analysis-panel {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--bg-secondary);
+  border: 1px solid #d2ddf1;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #f7faff;
 }
 
 .ai-header {
@@ -114,32 +114,32 @@ const diffLevel = computed(() => {
 
 .ai-header h4 {
   margin: 0;
-  font-size: 14px;
-  color: var(--text-primary);
+  font-size: 0.88rem;
+  color: #1f355c;
 }
 
 .ai-trigger-btn {
-  padding: 4px 12px;
-  border: 1px solid var(--accent-primary);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
+  padding: 5px 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
   cursor: pointer;
-  font-size: 13px;
-  color: var(--accent-primary);
-  transition: all 0.15s;
+  font-size: 0.85rem;
+  color: #fff;
+  font-weight: 600;
+  transition: filter 0.15s;
 }
 .ai-trigger-btn:hover:not(:disabled) {
-  background: var(--accent-primary);
-  color: white;
+  filter: brightness(1.08);
 }
 .ai-trigger-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
+  background: #c4b5fd;
+  cursor: not-allowed;
 }
 
 .ai-status.pending {
-  font-size: 13px;
-  color: var(--warning);
+  font-size: 0.85rem;
+  color: #8c6306;
   animation: pulse 1.5s infinite;
 }
 
@@ -158,22 +158,22 @@ const diffLevel = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--danger);
-  font-size: 13px;
+  color: #af3535;
+  font-size: 0.85rem;
 }
 .error-icon {
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .ai-suggestion {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 0.85rem;
 }
 
 .ai-suggestion label {
-  color: var(--text-secondary);
+  color: #6a7fa0;
   min-width: 5em;
 }
 
@@ -184,11 +184,11 @@ const diffLevel = computed(() => {
 }
 
 .suggested-tag {
-  padding: 1px 8px;
-  background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
-  color: var(--accent-primary);
-  border-radius: 10px;
-  font-size: 12px;
+  padding: 2px 8px;
+  background: #e8efff;
+  color: #2a4f99;
+  border-radius: 999px;
+  font-size: 0.82rem;
 }
 
 .suggested-difficulty {
@@ -196,8 +196,8 @@ const diffLevel = computed(() => {
 }
 
 .ai-reasoning {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 0.82rem;
+  color: #3a5b97;
 }
 .ai-reasoning label {
   display: block;
@@ -206,24 +206,25 @@ const diffLevel = computed(() => {
 .ai-reasoning p {
   margin: 0;
   padding: 4px 8px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
+  background: #eef3ff;
+  border-radius: 8px;
   line-height: 1.5;
 }
 
 .ai-apply-btn {
   align-self: flex-end;
-  padding: 4px 16px;
+  padding: 5px 16px;
   border: none;
-  border-radius: var(--radius-sm);
-  background: var(--success);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #22a358, #176b3d);
   color: white;
   cursor: pointer;
-  font-size: 13px;
-  transition: opacity 0.15s;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: filter 0.15s;
 }
 .ai-apply-btn:hover:not(:disabled) {
-  opacity: 0.85;
+  filter: brightness(1.08);
 }
 .ai-apply-btn:disabled {
   opacity: 0.4;

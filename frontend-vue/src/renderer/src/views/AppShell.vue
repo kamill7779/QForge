@@ -1,14 +1,17 @@
 <template>
   <div class="app-shell">
     <header class="app-header">
-      <div class="app-title">QForge 录题助手</div>
-      <nav class="tab-nav">
-        <router-link to="/entry" class="tab-link" active-class="active">录题中心</router-link>
-        <router-link to="/bank" class="tab-link" active-class="active">题库</router-link>
-        <router-link to="/exam-parse" class="tab-link" active-class="active">试卷解析</router-link>
-      </nav>
+      <div class="topbar-left">
+        <div class="logo-mark">Q</div>
+        <div class="app-title">QForge</div>
+        <nav class="tab-nav">
+          <router-link to="/entry" class="tab-link" active-class="active">录题中心</router-link>
+          <router-link to="/bank" class="tab-link" active-class="active">题库</router-link>
+          <router-link to="/exam-parse" class="tab-link" active-class="active">试卷解析</router-link>
+        </nav>
+      </div>
       <div class="header-actions">
-        <span class="username">{{ auth.username }}</span>
+        <span class="user-pill">{{ auth.username }}</span>
         <button class="btn-logout" @click="logout">退出</button>
       </div>
     </header>
@@ -119,70 +122,105 @@ async function logout() {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  overflow: hidden;
 }
 
 .app-header {
+  height: 62px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
   display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 0 16px;
-  height: 48px;
-  background: var(--color-bg-header);
-  backdrop-filter: blur(8px);
-  color: var(--color-text-header);
-  gap: 16px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--color-border);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
 }
 
 .app-title {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 33px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.3px;
 }
 
 .tab-nav {
   display: flex;
   gap: 4px;
-  margin-left: 24px;
+  margin-left: 8px;
 }
 
 .tab-link {
-  padding: 6px 16px;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 14px;
+  background: transparent;
   color: var(--color-text-secondary);
-  text-decoration: none;
   font-size: 14px;
-  transition: background 0.15s, color 0.15s;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .tab-link:hover {
-  background: rgba(45, 108, 223, 0.08);
+  background: #eaf0ff;
+  color: var(--color-accent);
+  text-decoration: none;
 }
 
 .tab-link.active {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
-  color: #fff;
+  background: #e5eeff;
+  color: var(--color-accent);
+  font-weight: 600;
+  border-color: var(--color-accent);
 }
 
 .header-actions {
-  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-size: 13px;
 }
 
+.user-pill {
+  border-radius: 999px;
+  background: #ecf2ff;
+  color: #27488c;
+  padding: 4px 10px;
+}
+
 .btn-logout {
+  border: 1px solid #c8d5eb;
+  border-radius: 10px;
   padding: 4px 12px;
-  border: 1px solid var(--color-border-strong, #bccce8);
-  border-radius: 6px;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: #274989;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .btn-logout:hover {
-  background: rgba(45, 108, 223, 0.08);
+  filter: brightness(0.98);
+  background: #e9f0ff;
 }
 
 .app-main {

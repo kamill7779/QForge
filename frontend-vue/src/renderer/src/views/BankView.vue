@@ -2,7 +2,7 @@
   <div class="bank-view">
     <!-- ───── Sidebar ───── -->
     <aside class="bank-sidebar">
-      <!-- Search -->
+      <!-- Search + Filters Card -->
       <div class="filter-section">
         <input
           v-model="search"
@@ -11,10 +11,7 @@
           placeholder="搜索题干 / 标签..."
           @input="applyFilter"
         />
-      </div>
 
-      <!-- Filters -->
-      <div class="filter-section">
         <label class="filter-label">年级</label>
         <select v-model="gradeFilter" class="filter-select" @change="applyFilter">
           <option value="">全部年级</option>
@@ -26,9 +23,7 @@
             {{ opt.tagName }}
           </option>
         </select>
-      </div>
 
-      <div class="filter-section">
         <label class="filter-label">知识点</label>
         <select v-model="knowledgeFilter" class="filter-select" @change="applyFilter">
           <option value="">全部知识点</option>
@@ -40,9 +35,7 @@
             {{ opt.tagName }}
           </option>
         </select>
-      </div>
 
-      <div class="filter-section">
         <label class="filter-label">难度</label>
         <select v-model="difficultyFilter" class="filter-select" @change="applyFilter">
           <option value="">全部难度</option>
@@ -55,11 +48,10 @@
         </select>
       </div>
 
-      <!-- Count -->
-      <div class="bank-count">共 {{ bankList.length }} 题</div>
-
-      <!-- List -->
-      <div class="bank-list">
+      <!-- List Card -->
+      <div class="bank-list-card">
+        <div class="bank-count">共 {{ bankList.length }} 题</div>
+        <div class="bank-list">
         <div
           v-for="entry in bankList"
           :key="entry.questionUuid"
@@ -82,6 +74,7 @@
         </div>
         <div v-if="bankList.length === 0" class="empty-list">暂无题目</div>
       </div>
+      </div><!-- end bank-list-card -->
     </aside>
 
     <!-- ───── Detail Panel ───── -->
@@ -568,120 +561,153 @@ function diffClass(d: number): string {
 
 <style scoped>
 .bank-view {
-  display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 12px;
+  padding: 12px;
   overflow: hidden;
 }
 
 /* ── Sidebar ── */
 
 .bank-sidebar {
-  width: 300px;
-  min-width: 300px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-sidebar);
-  border-right: 1px solid var(--color-border);
+  gap: 10px;
   overflow: hidden;
 }
 
 .filter-section {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .filter-label {
   display: block;
-  font-size: 11px;
-  color: var(--color-text-muted);
-  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
 }
 
 .search-input,
 .filter-select {
   width: 100%;
-  padding: 6px 8px;
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
+  padding: 8px 12px;
+  background: #fbfdff;
+  border: 1px solid #c9d6ed;
+  border-radius: 10px;
   color: var(--color-text-primary);
   font-size: 13px;
+  outline: none;
+}
+
+.search-input:focus,
+.filter-select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
+}
+
+.bank-list-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  padding: 14px;
 }
 
 .bank-count {
-  padding: 6px 12px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
 }
 
 .bank-list {
   flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .bank-card {
-  padding: 8px 12px;
+  border: 1px solid #d2ddf1;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfdff;
   cursor: pointer;
-  border-bottom: 1px solid var(--color-border-light, #e8eef8);
-  transition: background 0.15s;
+  transition: background 0.12s;
 }
 
 .bank-card:hover {
-  background: rgba(45, 108, 223, 0.04);
+  background: #f0f5ff;
 }
 
 .bank-card.selected {
-  background: rgba(var(--color-accent-rgb, 59, 130, 246), 0.15);
-  border-left: 3px solid var(--color-accent);
+  border-color: var(--color-accent);
+  background: #eaf1ff;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .card-uuid {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--color-text-primary);
+  font-weight: 600;
+  word-break: break-all;
 }
 
 .diff-badge {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
+  display: inline-block;
+  min-width: 56px;
+  text-align: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .d-easy { background: #ddf4e8; color: #176b3d; }
-.d-medium-easy { background: #ecfccb; color: #3f6212; }
-.d-medium { background: #fef9c3; color: #854d0e; }
-.d-hard { background: #ffedd5; color: #9a3412; }
-.d-very-hard { background: #fde3e3; color: #af3535; }
+.d-medium-easy { background: #e8f5cc; color: #3d6b17; }
+.d-medium { background: #fff1d6; color: #8c6306; }
+.d-hard { background: #fde3e3; color: #af3535; }
+.d-very-hard { background: #f3e0fa; color: #7a2ea0; }
 
 .card-info {
-  font-size: 11px;
-  color: var(--color-text-muted);
   display: flex;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 .empty-list {
-  padding: 24px;
-  text-align: center;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 13px;
+  padding: 6px;
 }
 
-/* ── Main ── */
+/* ── Main (right pane) ── */
 
 .bank-main {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .empty-state {
@@ -689,88 +715,107 @@ function diffClass(d: number): string {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--color-text-muted);
-  font-size: 15px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  text-align: center;
+  padding: 80px 20px;
 }
 
 .bank-detail {
-  max-width: 900px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  padding: 18px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .detail-title {
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 16px;
-  font-family: var(--font-mono);
-  color: var(--color-text-primary);
+  margin: 0 0 16px;
 }
 
 .detail-section {
   margin-bottom: 16px;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--color-border);
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 .section-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .section-header h4 {
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  margin: 0;
 }
 
 .edit-panel {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 8px;
 }
 
 .edit-actions {
   display: flex;
   gap: 8px;
+  margin-top: 6px;
 }
 
-/* ── Buttons ── */
+/* ── Buttons (原版 .btn 体系) ── */
 
 .btn-primary {
-  padding: 6px 14px;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 9px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
 }
 
-.btn-primary:hover { filter: brightness(0.95); }
+.btn-primary:hover { filter: brightness(0.98); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .btn-secondary {
-  padding: 6px 14px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border: 1px solid #c8d5eb;
+  border-radius: 10px;
+  padding: 9px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  color: #274989;
 }
 
-.btn-secondary:hover { background: rgba(45, 108, 223, 0.06); }
+.btn-secondary:hover { filter: brightness(0.98); background: #e9f0ff; }
 
 .btn-sm {
-  padding: 3px 10px;
+  padding: 4px 10px;
+  border-radius: 8px;
   font-size: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-text-secondary);
+  border: 1px solid #c8d5eb;
+  background: #e9f0ff;
+  color: #274989;
   cursor: pointer;
+  font-weight: 500;
 }
 
-.btn-sm:hover { background: rgba(45, 108, 223, 0.06); }
-.btn-sm.danger { color: var(--color-danger, #ef4444); border-color: var(--color-danger, #ef4444); }
+.btn-sm:hover { filter: brightness(0.98); }
+.btn-sm.danger { color: #b73333; border-color: #efc4c4; background: #fff1f1; }
+.btn-sm.danger:hover { background: #fdecec; }
 </style>

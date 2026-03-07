@@ -49,51 +49,54 @@ const emit = defineEmits<{
 
 .tab-buttons {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .answer-tab {
-  padding: 3px 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
+  padding: 4px 10px;
+  border: 1px solid #cbd9f0;
+  border-radius: 999px;
+  background: #f6f9ff;
   cursor: pointer;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 0.82rem;
+  color: #38578f;
   transition: all 0.15s;
 }
 .answer-tab.active {
-  background: var(--accent-primary);
-  color: white;
-  border-color: var(--accent-primary);
+  border-color: var(--color-accent);
+  background: #e8efff;
+  color: #1f4cb1;
+  font-weight: 600;
 }
 .answer-tab:hover:not(.active) {
-  border-color: var(--accent-primary);
+  border-color: #b8c9e6;
+  background: #eef3ff;
 }
 
 .tab-pagination {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-tertiary);
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #6a7fa0;
 }
 
 .nav-btn {
   background: none;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid #cbd9f0;
+  border-radius: 999px;
   cursor: pointer;
-  padding: 1px 8px;
-  font-size: 16px;
-  color: var(--text-secondary);
+  padding: 2px 8px;
+  font-size: 1rem;
+  color: #38578f;
 }
 .nav-btn:disabled {
   opacity: 0.3;
   cursor: default;
 }
 .nav-btn:hover:not(:disabled) {
-  border-color: var(--accent-primary);
+  border-color: var(--color-accent);
+  background: #eef3ff;
 }
 </style>

@@ -37,13 +37,15 @@ const stageCounts = computed(() => questionStore.stageCounts)
 .status-bar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 12px;
-  height: 24px;
-  background: var(--bg-tertiary);
-  border-top: 1px solid var(--border-subtle);
-  font-size: 11px;
-  color: var(--text-tertiary);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px;
+  height: 28px;
+  background: linear-gradient(180deg, #edf4ff, #dce9ff);
+  border-top: 1px solid #c6d6ee;
+  font-size: 0.82rem;
+  color: #2a4a82;
+  flex-shrink: 0;
 }
 
 .status-user {
@@ -53,13 +55,21 @@ const stageCounts = computed(() => questionStore.stageCounts)
 }
 
 .ws-indicator {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--danger);
+  background: #af3535;
 }
 .ws-indicator.connected {
-  background: var(--success);
+  background: #176b3d;
+}
+
+.status-connection {
+  border-radius: 999px;
+  padding: 2px 8px;
+  border: 1px solid #c8d8ef;
+  background: #f5f9ff;
+  font-size: 0.75rem;
 }
 
 .status-stage-summary {
@@ -68,6 +78,7 @@ const stageCounts = computed(() => questionStore.stageCounts)
 }
 
 .status-shortcut {
-  opacity: 0.7;
+  opacity: 0.6;
+  font-size: 0.75rem;
 }
 </style>

@@ -227,10 +227,10 @@ function handleLinesInput(e: Event) {
 
 <style scoped>
 .editor-block {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid #d2ddf1;
+  border-radius: 10px;
   margin-bottom: 6px;
-  background: var(--bg-primary);
+  background: #fff;
 }
 
 .block-handle {
@@ -238,19 +238,23 @@ function handleLinesInput(e: Event) {
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  font-size: 12px;
+  background: #f6f9ff;
+  border-bottom: 1px solid #e8eef8;
+  border-radius: 10px 10px 0 0;
+  font-size: 0.82rem;
 }
 
 .block-drag-handle {
   cursor: grab;
-  opacity: 0.4;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.editor-block:hover .block-drag-handle {
+  opacity: 0.6;
 }
 
 .block-type-label {
-  color: var(--text-secondary);
+  color: #6a7fa0;
   font-weight: 500;
   flex: 1;
 }
@@ -266,38 +270,42 @@ function handleLinesInput(e: Event) {
   border: none;
   cursor: pointer;
   padding: 0 4px;
-  font-size: 14px;
-  color: var(--text-tertiary);
-  border-radius: 3px;
+  font-size: 0.88rem;
+  color: #8a9bba;
+  border-radius: 4px;
 }
 .block-action-btn:hover {
-  background: var(--bg-secondary);
+  background: #eef3ff;
+  color: #3a5b97;
 }
 .block-remove-btn:hover {
-  background: var(--danger);
-  color: white;
+  background: #fde3e3;
+  color: #af3535;
 }
 
 /* Paragraph */
 .block-text-input {
   width: 100%;
   border: none;
-  padding: 8px;
-  font-size: 14px;
+  padding: 8px 10px;
+  font-size: 0.88rem;
   font-family: inherit;
   resize: vertical;
   min-height: 48px;
-  background: transparent;
+  background: #fbfdff;
   box-sizing: border-box;
+  color: #1f355c;
+  border-top: 1px solid #e8eef8;
 }
 .block-text-input:focus {
-  outline: 2px solid var(--accent-primary);
+  outline: 2px solid rgba(45, 108, 223, 0.3);
   outline-offset: -2px;
+  background: #fff;
 }
 
 /* Choices */
 .choices-items {
-  padding: 6px 8px;
+  padding: 6px 10px;
 }
 
 .choices-header {
@@ -308,8 +316,8 @@ function handleLinesInput(e: Event) {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 0.82rem;
+  color: #6a7fa0;
   cursor: pointer;
 }
 
@@ -321,27 +329,29 @@ function handleLinesInput(e: Event) {
 }
 
 .choice-key-edit {
-  font-weight: 600;
+  font-weight: 700;
   min-width: 1.5em;
-  color: var(--accent-primary);
-  font-size: 14px;
+  color: #1f355c;
+  font-size: 0.88rem;
 }
 
 .choice-text-input {
   flex: 1;
-  padding: 4px 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  background: var(--bg-primary);
+  padding: 4px 8px;
+  border: 1px solid #c9d6ed;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: #fbfdff;
+  color: #1f355c;
 }
 .choice-text-input:focus {
-  border-color: var(--accent-primary);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(45, 108, 223, 0.12);
   outline: none;
 }
 
 .choice-has-image {
-  font-size: 14px;
+  font-size: 0.88rem;
 }
 
 .choice-image-shot-btn,
@@ -349,21 +359,27 @@ function handleLinesInput(e: Event) {
 .choice-delete-btn,
 .add-choice-item-btn {
   background: none;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid #c9d6ed;
+  border-radius: 8px;
   cursor: pointer;
   padding: 2px 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 0.82rem;
+  color: #3a5b97;
+  transition: background 0.15s;
 }
 .add-choice-item-btn {
   margin-top: 4px;
   width: 100%;
   padding: 4px;
+  background: #f6f9ff;
+}
+.add-choice-item-btn:hover {
+  background: #eef3ff;
 }
 .choice-delete-btn:hover {
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: #e8c0c0;
+  color: #af3535;
+  background: #fff1f1;
 }
 
 /* Image */
@@ -375,7 +391,8 @@ function handleLinesInput(e: Event) {
 .block-image-thumb {
   max-width: 100%;
   max-height: 200px;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
+  border: 1px solid #d2ddf1;
 }
 
 /* Blanks */
@@ -388,21 +405,25 @@ function handleLinesInput(e: Event) {
 }
 
 .blank-edit-chip {
-  background: var(--bg-secondary);
+  background: #e8efff;
   padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 13px;
-  color: var(--text-secondary);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: #2a4f99;
 }
 
 .add-blank-item-btn {
   background: none;
-  border: 1px dashed var(--border-default);
-  border-radius: 12px;
+  border: 1px dashed #c9d6ed;
+  border-radius: 999px;
   padding: 3px 10px;
-  font-size: 12px;
+  font-size: 0.82rem;
   cursor: pointer;
-  color: var(--text-tertiary);
+  color: #6a7fa0;
+}
+.add-blank-item-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 /* Answer area */
@@ -411,15 +432,16 @@ function handleLinesInput(e: Event) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 0.85rem;
+  color: #3a5b97;
 }
 
 .answer-area-lines-input {
   width: 60px;
   padding: 3px 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid #c9d6ed;
+  border-radius: 8px;
   text-align: center;
+  color: #1f355c;
 }
 </style>

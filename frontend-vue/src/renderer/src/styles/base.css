@@ -11,12 +11,19 @@
 html,
 body {
   height: 100%;
+  overflow: hidden;
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   color: var(--color-text-primary);
   background: radial-gradient(circle at 82% -8%, var(--color-bg-secondary) 0, transparent 34%), var(--color-bg-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
 }
 
 #app {

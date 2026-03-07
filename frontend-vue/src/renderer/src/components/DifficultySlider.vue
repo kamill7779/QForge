@@ -63,12 +63,13 @@ function handleInput(e: Event) {
 .difficulty-slider {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .slider-label {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #8a9bba;
   min-width: 4em;
   text-align: right;
 }
@@ -76,42 +77,68 @@ function handleInput(e: Event) {
 .slider-input {
   flex: 1;
   max-width: 200px;
-  accent-color: var(--accent-primary);
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #2fa85e 0%, #88c840 25%, #f0b840 50%, #e05050 75%, #9040c8 100%);
+  outline: none;
+}
+
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--color-accent);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.slider-input:disabled {
+  opacity: 0.4;
 }
 
 .slider-value {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 0.88rem;
   min-width: 2.5em;
-  text-align: center;
+  text-align: right;
+  color: #1f355c;
 }
 
 .slider-level-label {
-  font-size: 12px;
-  padding: 1px 8px;
-  border-radius: 8px;
+  display: inline-block;
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
   white-space: nowrap;
 }
 
-/* Difficulty level colors */
+/* Difficulty level colors — exact original */
 .d-easy {
-  color: var(--difficulty-easy);
-  background: color-mix(in srgb, var(--difficulty-easy) 12%, transparent);
+  color: #176b3d;
+  background: #ddf4e8;
 }
 .d-medium-easy {
-  color: var(--difficulty-medium-easy);
-  background: color-mix(in srgb, var(--difficulty-medium-easy) 12%, transparent);
+  color: #3d6b17;
+  background: #e8f5cc;
 }
 .d-medium {
-  color: var(--difficulty-medium);
-  background: color-mix(in srgb, var(--difficulty-medium) 12%, transparent);
+  color: #8c6306;
+  background: #fff1d6;
 }
 .d-hard {
-  color: var(--difficulty-hard);
-  background: color-mix(in srgb, var(--difficulty-hard) 12%, transparent);
+  color: #af3535;
+  background: #fde3e3;
 }
 .d-very-hard {
-  color: var(--difficulty-very-hard);
-  background: color-mix(in srgb, var(--difficulty-very-hard) 12%, transparent);
+  color: #7a2ea0;
+  background: #f3e0fa;
 }
 </style>

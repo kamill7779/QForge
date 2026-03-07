@@ -112,22 +112,26 @@ defineExpose({
 }
 
 .tag-group-label {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #8a9bba;
   min-width: 4em;
   text-align: right;
 }
 
 .tag-select {
   flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  background: var(--bg-primary);
+  padding: 5px 10px;
+  border: 1px solid #c9d6ed;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  background: #fbfdff;
+  color: #1f355c;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .tag-select:focus {
-  border-color: var(--accent-primary);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
   outline: none;
 }
 
@@ -140,46 +144,59 @@ defineExpose({
   flex: 1;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
-  padding: 4px 6px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  min-height: 32px;
-  background: var(--bg-primary);
+  padding: 6px 8px;
+  border: 1px solid #c9d6ed;
+  border-radius: 10px;
+  min-height: 38px;
+  background: #fbfdff;
+  cursor: text;
+}
+.tag-capsules:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
 }
 
 .tag-capsule {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 8px;
-  background: var(--accent-primary);
-  color: white;
-  border-radius: 12px;
-  font-size: 12px;
+  gap: 4px;
+  padding: 2px 8px 2px 10px;
+  background: #e8efff;
+  color: #2a4f99;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
 .tag-capsule-remove {
-  background: none;
+  width: 16px;
+  height: 16px;
   border: none;
-  color: white;
+  border-radius: 50%;
+  background: rgba(45, 108, 223, 0.15);
+  color: #3f6ec2;
+  font-size: 0.75rem;
+  line-height: 1;
   cursor: pointer;
-  font-size: 14px;
-  padding: 0 2px;
-  opacity: 0.7;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: background 0.15s;
 }
 .tag-capsule-remove:hover {
-  opacity: 1;
+  background: rgba(45, 108, 223, 0.3);
 }
 
 .tag-input {
   border: none;
   outline: none;
-  font-size: 13px;
-  min-width: 120px;
+  font-size: 0.85rem;
+  min-width: 100px;
   flex: 1;
-  padding: 2px;
+  padding: 4px 0;
   background: transparent;
+  color: #1f355c;
 }
 </style>

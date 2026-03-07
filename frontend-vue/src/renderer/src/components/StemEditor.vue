@@ -103,9 +103,9 @@ defineExpose({
 
 <style scoped>
 .stem-editor {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  border: 1px solid #d2ddf1;
+  border-radius: 10px;
+  background: #f7faff;
 }
 
 .editor-toolbar {
@@ -113,24 +113,25 @@ defineExpose({
   flex-wrap: wrap;
   gap: 4px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-bottom: 1px solid #e8eef8;
+  background: #f6f9ff;
+  border-radius: 10px 10px 0 0;
 }
 
 .toolbar-btn {
   padding: 3px 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
+  border: 1px solid #c9d6ed;
+  border-radius: 8px;
+  background: #fff;
   cursor: pointer;
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 0.82rem;
+  color: #3a5b97;
   transition: all 0.15s;
 }
 .toolbar-btn:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: #eef3ff;
 }
 
 .toolbar-screenshot {
