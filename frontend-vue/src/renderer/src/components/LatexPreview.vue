@@ -72,7 +72,8 @@ watchEffect(() => {
 }
 
 .latex-preview :deep(.stem-p) {
-  margin: 0.3em 0;
+  margin: 0.6em 0;
+  line-height: 1.7;
 }
 
 .latex-preview :deep(.stem-image) {

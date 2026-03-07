@@ -279,7 +279,9 @@ CREATE TABLE IF NOT EXISTS q_exam_parse_question (
     INDEX idx_epq_task_uuid_seq (task_uuid, seq_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Migration: add columns to existing q_exam_parse_question table (safe to re-run)
-ALTER TABLE q_exam_parse_question ADD COLUMN IF NOT EXISTS main_tags_json TEXT NULL COMMENT '主标签 JSON' AFTER error_msg;
-ALTER TABLE q_exam_parse_question ADD COLUMN IF NOT EXISTS secondary_tags_json TEXT NULL COMMENT '副标签 JSON' AFTER main_tags_json;
-ALTER TABLE q_exam_parse_question ADD COLUMN IF NOT EXISTS difficulty DECIMAL(3,2) NULL COMMENT 'P-value difficulty 0.00-1.00' AFTER secondary_tags_json;
+-- NOTE: main_tags_json, secondary_tags_json, difficulty are already in the CREATE TABLE above.
+-- The ALTER TABLE IF NOT EXISTS syntax is not supported in MySQL 8.4.
+-- If upgrading from an older schema, run these manually:
+--   ALTER TABLE q_exam_parse_question ADD COLUMN main_tags_json TEXT NULL AFTER error_msg;
+--   ALTER TABLE q_exam_parse_question ADD COLUMN secondary_tags_json TEXT NULL AFTER main_tags_json;
+--   ALTER TABLE q_exam_parse_question ADD COLUMN difficulty DECIMAL(3,2) NULL AFTER secondary_tags_json;

@@ -8,6 +8,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { questionApi } from '@/api/question'
+import { useAuthStore } from '@/stores/auth'
 import type {
   QuestionOverviewResponse,
   QuestionMainTagResponse,
@@ -423,11 +424,13 @@ export const useQuestionStore = defineStore('question', () => {
 
     const entry = entries.value.get(task.questionUuid)
     if (entry) {
+      let shouldLoadAssets = false
       if (task.bizType === 'QUESTION_STEM') {
         entry.lastOcrStatus = status
         // Auto-backfill stemDraft when OCR succeeds and draft is empty
         if (status === 'SUCCESS' && recognizedText && !entry.stemDraft) {
           entry.stemDraft = recognizedText
+          shouldLoadAssets = true
           notif.log(`OCR识别完成，已自动填充题干`)
           markDirty()
         }
@@ -439,11 +442,22 @@ export const useQuestionStore = defineStore('question', () => {
         // Auto-backfill answerDraft when OCR succeeds and draft is empty
         if (status === 'SUCCESS' && recognizedText && !entry.answerDraft) {
           entry.answerDraft = recognizedText
+          shouldLoadAssets = true
           notif.log(`OCR识别完成，已自动填充答案`)
           markDirty()
         }
         if (status === 'FAILED') {
           notif.log(`答案OCR识别失败${errorMsg ? ': ' + errorMsg : ''}`)
+        }
+      }
+
+      // Auto-load image assets after OCR success so inline images resolve
+      if (shouldLoadAssets || (status === 'SUCCESS' && !entry.assetsLoaded)) {
+        const authStore = useAuthStore()
+        if (authStore.token) {
+          fetchAssets(authStore.token, task.questionUuid).catch(() => {
+            // Non-critical: assets can be loaded manually when user selects question
+          })
         }
       }
     }

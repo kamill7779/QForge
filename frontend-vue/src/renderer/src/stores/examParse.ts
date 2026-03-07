@@ -162,23 +162,37 @@ export const useExamParseStore = defineStore('examParse', () => {
     }
   }
 
-  /** Load questions for a task from backend. */
+  /** Load questions for a task from backend (with retry). */
   async function refreshQuestions(
     token: string,
-    taskUuid: string
+    taskUuid: string,
+    retries = 3,
+    delayMs = 800
   ): Promise<void> {
-    const detail = await examParseApi.getTask(token, taskUuid)
-    // Update task
-    tasks.value.set(taskUuid, detail.task)
-    // Update questions
-    questions.value.set(taskUuid, detail.questions)
-    // Initialize focus data for new questions
-    for (const q of detail.questions) {
-      const key = focusKey(taskUuid, q.seqNo)
-      if (!questionFocus.value[key]) {
-        questionFocus.value[key] = { focusStage: initialFocusStage(q) }
+    let lastErr: unknown
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const detail = await examParseApi.getTask(token, taskUuid)
+        // Update task
+        tasks.value.set(taskUuid, detail.task)
+        // Update questions
+        questions.value.set(taskUuid, detail.questions)
+        // Initialize focus data for new questions
+        for (const q of detail.questions) {
+          const key = focusKey(taskUuid, q.seqNo)
+          if (!questionFocus.value[key]) {
+            questionFocus.value[key] = { focusStage: initialFocusStage(q) }
+          }
+        }
+        return // success
+      } catch (err) {
+        lastErr = err
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, delayMs))
+        }
       }
     }
+    throw lastErr
   }
 
   /** Delete a task. */

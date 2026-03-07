@@ -970,6 +970,7 @@ function stageLabel(stage: QuestionStage): string {
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .preview-col {

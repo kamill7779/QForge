@@ -565,28 +565,46 @@ async function saveAnswerEdit() {
 
 // ── Image resolver for EP ──
 
+/**
+ * Build an image map from stemImagesJson / answerImagesJson.
+ * Backend may store images as:
+ *   - JSON array:  [{refKey, imageBase64, mimeType}, ...]  (canonical)
+ *   - JSON object: {refKey: base64, ...}                    (legacy)
+ */
+function buildImageMap(json: string | null): Record<string, string> {
+  if (!json) return {}
+  try {
+    const parsed = JSON.parse(json)
+    if (Array.isArray(parsed)) {
+      const map: Record<string, string> = {}
+      for (const item of parsed) {
+        if (item.refKey && item.imageBase64) {
+          const mime = item.mimeType || 'image/png'
+          map[item.refKey] = `data:${mime};base64,${item.imageBase64}`
+        }
+      }
+      return map
+    }
+    if (typeof parsed === 'object' && parsed !== null) {
+      const map: Record<string, string> = {}
+      for (const [key, val] of Object.entries(parsed)) {
+        if (typeof val === 'string') {
+          map[key] = val.startsWith('data:') ? val : `data:image/png;base64,${val}`
+        }
+      }
+      return map
+    }
+  } catch { /* malformed JSON */ }
+  return {}
+}
+
 function resolveEpImage(refKey: string): string {
   const q = epStore.activeQuestion
   if (!q) return ''
-  // Images stored in stemImagesJson / answerImagesJson
-  try {
-    const stemImages = q.stemImagesJson ? JSON.parse(q.stemImagesJson) : {}
-    if (stemImages[refKey]) {
-      const data = stemImages[refKey]
-      return typeof data === 'string'
-        ? data.startsWith('data:') ? data : `data:image/png;base64,${data}`
-        : ''
-    }
-    const ansImages = q.answerImagesJson ? JSON.parse(q.answerImagesJson) : {}
-    if (ansImages[refKey]) {
-      const data = ansImages[refKey]
-      return typeof data === 'string'
-        ? data.startsWith('data:') ? data : `data:image/png;base64,${data}`
-        : ''
-    }
-  } catch {
-    // malformed JSON
-  }
+  const stemImages = buildImageMap(q.stemImagesJson ?? null)
+  if (stemImages[refKey]) return stemImages[refKey]
+  const ansImages = buildImageMap(q.answerImagesJson ?? null)
+  if (ansImages[refKey]) return ansImages[refKey]
   return ''
 }
 
