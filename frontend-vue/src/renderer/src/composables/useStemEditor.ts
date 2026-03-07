@@ -177,7 +177,7 @@ export interface UseStemEditorOptions {
 export function useStemEditor(options: UseStemEditorOptions = {}) {
   const rootTag = options.rootTag ?? 'stem'
   const blocks = ref<Block[]>([{ type: 'p', text: '' }]) as Ref<Block[]>
-  let suppressWatch = false
+  let skipNextEmit = false
 
   // Block types allowed for this root tag
   const allowedTypes: BlockType[] =
@@ -187,9 +187,10 @@ export function useStemEditor(options: UseStemEditorOptions = {}) {
 
   /** Initialize blocks from XML string. */
   function initFromXml(xml: string): void {
-    suppressWatch = true
+    skipNextEmit = true
     blocks.value = xmlToBlocks(xml, rootTag)
-    suppressWatch = false
+    // Note: do NOT reset flag here — the deep watcher fires asynchronously
+    // and needs to see skipNextEmit=true when it runs.
   }
 
   /** Serialize current blocks to XML. */
@@ -283,9 +284,11 @@ export function useStemEditor(options: UseStemEditorOptions = {}) {
   watch(
     blocks,
     () => {
-      if (!suppressWatch) {
-        options.onChange?.(toXml())
+      if (skipNextEmit) {
+        skipNextEmit = false
+        return
       }
+      options.onChange?.(toXml())
     },
     { deep: true }
   )

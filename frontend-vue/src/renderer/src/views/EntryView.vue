@@ -4,8 +4,8 @@
     <aside class="entry-sidebar">
       <!-- Create Panel -->
       <div class="create-panel">
-        <button class="btn-primary" @click="createSingle">+ 新建题目</button>
-        <button class="btn-secondary btn-mini" @click="createBatch">批量新建</button>
+        <button class="btn-primary" @click="createSingle" :disabled="creating">{{ creating ? '创建中...' : '+ 新建题目' }}</button>
+        <button class="btn-secondary btn-mini" @click="createBatch" :disabled="creating">批量新建</button>
       </div>
 
       <!-- Task List Card -->
@@ -236,7 +236,7 @@
         @click="ctxMenu.visible = false"
       >
         <div
-          v-if="ctxMenu.entry && stageOf(ctxMenu.entry) === 'PENDING_STEM' && ctxMenu.entry.answerCount === 0"
+          v-if="ctxMenu.entry && stageOf(ctxMenu.entry) !== 'COMPLETED'"
           class="ctx-item danger"
           @click="deleteAction(ctxMenu.entry!.questionUuid)"
         >
@@ -353,20 +353,42 @@ function resolveAnswerImage(refKey: string): string {
 
 // ── Create / Delete ──
 
+const creating = ref(false)
+
 async function createSingle() {
-  await questionStore.createQuestion(auth.token)
+  if (creating.value) return
+  creating.value = true
+  try {
+    await questionStore.createQuestion(auth.token)
+  } catch (e: any) {
+    notif.log(`创建失败: ${e?.message || e}`)
+  } finally {
+    creating.value = false
+  }
 }
 
 async function createBatch() {
+  if (creating.value) return
+  creating.value = true
   const count = 5
-  for (let i = 0; i < count; i++) {
-    await questionStore.createQuestion(auth.token)
+  try {
+    for (let i = 0; i < count; i++) {
+      await questionStore.createQuestion(auth.token)
+    }
+    notif.log(`批量新建 ${count} 道题目`)
+  } catch (e: any) {
+    notif.log(`批量创建失败: ${e?.message || e}`)
+  } finally {
+    creating.value = false
   }
-  notif.log(`批量新建 ${count} 道题目`)
 }
 
 async function deleteAction(uuid: string) {
-  await questionStore.deleteQuestion(auth.token, uuid)
+  try {
+    await questionStore.deleteQuestion(auth.token, uuid)
+  } catch (e: any) {
+    notif.log(`删除失败: ${e?.message || e}`)
+  }
 }
 
 // ── Select ──

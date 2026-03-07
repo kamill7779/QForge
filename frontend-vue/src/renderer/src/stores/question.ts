@@ -159,6 +159,11 @@ export const useQuestionStore = defineStore('question', () => {
     'question-ocr'
   )
 
+  /** Lightweight dirty counter — incremented on important mutations so the
+   *  AppShell watcher can trigger saves without deep-watching the entire map. */
+  const dirtyCounter = ref(0)
+  function markDirty(): void { dirtyCounter.value++ }
+
   // Bank view
   const bankSelectedUuid = ref('')
   const bankAnswerIdx = ref(0)
@@ -258,6 +263,7 @@ export const useQuestionStore = defineStore('question', () => {
       updatedAt: new Date().toISOString()
     }))
     selectedQuestionUuid.value = uuid
+    markDirty()
     notif.log(`新建题目 ${uuid.slice(0, 8)}`)
     return uuid
   }
@@ -268,6 +274,7 @@ export const useQuestionStore = defineStore('question', () => {
     entries.value.delete(uuid)
     if (selectedQuestionUuid.value === uuid) selectedQuestionUuid.value = ''
     if (bankSelectedUuid.value === uuid) bankSelectedUuid.value = ''
+    markDirty()
     notif.log(`删除题目 ${uuid.slice(0, 8)}`)
   }
 
@@ -285,6 +292,7 @@ export const useQuestionStore = defineStore('question', () => {
       entry.stemConfirmed = true
       entry.status = res.status
     }
+    markDirty()
     notif.log(`确认题干 ${uuid.slice(0, 8)}`)
   }
 
@@ -305,6 +313,7 @@ export const useQuestionStore = defineStore('question', () => {
       entry.answerCount++
       entry.status = res.status
     }
+    markDirty()
     notif.log(`添加答案 ${uuid.slice(0, 8)}`)
     return res.answerUuid
   }
@@ -359,6 +368,7 @@ export const useQuestionStore = defineStore('question', () => {
     const res = await questionApi.complete(token, uuid)
     const entry = entries.value.get(uuid)
     if (entry) entry.status = res.status
+    markDirty()
     notif.log(`完成录入 ${uuid.slice(0, 8)}`)
   }
 
@@ -519,10 +529,21 @@ export const useQuestionStore = defineStore('question', () => {
     return `qforge.workspace.${username}`
   }
 
-  /** Save workspace state to localStorage. */
+  /** Save workspace state to localStorage (excluding heavy image data). */
   function saveWorkspace(username: string): void {
+    // Strip base64 image data to prevent main-thread blocking from large JSON.stringify
+    const lightEntries = Array.from(entries.value.entries()).map(([k, v]) => [
+      k,
+      {
+        ...v,
+        stemImageBase64: '',
+        inlineImages: {},
+        answerImages: {},
+        assetsLoaded: false
+      }
+    ])
     const data = {
-      entries: Array.from(entries.value.entries()),
+      entries: lightEntries,
       ocrTasks: Array.from(ocrTasks.value.entries()),
       selectedQuestionUuid: selectedQuestionUuid.value,
       bankSelectedUuid: bankSelectedUuid.value
@@ -582,6 +603,7 @@ export const useQuestionStore = defineStore('question', () => {
     bankAnswerIdx,
     entryAi,
     bankAi,
+    dirtyCounter,
     // getters
     sortedEntries,
     filteredEntries,

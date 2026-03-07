@@ -43,16 +43,19 @@ const wsStore = useWebSocketStore()
 const epStore = useExamParseStore()
 const notif = useNotificationStore()
 
-/** Auto-save workspace when entries change. */
+/**
+ * Auto-save workspace when entries change.
+ * Watch the map SIZE + dirtyCounter as lightweight proxies — avoids expensive
+ * deep traversal of all entries (which may include large base64 image data).
+ */
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  () => questionStore.entries,
+  () => questionStore.entries.size + questionStore.dirtyCounter,
   () => {
     if (!auth.username) return
     if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => questionStore.saveWorkspace(auth.username), 1000)
-  },
-  { deep: true }
+    saveTimer = setTimeout(() => questionStore.saveWorkspace(auth.username), 2000)
+  }
 )
 
 onMounted(async () => {
