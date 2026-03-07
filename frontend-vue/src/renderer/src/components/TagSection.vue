@@ -55,6 +55,7 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import { useTagEditor } from '@/composables/useTagEditor'
 import type { QuestionMainTagResponse } from '@/api/types'
 
@@ -81,6 +82,12 @@ const tags = useTagEditor({ readonly: props.readonly })
 
 // Initialize from props
 tags.initFromQuestion(props.mainTags, props.secondaryTags)
+
+// Re-initialize when question changes (e.g. switching questions in ExamParse)
+watch(
+  () => [props.mainTags, props.secondaryTags] as const,
+  ([mt, st]) => tags.initFromQuestion(mt, st)
+)
 
 function handleMainTagChange(categoryCode: string, e: Event) {
   const value = (e.target as HTMLSelectElement).value

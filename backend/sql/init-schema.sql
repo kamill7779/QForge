@@ -222,6 +222,106 @@ WHERE NOT EXISTS (
     WHERE scope = 'SYSTEM' AND owner_user = '' AND category_code = 'MAIN_KNOWLEDGE' AND tag_code = 'UNCATEGORIZED'
 );
 
+-- ── MAIN_GRADE real tags ──
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000201', 'MAIN_GRADE', 'GRADE_7', '七年级', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='GRADE_7');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000202', 'MAIN_GRADE', 'GRADE_8', '八年级', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='GRADE_8');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000203', 'MAIN_GRADE', 'GRADE_9', '九年级', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='GRADE_9');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000204', 'MAIN_GRADE', 'SENIOR_1', '高一', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='SENIOR_1');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000205', 'MAIN_GRADE', 'SENIOR_2', '高二', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='SENIOR_2');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000206', 'MAIN_GRADE', 'SENIOR_3', '高三', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='SENIOR_3');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000207', 'MAIN_GRADE', 'COLLEGE_1', '大一', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='COLLEGE_1');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000208', 'MAIN_GRADE', 'COLLEGE_2', '大二', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_GRADE' AND tag_code='COLLEGE_2');
+
+-- ── MAIN_KNOWLEDGE real tags ──
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000301', 'MAIN_KNOWLEDGE', 'SETS_LOGIC', '集合与逻辑', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='SETS_LOGIC');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000302', 'MAIN_KNOWLEDGE', 'FUNCTION', '函数', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='FUNCTION');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000303', 'MAIN_KNOWLEDGE', 'EQUATION', '方程与不等式', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='EQUATION');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000304', 'MAIN_KNOWLEDGE', 'TRIGONOMETRY', '三角函数', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='TRIGONOMETRY');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000305', 'MAIN_KNOWLEDGE', 'SEQUENCE', '数列', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='SEQUENCE');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000306', 'MAIN_KNOWLEDGE', 'VECTOR', '向量', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='VECTOR');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000307', 'MAIN_KNOWLEDGE', 'SOLID_GEOMETRY', '立体几何', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='SOLID_GEOMETRY');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000308', 'MAIN_KNOWLEDGE', 'ANALYTIC_GEOMETRY', '解析几何', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='ANALYTIC_GEOMETRY');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000309', 'MAIN_KNOWLEDGE', 'PROBABILITY', '概率与统计', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='PROBABILITY');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000310', 'MAIN_KNOWLEDGE', 'DERIVATIVE', '导数', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='DERIVATIVE');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000311', 'MAIN_KNOWLEDGE', 'INTEGRAL', '积分', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='INTEGRAL');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000312', 'MAIN_KNOWLEDGE', 'PLANE_GEOMETRY', '平面几何', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='PLANE_GEOMETRY');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000313', 'MAIN_KNOWLEDGE', 'ALGEBRA', '代数', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='ALGEBRA');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000314', 'MAIN_KNOWLEDGE', 'NUMBER_THEORY', '数论', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='NUMBER_THEORY');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000315', 'MAIN_KNOWLEDGE', 'COMBINATORICS', '排列组合', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='COMBINATORICS');
+
+INSERT INTO q_tag (tag_uuid, category_code, tag_code, tag_name, scope, owner_user)
+SELECT '00000000-0000-0000-0000-000000000316', 'MAIN_KNOWLEDGE', 'LINEAR_ALGEBRA', '线性代数', 'SYSTEM', ''
+WHERE NOT EXISTS (SELECT 1 FROM q_tag WHERE scope='SYSTEM' AND owner_user='' AND category_code='MAIN_KNOWLEDGE' AND tag_code='LINEAR_ALGEBRA');
+
 -- =====================================================================
 -- 试卷自动解析 (Exam Auto-Parse) — 2026-03-06
 -- =====================================================================

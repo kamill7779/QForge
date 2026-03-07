@@ -510,7 +510,7 @@ export const useQuestionStore = defineStore('question', () => {
   // ── Actions — AI ──
 
   /** AI pending timeout (30s). */
-  const AI_PENDING_TIMEOUT = 30_000
+  const AI_PENDING_TIMEOUT = 180_000
 
   /** Request AI analysis for a question. */
   async function requestAiAnalysis(
@@ -536,7 +536,7 @@ export const useQuestionStore = defineStore('question', () => {
           suggestedTags: null,
           suggestedDifficulty: null,
           reasoning: null,
-          errorMessage: 'AI分析超时（30s），请重试',
+          errorMessage: 'AI分析超时（3分钟），请重试',
           appliedAt: null,
           createdAt: new Date().toISOString()
         }
