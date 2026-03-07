@@ -231,18 +231,23 @@
     <Teleport to="body">
       <div
         v-if="ctxMenu.visible"
-        class="context-menu"
-        :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
-        @click="ctxMenu.visible = false"
+        class="context-menu-backdrop"
+        @click.self="hideCtxMenu"
+        @contextmenu.prevent="hideCtxMenu"
       >
         <div
-          v-if="ctxMenu.entry && stageOf(ctxMenu.entry) !== 'COMPLETED'"
-          class="ctx-item danger"
-          @click="deleteAction(ctxMenu.entry!.questionUuid)"
+          class="context-menu"
+          :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
         >
-          删除题目
+          <div
+            v-if="ctxMenu.stage !== 'COMPLETED'"
+            class="ctx-item danger"
+            @click.stop="onDeleteClick"
+          >
+            删除题目
+          </div>
+          <div v-else class="ctx-item disabled">不可删除</div>
         </div>
-        <div v-else class="ctx-item disabled">不可删除</div>
       </div>
     </Teleport>
   </div>
@@ -316,22 +321,28 @@ const ctxMenu = reactive({
   visible: false,
   x: 0,
   y: 0,
-  entry: null as QuestionEntry | null
+  uuid: '' as string,
+  stage: '' as string
 })
 
 function onContextMenu(ev: MouseEvent, entry: QuestionEntry) {
-  ctxMenu.visible = true
+  // Store only primitive values — never store reactive store objects
+  ctxMenu.uuid = entry.questionUuid
+  ctxMenu.stage = stageOf(entry)
   ctxMenu.x = ev.clientX
   ctxMenu.y = ev.clientY
-  ctxMenu.entry = entry
+  ctxMenu.visible = true
 }
 
 function hideCtxMenu() {
   ctxMenu.visible = false
 }
 
-onMounted(() => document.addEventListener('click', hideCtxMenu))
-onBeforeUnmount(() => document.removeEventListener('click', hideCtxMenu))
+function onDeleteClick() {
+  const uuid = ctxMenu.uuid
+  hideCtxMenu()
+  if (uuid) deleteAction(uuid)
+}
 
 // ── Image Resolvers ──
 
@@ -1017,6 +1028,13 @@ function stageLabel(stage: QuestionStage): string {
 
 /* ── Context Menu ── */
 
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+}
+
 .context-menu {
   position: fixed;
   z-index: 9999;
@@ -1026,7 +1044,6 @@ function stageLabel(stage: QuestionStage): string {
   border-radius: var(--radius-md);
   background: var(--color-bg-card);
   box-shadow: var(--shadow-lg);
-  animation: fadeIn 0.15s ease;
 }
 
 .ctx-item {
