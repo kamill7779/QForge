@@ -48,6 +48,14 @@ public class ExamParseQuestion {
     @TableField("question_uuid")
     private String questionUuid;
 
+    @TableField("main_tags_json")
+    private String mainTagsJson;
+
+    @TableField("secondary_tags_json")
+    private String secondaryTagsJson;
+
+    private java.math.BigDecimal difficulty;
+
     @TableField("confirm_status")
     private String confirmStatus;
 
@@ -97,6 +105,15 @@ public class ExamParseQuestion {
 
     public String getQuestionUuid() { return questionUuid; }
     public void setQuestionUuid(String questionUuid) { this.questionUuid = questionUuid; }
+
+    public String getMainTagsJson() { return mainTagsJson; }
+    public void setMainTagsJson(String mainTagsJson) { this.mainTagsJson = mainTagsJson; }
+
+    public String getSecondaryTagsJson() { return secondaryTagsJson; }
+    public void setSecondaryTagsJson(String secondaryTagsJson) { this.secondaryTagsJson = secondaryTagsJson; }
+
+    public java.math.BigDecimal getDifficulty() { return difficulty; }
+    public void setDifficulty(java.math.BigDecimal difficulty) { this.difficulty = difficulty; }
 
     public String getConfirmStatus() { return confirmStatus; }
     public void setConfirmStatus(String confirmStatus) { this.confirmStatus = confirmStatus; }

@@ -907,6 +907,37 @@
     };
   }
 
+  /* ---------- 同步前端元数据到后端 ---------- */
+  async function syncFocusMetadataToBackend(taskUuid, questions) {
+    for (var i = 0; i < questions.length; i++) {
+      var q = questions[i];
+      if (q.confirmStatus !== "PENDING") continue;
+      var fd = getFocusData(q);
+      if (!fd) continue;
+      var updates = {};
+      var hasUpdate = false;
+      if (fd.mainTags && fd.mainTags.length) {
+        updates.mainTagsJson = JSON.stringify(fd.mainTags);
+        hasUpdate = true;
+      }
+      if (fd.secondaryTags && fd.secondaryTags.length) {
+        updates.secondaryTagsJson = JSON.stringify(fd.secondaryTags);
+        hasUpdate = true;
+      }
+      if (fd.difficulty != null) {
+        updates.difficulty = String(fd.difficulty);
+        hasUpdate = true;
+      }
+      if (hasUpdate) {
+        try {
+          await updateQuestion(taskUuid, q.seqNo, updates);
+        } catch (err) {
+          epLog("同步第" + q.seqNo + "题元数据失败: " + err.message);
+        }
+      }
+    }
+  }
+
   /* ---------- 事件绑定 ---------- */
   function bindSessionEvents(task, questions, q) {
     // Confirm all
@@ -914,6 +945,8 @@
       var btn = $("ep-confirm-btn");
       if (btn) { btn.disabled = true; btn.textContent = "入库中…"; }
       try {
+        // 先将前端标签/难度数据写回后端
+        await syncFocusMetadataToBackend(task.taskUuid, questions);
         var count = await confirmTask(task.taskUuid);
         epLog("已确认入库 " + count + " 题");
         if (typeof window.__qforgeSyncQuestions === "function") {
@@ -1036,13 +1069,56 @@
     var q = getCurrentQuestion(questions);
     if (!q) return false;
     var stage = getFocusStage(q);
+    var imageBase64 = params.imageBase64 || "";
+    if (!imageBase64) return false;
+
     if (params.intent === "insert-image") {
-      if (stage === "EDITING_STEM" || stage === "EDITING_ANSWER") {
-        epLog("截图插图功能将在后续版本完善");
+      if (stage === "EDITING_STEM") {
+        // 插入图片到题干编辑器
+        var ref = "ep-img-" + Date.now();
+        var epEntry = makeEpEntry(q);
+        epEntry.inlineImages[ref] = "data:image/png;base64," + imageBase64;
+        // 更新 stemImagesJson
+        var imgs = parseImagesJsonToArray(q.stemImagesJson);
+        imgs.push({ refKey: ref, imageBase64: imageBase64, mimeType: "image/png" });
+        q.stemImagesJson = JSON.stringify(imgs);
+        // 向编辑器追加 image block
+        epAddStemBlock("image");
+        // 让最后一个 image block 引用新 ref
+        var editor = $("ep-stem-editor");
+        if (editor) {
+          var imgBlocks = editor.querySelectorAll('.stem-block[data-type="image"]');
+          if (imgBlocks.length) {
+            var last = imgBlocks[imgBlocks.length - 1];
+            last.dataset.ref = ref;
+            var info = last.querySelector(".block-image-info");
+            if (info) {
+              info.innerHTML = "";
+              var img = document.createElement("img");
+              img.src = "data:image/png;base64," + imageBase64;
+              img.className = "block-image-thumb";
+              info.appendChild(img);
+            }
+          }
+        }
+        epStemEditorChanged();
+        epLog("截图已插入题干: " + ref);
+        return true;
+      }
+      if (stage === "EDITING_ANSWER") {
+        epLog("答案编辑器截图插图暂不支持，请在题干编辑模式下使用");
         return true;
       }
     }
     return false;
+  }
+
+  function parseImagesJsonToArray(jsonStr) {
+    if (!jsonStr) return [];
+    try {
+      var arr = typeof jsonStr === "string" ? JSON.parse(jsonStr) : jsonStr;
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
   }
 
   /* ================================================================

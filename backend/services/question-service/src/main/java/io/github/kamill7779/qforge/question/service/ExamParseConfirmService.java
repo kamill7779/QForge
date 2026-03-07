@@ -107,6 +107,9 @@ public class ExamParseConfirmService {
         q.setStatus(hasAnswer ? "READY" : "DRAFT");
         q.setVisibility("PRIVATE");
         q.setDeleted(false);
+        if (epq.getDifficulty() != null) {
+            q.setDifficulty(epq.getDifficulty());
+        }
         questionRepository.save(q);
 
         // 创建题干图片资产

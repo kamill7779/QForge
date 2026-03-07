@@ -163,6 +163,16 @@ public class ExamParseCommandService {
         if (updates.containsKey("questionType")) {
             q.setQuestionType(updates.get("questionType"));
         }
+        if (updates.containsKey("mainTagsJson")) {
+            q.setMainTagsJson(updates.get("mainTagsJson"));
+        }
+        if (updates.containsKey("secondaryTagsJson")) {
+            q.setSecondaryTagsJson(updates.get("secondaryTagsJson"));
+        }
+        if (updates.containsKey("difficulty")) {
+            String dv = updates.get("difficulty");
+            q.setDifficulty(dv != null && !dv.isBlank() ? new java.math.BigDecimal(dv) : null);
+        }
 
         questionRepository.save(q);
         return q;
