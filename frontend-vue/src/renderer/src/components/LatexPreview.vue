@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watchEffect, toRefs } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 import { useLatexRender } from '@/composables/useLatexRender'
 
 const props = withDefaults(
@@ -15,19 +15,26 @@ const props = withDefaults(
     compact?: boolean
     imageResolver?: (ref: string) => string
     mode?: 'stem' | 'answer'
+    /** Bump this number to force a re-render (e.g. when images finish loading). */
+    renderKey?: number
   }>(),
   {
     placeholder: '暂无内容',
     compact: false,
-    mode: 'stem'
+    mode: 'stem',
+    renderKey: 0
   }
 )
 
 const containerRef = ref<HTMLElement>()
 const { render } = useLatexRender()
 
-watchEffect(() => {
-  if (containerRef.value) {
+let renderTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleRender() {
+  if (renderTimer) clearTimeout(renderTimer)
+  renderTimer = setTimeout(() => {
+    if (!containerRef.value) return
     if (props.xml) {
       render(containerRef.value, props.xml, {
         imageResolver: props.imageResolver,
@@ -36,7 +43,19 @@ watchEffect(() => {
     } else {
       containerRef.value.innerHTML = ''
     }
-  }
+  }, 60)
+}
+
+// Only track xml and renderKey — resolver internals are NOT tracked,
+// breaking the reactive cascade that caused UI freezes.
+watch(
+  () => [props.xml, props.renderKey] as const,
+  scheduleRender,
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  if (renderTimer) clearTimeout(renderTimer)
 })
 </script>
 

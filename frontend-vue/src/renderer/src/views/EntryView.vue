@@ -120,6 +120,7 @@
               :xml="selected.stemDraft"
               placeholder="编辑题干后预览"
               :image-resolver="resolveStemImage"
+              :render-key="stemImageVersion"
             />
           </div>
         </div>
@@ -138,6 +139,7 @@
                 :xml="selected.stemText"
                 compact
                 :image-resolver="resolveStemImage"
+                :render-key="stemImageVersion"
               />
             </div>
 
@@ -215,6 +217,7 @@
               placeholder="编辑答案后预览"
               mode="answer"
               :image-resolver="resolveAnswerImage"
+              :render-key="answerImageVersion"
             />
           </div>
         </div>
@@ -282,6 +285,14 @@ const answerTagRef = ref<InstanceType<typeof TagSection> | null>(null)
 
 const selected = computed(() => questionStore.selectedEntry)
 const currentStage = computed(() => (selected.value ? stageOf(selected.value) : null))
+
+// Lightweight image-version signals — bump when image data availability changes.
+// Used as LatexPreview :render-key to trigger re-render without deep reactive tracking.
+const stemImageVersion = computed(() => Object.keys(selected.value?.inlineImages ?? {}).length)
+const answerImageVersion = computed(() =>
+  Object.keys(selected.value?.answerImages ?? {}).length +
+  Object.keys(selected.value?.inlineImages ?? {}).length
+)
 
 const stages: Array<{ key: QuestionStage; label: string }> = [
   { key: 'PENDING_STEM', label: '待题干' },

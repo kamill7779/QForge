@@ -104,6 +104,7 @@
             v-if="!stemEditing"
             :xml="bankEntry.stemText"
             :image-resolver="resolveStemImage"
+            :render-key="bankStemImageVersion"
           />
 
           <!-- Stem editor -->
@@ -119,6 +120,7 @@
               :xml="stemEditDraft"
               compact
               :image-resolver="resolveStemImage"
+              :render-key="bankStemImageVersion"
             />
             <div class="edit-actions">
               <button class="btn-primary btn-sm" @click="saveStemEdit">保存</button>
@@ -167,6 +169,7 @@
             placeholder="暂无答案"
             mode="answer"
             :image-resolver="resolveAnswerImage"
+            :render-key="bankAnswerImageVersion"
           />
 
           <!-- Answer editor -->
@@ -183,6 +186,7 @@
               compact
               mode="answer"
               :image-resolver="resolveAnswerImage"
+              :render-key="bankAnswerImageVersion"
             />
             <div class="edit-actions">
               <button class="btn-primary btn-sm" @click="saveAnswerEdit">保存</button>
@@ -204,6 +208,7 @@
               compact
               mode="answer"
               :image-resolver="resolveAnswerImage"
+              :render-key="bankAnswerImageVersion"
             />
             <div class="edit-actions">
               <button class="btn-primary btn-sm" @click="saveNewAnswer">保存</button>
@@ -329,6 +334,13 @@ function applyFilter() {
 // ── Selection ──
 
 const bankEntry = computed(() => questionStore.bankSelectedEntry)
+
+// Lightweight image-version signals for LatexPreview :render-key
+const bankStemImageVersion = computed(() => Object.keys(bankEntry.value?.inlineImages ?? {}).length)
+const bankAnswerImageVersion = computed(() =>
+  Object.keys(bankEntry.value?.answerImages ?? {}).length +
+  Object.keys(bankEntry.value?.inlineImages ?? {}).length
+)
 
 async function onSelectBank(uuid: string) {
   questionStore.selectBankQuestion(uuid)
