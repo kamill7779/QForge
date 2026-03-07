@@ -413,6 +413,7 @@ $("completed-answer-tabs").addEventListener("click",ev=>{const target=ev.target;
 $("completed-prev-answer").addEventListener("click",()=>shiftCompletedAnswer(-1));$("completed-next-answer").addEventListener("click",()=>shiftCompletedAnswer(1));
 document.addEventListener("click",ev=>{const m=$("entry-context-menu");if(m&&!m.contains(ev.target))hideMenu()});window.addEventListener("blur",hideMenu);window.addEventListener("keydown",ev=>{if(ev.key==="Escape")hideMenu()});
 window.qforge.screenshot.onCaptured(async p=>{const imageBase64=p.imageBase64||"";
+if(state.activeTab==="exam-parse"&&window.QForgeExamParseRuntime){const consumed=window.QForgeExamParseRuntime.handleScreenshot({imageBase64,intent:p.intent||state.screenshotIntent,triggerSource:p.triggerSource});if(consumed)return}
 let intent=String(p.intent||state.screenshotIntent||"question-ocr");
 if(intent==="auto-ocr"){intent="question-ocr";if(state.activeTab==="entry"){const ce=selectedEntry();if(ce&&stageOf(ce)==="PENDING_ANSWER")intent="answer-ocr"}}
 if(intent==="question-ocr"&&state.activeTab==="entry"){const ce=selectedEntry();if(ce&&stageOf(ce)==="PENDING_ANSWER")intent="answer-ocr"}
