@@ -240,5 +240,12 @@ async function logout() {
 .app-main {
   flex: 1;
   overflow: hidden;
+  display: flex;
+  min-height: 0;
+}
+
+.app-main :deep(> *) {
+  flex: 1;
+  min-height: 0;
 }
 </style>

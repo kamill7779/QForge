@@ -636,7 +636,7 @@ function focusStageLabel(stage: FocusStage): string {
 /* ===== Layout: grid 280px sidebar ===== */
 .exam-parse-view {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 300px 1fr;
   height: 100%;
   overflow: hidden;
   gap: 0;
@@ -771,11 +771,11 @@ function focusStageLabel(stage: FocusStage): string {
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .task-card {

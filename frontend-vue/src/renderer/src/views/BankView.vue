@@ -644,8 +644,8 @@ function diffClass(d: number): string {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  gap: 4px;
+  padding: 10px;
 }
 
 .bank-card {

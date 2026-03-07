@@ -543,8 +543,11 @@ function onAnswerChoiceScreenshot(blockIndex: number, choiceIndex: number) {
 }
 
 // Handle screenshot result from Electron
+let cleanupCaptured: (() => void) | null = null
+let cleanupError: (() => void) | null = null
+
 onMounted(() => {
-  window.qforge.screenshot.onCaptured(async (payload: { imageBase64: string; intent?: string }) => {
+  cleanupCaptured = window.qforge.screenshot.onCaptured(async (payload: { imageBase64: string; intent?: string }) => {
     const entry = selected.value
     if (!entry) return
 
@@ -603,11 +606,19 @@ onMounted(() => {
   })
 
   // Handle screenshot errors
-  window.qforge.screenshot.onError((payload: { error: string }) => {
+  cleanupError = window.qforge.screenshot.onError((payload: { error: string }) => {
     notif.log(`截图服务异常: ${payload.error || '未知错误'}`)
     questionStore.screenshotIntent = 'question-ocr'
     pendingChoiceImageTarget.value = null
   })
+})
+
+onBeforeUnmount(() => {
+  cleanupCaptured?.()
+  cleanupError?.()
+  cleanupCaptured = null
+  cleanupError = null
+  if (difficultyTimer) clearTimeout(difficultyTimer)
 })
 
 // ── AI ──
@@ -654,9 +665,10 @@ function stageLabel(stage: QuestionStage): string {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 300px 1fr;
   gap: 0;
   overflow: hidden;
+  height: 100%;
 }
 
 /* ── Sidebar (light warm) ── */
@@ -672,7 +684,7 @@ function stageLabel(stage: QuestionStage): string {
 }
 
 .create-panel {
-  padding: 14px 16px;
+  padding: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -682,8 +694,8 @@ function stageLabel(stage: QuestionStage): string {
 .stage-filter {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--color-border-light);
 }
 
@@ -734,8 +746,8 @@ function stageLabel(stage: QuestionStage): string {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  gap: 4px;
+  padding: 10px;
 }
 
 .question-card {
@@ -808,7 +820,7 @@ function stageLabel(stage: QuestionStage): string {
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  padding: 16px 20px;
+  padding: 20px 24px;
   background: var(--color-bg-primary);
 }
 
@@ -826,7 +838,7 @@ function stageLabel(stage: QuestionStage): string {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
-  padding: 20px;
+  padding: 24px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -846,8 +858,8 @@ function stageLabel(stage: QuestionStage): string {
 
 .work-columns {
   display: grid;
-  grid-template-columns: minmax(280px, 1.2fr) minmax(220px, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(300px, 1.2fr) minmax(240px, 1fr);
+  gap: 18px;
   min-height: 0;
   flex: 1;
 }
