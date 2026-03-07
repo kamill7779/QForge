@@ -306,7 +306,7 @@ ipcMain.on('screenshot:confirm', (_e, payload) => {
 
 function registerShortcuts() {
   const shortcutIntents: Record<string, string> = {
-    [SHORTCUTS.OCR]: 'ocr',
+    [SHORTCUTS.OCR]: 'ocr-batch',
     [SHORTCUTS.INSERT_IMAGE]: 'insert-image',
     [SHORTCUTS.CHOICE_IMAGE]: 'choice-image'
   }

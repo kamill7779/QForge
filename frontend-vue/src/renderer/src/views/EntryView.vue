@@ -660,26 +660,32 @@ onMounted(() => {
   cleanupCaptured = window.qforge.screenshot.onCaptured(async (payload: { imageBase64: string; intent?: string }) => {
     const intent = payload.intent ?? 'ocr'
 
-    // ── OCR: auto-create entry if none selected (like old createByShot) ──
-    if (intent === 'ocr') {
-      let entry = selected.value
-      const stage = entry ? stageOf(entry) : null
-
-      // No entry or current entry is COMPLETED → create a new one automatically
-      if (!entry || stage === 'COMPLETED') {
-        try {
-          const uuid = await questionStore.createQuestion(auth.token)
-          questionStore.selectQuestion(uuid)
-          questionStore.setStageFilter('PENDING_STEM')
-          entry = questionStore.entries.get(uuid) ?? null
-          if (!entry) {
-            notif.log('创建题目失败')
-            return
-          }
-        } catch (e: any) {
-          notif.log(`截图录题失败: ${e?.message || e}`)
+    // ── OCR-BATCH (global shortcut): always create new question + stem OCR ──
+    if (intent === 'ocr-batch') {
+      try {
+        const uuid = await questionStore.createQuestion(auth.token)
+        questionStore.selectQuestion(uuid)
+        questionStore.setStageFilter('PENDING_STEM')
+        const entry = questionStore.entries.get(uuid) ?? null
+        if (!entry) {
+          notif.log('创建题目失败')
           return
         }
+        entry.stemImageBase64 = payload.imageBase64
+        await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
+        notif.log('新题已创建，OCR 已提交，等待识别结果…')
+      } catch (e: any) {
+        notif.log(`批量录题失败: ${e?.message || e}`)
+      }
+      return
+    }
+
+    // ── OCR (UI button): OCR current question (stem or answer by stage) ──
+    if (intent === 'ocr') {
+      let entry = selected.value
+      if (!entry) {
+        notif.log('请先选择一道题目')
+        return
       }
 
       try {
@@ -687,7 +693,6 @@ onMounted(() => {
         if (entryStage === 'PENDING_ANSWER') {
           await questionStore.submitOcr(auth.token, entry.questionUuid, 'ANSWER_CONTENT', payload.imageBase64)
         } else {
-          // Default to stem OCR (PENDING_STEM)
           entry.stemImageBase64 = payload.imageBase64
           await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
         }
