@@ -397,8 +397,8 @@ async function saveStemEdit() {
   if (!entry) return
 
   const stemXml = toStemXmlPayload(stemEditDraft.value)
-  if (!stemXml) {
-    notif.log('题干内容无效')
+  if (!stemXml || isEmptyXmlContent(stemXml, 'stem')) {
+    notif.log('题干内容不能为空')
     return
   }
 
@@ -409,13 +409,18 @@ async function saveStemEdit() {
     }
   }
 
-  await questionStore.confirmStem(auth.token, entry.questionUuid, {
-    stemXml,
-    inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
-  })
-
-  stemEditing.value = false
-  notif.log(`更新题干 ${entry.questionUuid.slice(0, 8)}`)
+  try {
+    console.log('[bank/saveStem] 提交', entry.questionUuid.slice(0, 8))
+    await questionStore.confirmStem(auth.token, entry.questionUuid, {
+      stemXml,
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
+    })
+    stemEditing.value = false
+    notif.log(`更新题干 ${entry.questionUuid.slice(0, 8)}`)
+  } catch (e: any) {
+    console.error('[bank/saveStem] 失败', e)
+    notif.log(`更新题干失败: ${e?.message || e}`)
+  }
 }
 
 // ── Answer Editing ──
@@ -458,13 +463,18 @@ async function saveAnswerEdit() {
     }
   }
 
-  await questionStore.updateAnswer(auth.token, entry.questionUuid, serverData.answerUuid, {
-    latexText: answerXml,
-    inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
-  })
-
-  answerEditing.value = false
-  notif.log(`更新答案 ${entry.questionUuid.slice(0, 8)}`)
+  try {
+    console.log('[bank/saveAnswer] 提交', entry.questionUuid.slice(0, 8))
+    await questionStore.updateAnswer(auth.token, entry.questionUuid, serverData.answerUuid, {
+      latexText: answerXml,
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
+    })
+    answerEditing.value = false
+    notif.log(`更新答案 ${entry.questionUuid.slice(0, 8)}`)
+  } catch (e: any) {
+    console.error('[bank/saveAnswer] 失败', e)
+    notif.log(`更新答案失败: ${e?.message || e}`)
+  }
 }
 
 // ── Answer Add ──
@@ -501,14 +511,19 @@ async function saveNewAnswer() {
     return
   }
 
-  await questionStore.addAnswer(auth.token, entry.questionUuid, {
-    latexText: answerXml
-  })
-
-  answerAdding.value = false
-  answerAddDraft.value = ''
-  questionStore.bankAnswerIdx = entry.answersLocal.length - 1
-  notif.log(`新增答案 ${entry.questionUuid.slice(0, 8)}`)
+  try {
+    console.log('[bank/addAnswer] 提交', entry.questionUuid.slice(0, 8))
+    await questionStore.addAnswer(auth.token, entry.questionUuid, {
+      latexText: answerXml
+    })
+    answerAdding.value = false
+    answerAddDraft.value = ''
+    questionStore.bankAnswerIdx = entry.answersLocal.length - 1
+    notif.log(`新增答案 ${entry.questionUuid.slice(0, 8)}`)
+  } catch (e: any) {
+    console.error('[bank/addAnswer] 失败', e)
+    notif.log(`新增答案失败: ${e?.message || e}`)
+  }
 }
 
 async function deleteBankAnswer() {
@@ -519,8 +534,13 @@ async function deleteBankAnswer() {
   const serverData = entry.answersServerData[idx]
   if (!serverData) return
 
-  await questionStore.deleteAnswer(auth.token, entry.questionUuid, serverData.answerUuid)
-  questionStore.bankAnswerIdx = Math.max(0, idx - 1)
+  try {
+    await questionStore.deleteAnswer(auth.token, entry.questionUuid, serverData.answerUuid)
+    questionStore.bankAnswerIdx = Math.max(0, idx - 1)
+  } catch (e: any) {
+    console.error('[bank/deleteAnswer] 失败', e)
+    notif.log(`删除答案失败: ${e?.message || e}`)
+  }
 }
 
 // ── Tags ──
@@ -530,7 +550,12 @@ const bankTagRef = ref<InstanceType<typeof TagSection> | null>(null)
 async function onBankTagsChange(payload: { tags: string[] }) {
   const entry = bankEntry.value
   if (!entry || !payload.tags.length) return
-  await questionStore.updateTags(auth.token, entry.questionUuid, payload.tags)
+  try {
+    await questionStore.updateTags(auth.token, entry.questionUuid, payload.tags)
+  } catch (e: any) {
+    console.error('[bank/tags] 失败', e)
+    notif.log(`更新标签失败: ${e?.message || e}`)
+  }
 }
 
 // ── Difficulty ──

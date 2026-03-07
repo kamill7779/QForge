@@ -42,12 +42,25 @@ export async function apiRequest<T = unknown>(
   token: string = '',
   body?: unknown
 ): Promise<T> {
-  const res = await window.qforge.api.request(path, method, token, body)
-  if (res.status >= 400) {
-    handle401(res.status)
-    throw new ApiError(res.status, res.body)
+  const tag = `[API] ${method} ${path}`
+  console.log(tag, body !== undefined ? '→' : '', body !== undefined ? body : '')
+  const t0 = performance.now()
+  try {
+    const res = await window.qforge.api.request(path, method, token, body)
+    const ms = (performance.now() - t0).toFixed(0)
+    if (res.status >= 400) {
+      console.error(`${tag} ← ${res.status} (${ms}ms)`, res.body)
+      handle401(res.status)
+      throw new ApiError(res.status, res.body)
+    }
+    console.log(`${tag} ← ${res.status} (${ms}ms)`)
+    return res.body as T
+  } catch (err) {
+    if (err instanceof ApiError) throw err
+    const ms = (performance.now() - t0).toFixed(0)
+    console.error(`${tag} FAILED (${ms}ms)`, err)
+    throw err
   }
-  return res.body as T
 }
 
 /**

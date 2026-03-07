@@ -108,8 +108,8 @@
             </div>
 
             <div class="action-row">
-              <button class="btn-primary" @click="confirmStem" :disabled="!selected.stemDraft.trim()">
-                ✅ 确认题干
+              <button class="btn-primary" @click="confirmStem" :disabled="!selected.stemDraft.trim() || submitting">
+                {{ submitting ? '⏳ 提交中...' : '✅ 确认题干' }}
               </button>
             </div>
           </div>
@@ -201,11 +201,11 @@
 
             <!-- Actions -->
             <div class="action-row">
-              <button class="btn-secondary" @click="addAnswerAction">
-                + 添加答案
+              <button class="btn-secondary" @click="addAnswerAction" :disabled="submitting">
+                {{ submitting ? '⏳ 提交中...' : '+ 添加答案' }}
               </button>
-              <button class="btn-primary" @click="completeAction" :disabled="selected.answerCount === 0">
-                ✅ 完成录入
+              <button class="btn-primary" @click="completeAction" :disabled="selected.answerCount === 0 || submitting">
+                {{ submitting ? '⏳ 提交中...' : '✅ 完成录入' }}
               </button>
             </div>
           </div>
@@ -280,6 +280,9 @@ const stemEditorRef = ref<InstanceType<typeof StemEditor> | null>(null)
 const answerEditorRef = ref<InstanceType<typeof StemEditor> | null>(null)
 const stemTagRef = ref<InstanceType<typeof TagSection> | null>(null)
 const answerTagRef = ref<InstanceType<typeof TagSection> | null>(null)
+
+/** Shared loading guard — prevents double-submit on any action. */
+const submitting = ref(false)
 
 // ── Computed ──
 
@@ -416,13 +419,14 @@ async function deleteAction(uuid: string) {
 // ── Select ──
 
 async function onSelectQuestion(uuid: string) {
+  console.log('[select]', uuid.slice(0, 8))
   questionStore.selectQuestion(uuid)
   const entry = questionStore.entries.get(uuid)
   if (entry && !entry.assetsLoaded) {
     try {
       await questionStore.fetchAssets(auth.token, uuid)
-    } catch {
-      // assets may not be available for new questions
+    } catch (e) {
+      console.warn('[select] fetchAssets failed', e)
     }
   }
 }
@@ -441,10 +445,11 @@ function onStemTagsChange(_payload: { tags: string[] }) {
 async function confirmStem() {
   const entry = selected.value
   if (!entry) return
+  if (submitting.value) return
 
   const stemXml = toStemXmlPayload(entry.stemDraft)
-  if (!stemXml) {
-    notif.log('题干内容无效')
+  if (!stemXml || isEmptyXmlContent(stemXml, 'stem')) {
+    notif.log('题干内容不能为空')
     return
   }
 
@@ -456,15 +461,27 @@ async function confirmStem() {
     }
   }
 
-  await questionStore.confirmStem(auth.token, entry.questionUuid, {
-    stemXml,
-    inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
-  })
+  submitting.value = true
+  try {
+    console.log('[confirmStem] 开始提交', entry.questionUuid.slice(0, 8))
+    await questionStore.confirmStem(auth.token, entry.questionUuid, {
+      stemXml,
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
+    })
+    console.log('[confirmStem] 题干已确认')
 
-  // Update tags if modified
-  const tagPayload = stemTagRef.value?.toPayload?.()
-  if (tagPayload?.tags.length) {
-    await questionStore.updateTags(auth.token, entry.questionUuid, tagPayload.tags)
+    // Update tags if modified
+    const tagPayload = stemTagRef.value?.toPayload?.()
+    if (tagPayload?.tags.length) {
+      console.log('[confirmStem] 更新标签…', tagPayload.tags)
+      await questionStore.updateTags(auth.token, entry.questionUuid, tagPayload.tags)
+      console.log('[confirmStem] 标签已更新')
+    }
+  } catch (e: any) {
+    console.error('[confirmStem] 失败', e)
+    notif.log(`确认题干失败: ${e?.message || e}`)
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -494,6 +511,7 @@ function onDifficultyChange(val: number | null) {
 async function addAnswerAction() {
   const entry = selected.value
   if (!entry) return
+  if (submitting.value) return
   if (!entry.answerDraft || !entry.answerDraft.trim()) {
     notif.log('请先输入答案内容')
     return
@@ -517,27 +535,49 @@ async function addAnswerAction() {
     }
   }
 
-  await questionStore.addAnswer(auth.token, entry.questionUuid, {
-    latexText: answerXml,
-    inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
-  })
+  submitting.value = true
+  try {
+    console.log('[addAnswer] 开始提交', entry.questionUuid.slice(0, 8))
+    await questionStore.addAnswer(auth.token, entry.questionUuid, {
+      latexText: answerXml,
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
+    })
+    console.log('[addAnswer] 答案已添加')
 
-  // Clear answer draft
-  entry.answerDraft = ''
-  entry.answerImages = {}
+    // Clear answer draft
+    entry.answerDraft = ''
+    entry.answerImages = {}
+  } catch (e: any) {
+    console.error('[addAnswer] 失败', e)
+    notif.log(`添加答案失败: ${e?.message || e}`)
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function completeAction() {
   const entry = selected.value
   if (!entry) return
+  if (submitting.value) return
 
-  // Save tags if modified
-  const tagPayload = answerTagRef.value?.toPayload?.()
-  if (tagPayload?.tags.length) {
-    await questionStore.updateTags(auth.token, entry.questionUuid, tagPayload.tags)
+  submitting.value = true
+  try {
+    // Save tags if modified
+    const tagPayload = answerTagRef.value?.toPayload?.()
+    if (tagPayload?.tags.length) {
+      console.log('[complete] 更新标签…', tagPayload.tags)
+      await questionStore.updateTags(auth.token, entry.questionUuid, tagPayload.tags)
+    }
+
+    console.log('[complete] 完成录入', entry.questionUuid.slice(0, 8))
+    await questionStore.completeQuestion(auth.token, entry.questionUuid)
+    console.log('[complete] 已完成')
+  } catch (e: any) {
+    console.error('[complete] 失败', e)
+    notif.log(`完成录入失败: ${e?.message || e}`)
+  } finally {
+    submitting.value = false
   }
-
-  await questionStore.completeQuestion(auth.token, entry.questionUuid)
 }
 
 // ── OCR ──
