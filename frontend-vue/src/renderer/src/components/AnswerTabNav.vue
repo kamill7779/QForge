@@ -49,29 +49,29 @@ const emit = defineEmits<{
 
 .tab-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .answer-tab {
-  padding: 4px 10px;
-  border: 1px solid #cbd9f0;
-  border-radius: 999px;
-  background: #f6f9ff;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: transparent;
   cursor: pointer;
   font-size: 0.82rem;
-  color: #38578f;
-  transition: all 0.15s;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
 }
 .answer-tab.active {
   border-color: var(--color-accent);
-  background: #e8efff;
-  color: #1f4cb1;
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
   font-weight: 600;
 }
 .answer-tab:hover:not(.active) {
-  border-color: #b8c9e6;
-  background: #eef3ff;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .tab-pagination {
@@ -79,17 +79,18 @@ const emit = defineEmits<{
   align-items: center;
   gap: 8px;
   font-size: 0.82rem;
-  color: #6a7fa0;
+  color: var(--color-text-muted);
 }
 
 .nav-btn {
   background: none;
-  border: 1px solid #cbd9f0;
-  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
   cursor: pointer;
   padding: 2px 8px;
   font-size: 1rem;
-  color: #38578f;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
 }
 .nav-btn:disabled {
   opacity: 0.3;
@@ -97,6 +98,7 @@ const emit = defineEmits<{
 }
 .nav-btn:hover:not(:disabled) {
   border-color: var(--color-accent);
-  background: #eef3ff;
+  color: var(--color-accent);
+  background: var(--color-accent-muted);
 }
 </style>

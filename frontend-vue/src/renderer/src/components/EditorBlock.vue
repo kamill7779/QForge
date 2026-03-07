@@ -227,10 +227,15 @@ function handleLinesInput(e: Event) {
 
 <style scoped>
 .editor-block {
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   margin-bottom: 6px;
-  background: #fff;
+  background: var(--color-bg-card);
+  transition: border-color var(--transition-fast);
+}
+
+.editor-block:hover {
+  border-color: var(--color-accent);
 }
 
 .block-handle {
@@ -238,24 +243,27 @@ function handleLinesInput(e: Event) {
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  background: #f6f9ff;
-  border-bottom: 1px solid #e8eef8;
-  border-radius: 10px 10px 0 0;
+  background: var(--color-bg-panel);
+  border-bottom: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   font-size: 0.82rem;
 }
 
 .block-drag-handle {
   cursor: grab;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition-fast);
 }
 .editor-block:hover .block-drag-handle {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .block-type-label {
-  color: #6a7fa0;
-  font-weight: 500;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   flex: 1;
 }
 
@@ -271,16 +279,17 @@ function handleLinesInput(e: Event) {
   cursor: pointer;
   padding: 0 4px;
   font-size: 0.88rem;
-  color: #8a9bba;
+  color: var(--color-text-muted);
   border-radius: 4px;
+  transition: all var(--transition-fast);
 }
 .block-action-btn:hover {
-  background: #eef3ff;
-  color: #3a5b97;
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
 }
 .block-remove-btn:hover {
-  background: #fde3e3;
-  color: #af3535;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 /* Paragraph */
@@ -292,15 +301,16 @@ function handleLinesInput(e: Event) {
   font-family: inherit;
   resize: vertical;
   min-height: 48px;
-  background: #fbfdff;
+  background: var(--color-bg-input);
   box-sizing: border-box;
-  color: #1f355c;
-  border-top: 1px solid #e8eef8;
+  color: var(--color-text-primary);
+  border-top: 1px solid var(--color-border-light);
+  transition: all var(--transition-fast);
 }
 .block-text-input:focus {
-  outline: 2px solid rgba(45, 108, 223, 0.3);
-  outline-offset: -2px;
-  background: #fff;
+  outline: none;
+  background: var(--color-bg-card);
+  box-shadow: inset 0 0 0 2px var(--color-accent-glow);
 }
 
 /* Choices */
@@ -317,7 +327,7 @@ function handleLinesInput(e: Event) {
   align-items: center;
   gap: 4px;
   font-size: 0.82rem;
-  color: #6a7fa0;
+  color: var(--color-text-muted);
   cursor: pointer;
 }
 
@@ -331,22 +341,23 @@ function handleLinesInput(e: Event) {
 .choice-key-edit {
   font-weight: 700;
   min-width: 1.5em;
-  color: #1f355c;
+  color: var(--color-accent);
   font-size: 0.88rem;
 }
 
 .choice-text-input {
   flex: 1;
   padding: 4px 8px;
-  border: 1px solid #c9d6ed;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 0.85rem;
-  background: #fbfdff;
-  color: #1f355c;
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  transition: all var(--transition-fast);
 }
 .choice-text-input:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(45, 108, 223, 0.12);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
   outline: none;
 }
 
@@ -359,27 +370,28 @@ function handleLinesInput(e: Event) {
 .choice-delete-btn,
 .add-choice-item-btn {
   background: none;
-  border: 1px solid #c9d6ed;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   padding: 2px 6px;
   font-size: 0.82rem;
-  color: #3a5b97;
-  transition: background 0.15s;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
 }
 .add-choice-item-btn {
   margin-top: 4px;
   width: 100%;
   padding: 4px;
-  background: #f6f9ff;
+  background: var(--color-bg-panel);
 }
 .add-choice-item-btn:hover {
-  background: #eef3ff;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 .choice-delete-btn:hover {
-  border-color: #e8c0c0;
-  color: #af3535;
-  background: #fff1f1;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
 }
 
 /* Image */
@@ -392,7 +404,7 @@ function handleLinesInput(e: Event) {
   max-width: 100%;
   max-height: 200px;
   border-radius: 8px;
-  border: 1px solid #d2ddf1;
+  border: 1px solid var(--color-border);
 }
 
 /* Blanks */
@@ -405,21 +417,23 @@ function handleLinesInput(e: Event) {
 }
 
 .blank-edit-chip {
-  background: #e8efff;
+  background: var(--color-accent-muted);
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.85rem;
-  color: #2a4f99;
+  color: var(--color-accent);
+  font-weight: 500;
 }
 
 .add-blank-item-btn {
   background: none;
-  border: 1px dashed #c9d6ed;
-  border-radius: 999px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-pill);
   padding: 3px 10px;
   font-size: 0.82rem;
   cursor: pointer;
-  color: #6a7fa0;
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
 }
 .add-blank-item-btn:hover {
   border-color: var(--color-accent);
@@ -433,15 +447,21 @@ function handleLinesInput(e: Event) {
   align-items: center;
   gap: 6px;
   font-size: 0.85rem;
-  color: #3a5b97;
+  color: var(--color-text-secondary);
 }
 
 .answer-area-lines-input {
   width: 60px;
   padding: 3px 6px;
-  border: 1px solid #c9d6ed;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   text-align: center;
-  color: #1f355c;
+  color: var(--color-text-primary);
+  background: var(--color-bg-input);
+  transition: border-color var(--transition-fast);
+}
+.answer-area-lines-input:focus {
+  border-color: var(--color-accent);
+  outline: none;
 }
 </style>

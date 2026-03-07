@@ -99,10 +99,10 @@ const diffLevel = computed(() => {
 
 <style scoped>
 .ai-analysis-panel {
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
-  padding: 10px 14px;
-  background: #f7faff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: var(--color-bg-panel);
 }
 
 .ai-header {
@@ -114,32 +114,37 @@ const diffLevel = computed(() => {
 
 .ai-header h4 {
   margin: 0;
-  font-size: 0.88rem;
-  color: #1f355c;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
 .ai-trigger-btn {
   padding: 5px 14px;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   cursor: pointer;
   font-size: 0.85rem;
   color: #fff;
   font-weight: 600;
-  transition: filter 0.15s;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px var(--color-accent-glow);
 }
 .ai-trigger-btn:hover:not(:disabled) {
-  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--color-accent-glow);
 }
 .ai-trigger-btn:disabled {
-  background: #c4b5fd;
+  opacity: 0.4;
   cursor: not-allowed;
+  transform: none;
 }
 
 .ai-status.pending {
   font-size: 0.85rem;
-  color: #8c6306;
+  color: var(--color-warning);
   animation: pulse 1.5s infinite;
 }
 
@@ -158,7 +163,7 @@ const diffLevel = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #af3535;
+  color: var(--color-danger);
   font-size: 0.85rem;
 }
 .error-icon {
@@ -173,7 +178,7 @@ const diffLevel = computed(() => {
 }
 
 .ai-suggestion label {
-  color: #6a7fa0;
+  color: var(--color-text-muted);
   min-width: 5em;
 }
 
@@ -185,10 +190,11 @@ const diffLevel = computed(() => {
 
 .suggested-tag {
   padding: 2px 8px;
-  background: #e8efff;
-  color: #2a4f99;
-  border-radius: 999px;
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  border-radius: var(--radius-pill);
   font-size: 0.82rem;
+  font-weight: 500;
 }
 
 .suggested-difficulty {
@@ -197,16 +203,18 @@ const diffLevel = computed(() => {
 
 .ai-reasoning {
   font-size: 0.82rem;
-  color: #3a5b97;
+  color: var(--color-text-secondary);
 }
 .ai-reasoning label {
   display: block;
   margin-bottom: 2px;
+  font-weight: 600;
 }
 .ai-reasoning p {
   margin: 0;
-  padding: 4px 8px;
-  background: #eef3ff;
+  padding: 6px 10px;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border-light);
   border-radius: 8px;
   line-height: 1.5;
 }
@@ -215,19 +223,21 @@ const diffLevel = computed(() => {
   align-self: flex-end;
   padding: 5px 16px;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #22a358, #176b3d);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-success), #00a884);
   color: white;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 600;
-  transition: filter 0.15s;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(0, 184, 148, 0.25);
 }
 .ai-apply-btn:hover:not(:disabled) {
-  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 .ai-apply-btn:disabled {
   opacity: 0.4;
   cursor: default;
+  transform: none;
 }
 </style>

@@ -633,45 +633,45 @@ function focusStageLabel(stage: FocusStage): string {
 </script>
 
 <style scoped>
-/* ===== Layout: grid 340px sidebar ===== */
+/* ===== Layout: grid 300px sidebar ===== */
 .exam-parse-view {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 300px 1fr;
   height: 100%;
   overflow: hidden;
   gap: 0;
 }
 
-/* ===== Sidebar ===== */
+/* ===== Sidebar (dark pane) ===== */
 .ep-sidebar {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid #ccd8ef;
-  background: #f8faff;
+  border-right: 1px solid var(--color-border-dark);
+  background: var(--color-bg-sidebar);
 }
 
 /* Upload panel */
 .upload-panel {
   padding: 14px;
-  border-bottom: 1px solid #d2ddf1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .upload-area {
-  border: 2px dashed #bcc9dd;
-  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
   padding: 22px 16px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  transition: all var(--transition-fast);
   position: relative;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .upload-area:hover,
 .upload-area.dragover {
   border-color: var(--color-accent);
-  background: rgba(45, 108, 223, 0.04);
+  background: rgba(108, 92, 231, 0.08);
 }
 
 .file-input {
@@ -682,8 +682,8 @@ function focusStageLabel(stage: FocusStage): string {
 }
 
 .upload-hint {
-  font-size: 0.88rem;
-  color: #6a7fa0;
+  font-size: 0.85rem;
+  color: rgba(223, 230, 233, 0.5);
 }
 
 /* File chips */
@@ -699,10 +699,10 @@ function focusStageLabel(stage: FocusStage): string {
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  background: #edf2fb;
+  background: rgba(108, 92, 231, 0.12);
   border-radius: 8px;
   font-size: 0.82rem;
-  color: #2a4a80;
+  color: #a29bfe;
 }
 
 .chip-name {
@@ -713,21 +713,21 @@ function focusStageLabel(stage: FocusStage): string {
 }
 
 .chip-size {
-  color: #8a9bba;
+  color: rgba(223, 230, 233, 0.4);
   font-size: 0.75rem;
 }
 
 .chip-remove {
   background: none;
   border: none;
-  color: #8a9bba;
+  color: rgba(223, 230, 233, 0.4);
   cursor: pointer;
   font-size: 0.95rem;
   padding: 0 2px;
   border-radius: 50%;
-  transition: color 0.15s, background 0.15s;
+  transition: all var(--transition-fast);
 }
-.chip-remove:hover { color: #c45656; background: rgba(196, 86, 86, 0.1); }
+.chip-remove:hover { color: #fab1a0; background: rgba(225, 112, 85, 0.15); }
 
 .upload-options {
   display: flex;
@@ -738,7 +738,7 @@ function focusStageLabel(stage: FocusStage): string {
 
 .checkbox-label {
   font-size: 0.85rem;
-  color: #3a5b97;
+  color: rgba(223, 230, 233, 0.6);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -751,10 +751,10 @@ function focusStageLabel(stage: FocusStage): string {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  border-bottom: 1px solid #d2ddf1;
-  font-size: 0.88rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.85rem;
   font-weight: 700;
-  color: #1f355c;
+  color: var(--color-text-on-dark);
 }
 
 .btn-icon {
@@ -763,38 +763,38 @@ function focusStageLabel(stage: FocusStage): string {
   cursor: pointer;
   font-size: 0.9rem;
   padding: 2px 4px;
-  color: #6a7fa0;
+  color: rgba(223, 230, 233, 0.4);
+  transition: color var(--transition-fast);
 }
 .btn-icon:hover { color: var(--color-accent); }
 
 .task-list {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 10px;
+  padding: 8px;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
 }
 
 .task-card {
   padding: 10px 12px;
   cursor: pointer;
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
-  background: #fbfdff;
-  transition: all 0.15s;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: all var(--transition-fast);
 }
 
 .task-card:hover {
-  background: #eef3ff;
-  border-color: #b8c9e6;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .task-card.selected {
   border-color: var(--color-accent);
-  background: #eaf1ff;
-  box-shadow: 0 0 0 2px rgba(45, 108, 223, 0.12);
+  background: rgba(108, 92, 231, 0.12);
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .task-header {
@@ -807,58 +807,58 @@ function focusStageLabel(stage: FocusStage): string {
 .task-uuid {
   font-family: var(--font-mono);
   font-size: 0.82rem;
-  color: #1f355c;
+  color: var(--color-text-on-dark);
   font-weight: 600;
 }
 
 .task-status {
   font-size: 0.72rem;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
 }
 
-.status-pending { background: #fff1d6; color: #8c6306; }
-.status-processing { background: #e8f0ff; color: #2f4f8e; }
-.status-confirmed { background: #c8e6c9; color: #1b5e20; }
-.status-failed { background: #fde3e3; color: #af3535; }
+.status-pending { background: rgba(253, 203, 110, 0.2); color: #ffeaa7; }
+.status-processing { background: rgba(108, 92, 231, 0.2); color: #a29bfe; }
+.status-confirmed { background: rgba(0, 184, 148, 0.2); color: #55efc4; }
+.status-failed { background: rgba(225, 112, 85, 0.2); color: #fab1a0; }
 
 .task-meta {
   font-size: 0.78rem;
-  color: #6a7fa0;
+  color: rgba(223, 230, 233, 0.4);
   display: flex;
   gap: 8px;
 }
 
 .tag-answer {
-  color: var(--color-accent);
+  color: #a29bfe;
   font-weight: 600;
 }
 
-/* Progress bar: 7px with gradient */
+/* Progress bar */
 .progress-bar {
   margin-top: 6px;
-  height: 7px;
-  background: #e8ecf1;
-  border-radius: 4px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4a9eff, #2d6cdf);
-  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-accent), #a29bfe);
+  border-radius: 3px;
   transition: width 0.3s;
 }
 
 .task-error {
   font-size: 0.78rem;
-  color: #c45656;
+  color: #fab1a0;
   margin-top: 4px;
   padding: 4px 8px;
-  background: #fef0f0;
+  background: rgba(225, 112, 85, 0.1);
   border-radius: 6px;
-  border-left: 3px solid #f56c6c;
+  border-left: 3px solid var(--color-danger);
 }
 
 /* ===== Log ===== */
@@ -866,15 +866,17 @@ function focusStageLabel(stage: FocusStage): string {
   max-height: 160px;
   display: flex;
   flex-direction: column;
-  border-top: 1px solid #d2ddf1;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .log-header {
   padding: 8px 14px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: #6a7fa0;
-  border-bottom: 1px solid #d2ddf1;
+  color: rgba(223, 230, 233, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
 .log-list {
@@ -886,20 +888,20 @@ function focusStageLabel(stage: FocusStage): string {
 .log-item {
   font-size: 0.75rem;
   padding: 2px 0;
-  color: #6a7fa0;
+  color: rgba(223, 230, 233, 0.4);
 }
 
 .log-ts {
-  color: #8a9bba;
+  color: rgba(223, 230, 233, 0.25);
   margin-right: 6px;
   font-family: var(--font-mono);
 }
 
-/* ===== Main ===== */
+/* ===== Main (light pane) ===== */
 .ep-main {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 18px;
+  padding: 16px 20px;
   background: var(--color-bg-primary);
 }
 
@@ -910,7 +912,7 @@ function focusStageLabel(stage: FocusStage): string {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #8a9bba;
+  color: var(--color-text-muted);
   font-size: 1rem;
   gap: 10px;
 }
@@ -925,12 +927,13 @@ function focusStageLabel(stage: FocusStage): string {
 
 /* ===== Task info card ===== */
 .task-info-card {
-  padding: 14px 16px;
-  background: #ffffff;
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
+  padding: 16px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
   margin-bottom: 16px;
+  animation: fadeInUp 0.3s ease;
 }
 
 .info-row {
@@ -939,7 +942,7 @@ function focusStageLabel(stage: FocusStage): string {
   align-items: center;
   margin-bottom: 4px;
   font-size: 0.88rem;
-  color: #3a5b97;
+  color: var(--color-text-secondary);
 }
 
 .info-uuid {
@@ -955,13 +958,13 @@ function focusStageLabel(stage: FocusStage): string {
   margin-top: 10px;
 }
 
-/* ===== Bubble nav: 36px, 8px gap ===== */
+/* ===== Bubble nav ===== */
 .bubble-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 14px 0;
-  border-bottom: 1px solid #d2ddf1;
+  border-bottom: 1px solid var(--color-border-light);
   margin-bottom: 16px;
 }
 
@@ -970,8 +973,8 @@ function focusStageLabel(stage: FocusStage): string {
   height: 36px;
   border-radius: 50%;
   border: 2px solid transparent;
-  background: #e8ecf1;
-  color: #606d80;
+  background: var(--color-bg-panel);
+  color: var(--color-text-muted);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -983,19 +986,19 @@ function focusStageLabel(stage: FocusStage): string {
   position: relative;
 }
 
-.bubble:hover { transform: scale(1.08); opacity: 0.9; }
+.bubble:hover { transform: scale(1.08); }
 
-.bubble.b-preview { background: #e8ecf1; color: #606d80; }
+.bubble.b-preview { background: var(--color-bg-panel); color: var(--color-text-muted); }
 .bubble.b-editing-stem,
-.bubble.b-editing-answer { background: #fff4d4; color: #b07d10; border-color: #f0c040; }
-.bubble.b-ready { background: #d4f5d0; color: #2e7d22; border-color: #81c784; }
-.bubble.b-confirmed { background: #c8e6c9; color: #1b5e20; border-color: #66bb6a; }
-.bubble.b-skipped { background: #f5f5f5; color: #bdbdbd; text-decoration: line-through; }
-.bubble.b-error { background: #ffcdd2; color: #c62828; border-color: #e57373; }
+.bubble.b-editing-answer { background: rgba(253, 203, 110, 0.15); color: var(--color-warning); border-color: var(--color-warning); }
+.bubble.b-ready { background: rgba(108, 92, 231, 0.1); color: var(--color-accent); border-color: var(--color-accent); }
+.bubble.b-confirmed { background: rgba(0, 184, 148, 0.12); color: var(--color-success); border-color: var(--color-success); }
+.bubble.b-skipped { background: var(--color-bg-panel); color: var(--color-text-muted); text-decoration: line-through; opacity: 0.5; }
+.bubble.b-error { background: rgba(214, 48, 49, 0.1); color: var(--color-danger); border-color: var(--color-danger); }
 
 .bubble.active {
   transform: scale(1.26);
-  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.35), 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 0 0 3px var(--color-accent-glow), 0 2px 8px rgba(0,0,0,0.1);
   z-index: 2;
 }
 
@@ -1006,54 +1009,56 @@ function focusStageLabel(stage: FocusStage): string {
   flex-direction: column;
   overflow-y: auto;
   min-height: 0;
-  background: #fff;
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
 }
 
-/* Focus status bar with gradient */
+/* Focus status bar */
 .focus-status {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   padding: 14px 20px;
-  background: linear-gradient(135deg, #f8fafd 0%, #eef2f9 100%);
-  border-bottom: 1px solid #d2ddf1;
+  background: var(--color-bg-panel);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .focus-seq {
   font-weight: 800;
   font-size: 1.1rem;
   color: var(--color-accent);
+  font-family: var(--font-display);
 }
 
 .focus-type {
   display: inline-flex;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
-  background: #e3ecf9;
-  color: #2d6cdf;
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
   letter-spacing: 0.3px;
 }
 
 .focus-stage-badge {
   font-size: 0.78rem;
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 600;
 }
 
-.fs-preview { background: #e8ecf1; color: #606d80; }
+.fs-preview { background: var(--color-bg-panel); color: var(--color-text-muted); }
 .fs-editing-stem,
-.fs-editing-answer { background: #fff1d6; color: #8c6306; }
-.fs-ready { background: #e8f0ff; color: #2f4f8e; }
-.fs-confirmed { background: #c8e6c9; color: #1b5e20; }
-.fs-skipped { background: #f5f5f5; color: #bdbdbd; }
-.fs-error { background: #fde3e3; color: #af3535; }
+.fs-editing-answer { background: rgba(253, 203, 110, 0.15); color: var(--color-warning); }
+.fs-ready { background: rgba(108, 92, 231, 0.1); color: var(--color-accent); }
+.fs-confirmed { background: rgba(0, 184, 148, 0.12); color: var(--color-success); }
+.fs-skipped { background: var(--color-bg-panel); color: var(--color-text-muted); }
+.fs-error { background: rgba(214, 48, 49, 0.1); color: var(--color-danger); }
 
 .focus-actions {
   margin-left: auto;
@@ -1082,14 +1087,14 @@ function focusStageLabel(stage: FocusStage): string {
 .preview-section {
   min-width: 0;
   padding: 14px 16px;
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
-  background: #f7faff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-panel);
 }
 
 .preview-section h4 {
-  font-size: 0.75rem;
-  color: #8a9bba;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
   margin-bottom: 6px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1119,8 +1124,8 @@ function focusStageLabel(stage: FocusStage): string {
 /* Focus meta (tags, difficulty) */
 .focus-meta {
   padding: 16px 20px 12px;
-  border-top: 1px solid #d2ddf1;
-  background: #fafbfd;
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg-panel);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1136,66 +1141,70 @@ function focusStageLabel(stage: FocusStage): string {
 .meta-label {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #8a9bba;
+  color: var(--color-text-muted);
   min-width: 48px;
   text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .meta-select {
   padding: 5px 10px;
-  background: #fff;
-  border: 1px solid #c9d6ed;
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  color: #1f355c;
+  color: var(--color-text-primary);
   font-size: 0.85rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .meta-select:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(45, 108, 223, 0.12);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
   outline: none;
 }
 
-/* ===== Buttons (original .btn system) ===== */
+/* ===== Buttons ===== */
 .btn-primary {
   padding: 7px 16px;
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.88rem;
   font-weight: 600;
-  transition: filter 0.15s, box-shadow 0.15s;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px var(--color-accent-glow);
+  letter-spacing: 0.3px;
 }
-.btn-primary:hover { filter: brightness(0.95); box-shadow: 0 2px 8px rgba(45, 108, 223, 0.2); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--color-accent-glow); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .btn-danger {
   padding: 7px 16px;
-  background: #fff1f1;
-  color: #b73333;
-  border: 1px solid #e8c0c0;
-  border-radius: 10px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid rgba(214, 48, 49, 0.2);
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.88rem;
   font-weight: 600;
-  transition: background 0.15s;
+  transition: all var(--transition-fast);
 }
-.btn-danger:hover { background: #fde3e3; }
+.btn-danger:hover { background: rgba(214, 48, 49, 0.15); }
 
 .btn-sm {
-  padding: 4px 12px;
+  padding: 5px 12px;
   font-size: 0.82rem;
-  border: 1px solid #c8d5eb;
-  border-radius: 10px;
-  background: #e9f0ff;
-  color: #274989;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.15s;
+  transition: all var(--transition-fast);
 }
-.btn-sm:hover { background: #dce7fc; }
+.btn-sm:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
 @media (max-width: 1060px) {
   .preview-row,

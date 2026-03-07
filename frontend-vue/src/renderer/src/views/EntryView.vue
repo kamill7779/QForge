@@ -151,6 +151,7 @@
               :image-resolver="resolveAnswerImage"
               @update:model-value="onAnswerDraftChange"
               @screenshot="onAnswerScreenshotInsert"
+              @choice-screenshot="onAnswerChoiceScreenshot"
             />
 
             <!-- Answer OCR -->
@@ -219,48 +220,10 @@
         </div>
       </div>
 
-      <!-- COMPLETED: Completed Card -->
+      <!-- COMPLETED: show read-only summary (user navigated from outside) -->
       <div v-else-if="currentStage === 'COMPLETED'" class="work-card completed-card">
         <h3 class="card-title">已完成 · {{ selected.questionUuid.slice(0, 8) }}</h3>
-
-        <div class="work-columns">
-          <div class="editor-col">
-            <!-- Stem preview -->
-            <div class="section">
-              <h4>题干</h4>
-              <LatexPreview :xml="selected.stemText" :image-resolver="resolveStemImage" />
-            </div>
-
-            <!-- Tags (readonly) -->
-            <TagSection
-              :main-tags="selected.mainTags"
-              :secondary-tags="selected.secondaryTags"
-              :readonly="true"
-            />
-
-            <!-- Difficulty (readonly) -->
-            <DifficultySlider
-              :model-value="selected.difficulty"
-              :readonly="true"
-            />
-          </div>
-
-          <div class="preview-col">
-            <!-- Answer tabs -->
-            <AnswerTabNav
-              v-if="selected.answersLocal.length > 0"
-              :answers="selected.answersLocal"
-              :model-value="selected.answerViewIndex"
-              @update:model-value="onAnswerTabChange"
-            />
-            <LatexPreview
-              :xml="selected.answersLocal[selected.answerViewIndex] ?? ''"
-              placeholder="无答案"
-              mode="answer"
-              :image-resolver="resolveAnswerImage"
-            />
-          </div>
-        </div>
+        <p class="completed-hint">此题已录入完成，请前往题库查看详情。</p>
       </div>
     </main>
 
@@ -317,8 +280,7 @@ const currentStage = computed(() => (selected.value ? stageOf(selected.value) : 
 
 const stages: Array<{ key: QuestionStage; label: string }> = [
   { key: 'PENDING_STEM', label: '待题干' },
-  { key: 'PENDING_ANSWER', label: '待答案' },
-  { key: 'COMPLETED', label: '已完成' }
+  { key: 'PENDING_ANSWER', label: '待答案' }
 ]
 
 // ── OCR State ──
@@ -549,18 +511,35 @@ function useAnswerOcrResult() {
 
 // ── Screenshot callbacks ──
 
+/** Track which choice is awaiting an image screenshot. */
+const pendingChoiceImageTarget = ref<{
+  blockIndex: number
+  choiceIndex: number
+  isAnswer: boolean
+} | null>(null)
+
 function onScreenshotInsertImage() {
+  pendingChoiceImageTarget.value = null
   questionStore.screenshotIntent = 'insert-image'
   window.qforge.screenshot.trigger({ intent: 'insert-image' })
 }
 
-function onChoiceScreenshot() {
+function onChoiceScreenshot(blockIndex: number, choiceIndex: number) {
+  pendingChoiceImageTarget.value = { blockIndex, choiceIndex, isAnswer: false }
+  questionStore.screenshotIntent = 'insert-image'
   window.qforge.screenshot.trigger({ intent: 'choice-image-auto' })
 }
 
 function onAnswerScreenshotInsert() {
+  pendingChoiceImageTarget.value = null
+  questionStore.screenshotIntent = 'answer-insert-image'
+  window.qforge.screenshot.trigger({ intent: 'answer-insert-image' })
+}
+
+function onAnswerChoiceScreenshot(blockIndex: number, choiceIndex: number) {
+  pendingChoiceImageTarget.value = { blockIndex, choiceIndex, isAnswer: true }
   questionStore.screenshotIntent = 'insert-image'
-  window.qforge.screenshot.trigger({ intent: 'insert-image' })
+  window.qforge.screenshot.trigger({ intent: 'choice-image-auto' })
 }
 
 // Handle screenshot result from Electron
@@ -576,14 +555,58 @@ onMounted(() => {
       await questionStore.submitOcr(auth.token, entry.questionUuid, 'QUESTION_STEM', payload.imageBase64)
     } else if (intent === 'answer-ocr') {
       await questionStore.submitOcr(auth.token, entry.questionUuid, 'ANSWER_CONTENT', payload.imageBase64)
+    } else if (intent === 'choice-image-auto') {
+      // Insert image to a specific choice item
+      const target = pendingChoiceImageTarget.value
+      if (!target) {
+        notif.log('当前没有可插图的选项')
+        return
+      }
+      const seed = refSeed(entry.questionUuid)
+      const imageStore = target.isAnswer ? entry.answerImages : entry.inlineImages
+      const existingRefs = Object.keys(imageStore)
+      const newRef = nextFigureRef(existingRefs)
+      const scopedRef = `a${seed}-${newRef}`
+      imageStore[scopedRef] = payload.imageBase64
+
+      // Set the choice imageRef in the editor
+      const editorRef = target.isAnswer ? answerEditorRef.value : stemEditorRef.value
+      editorRef?.setChoiceImageRef(target.blockIndex, target.choiceIndex, scopedRef)
+
+      notif.log(`选项插图已插入 ${scopedRef}`)
+      pendingChoiceImageTarget.value = null
     } else if (intent === 'insert-image') {
+      // Stem image insertion
       const seed = refSeed(entry.questionUuid)
       const existingRefs = Object.keys(entry.inlineImages)
       const newRef = nextFigureRef(existingRefs)
       const scopedRef = `a${seed}-${newRef}`
       entry.inlineImages[scopedRef] = payload.imageBase64
-      notif.log(`插入图片 ${scopedRef}`)
+
+      // Actually insert image block into editor
+      stemEditorRef.value?.addImageBlock(scopedRef)
+
+      notif.log(`题干插图已插入 ${scopedRef}`)
+    } else if (intent === 'answer-insert-image') {
+      // Answer image insertion
+      const seed = refSeed(entry.questionUuid)
+      const existingRefs = Object.keys(entry.answerImages)
+      const newRef = nextFigureRef(existingRefs)
+      const scopedRef = `a${seed}-${newRef}`
+      entry.answerImages[scopedRef] = payload.imageBase64
+
+      // Actually insert image block into answer editor
+      answerEditorRef.value?.addImageBlock(scopedRef)
+
+      notif.log(`答案插图已插入 ${scopedRef}`)
     }
+  })
+
+  // Handle screenshot errors
+  window.qforge.screenshot.onError((payload: { error: string }) => {
+    notif.log(`截图服务异常: ${payload.error || '未知错误'}`)
+    questionStore.screenshotIntent = 'question-ocr'
+    pendingChoiceImageTarget.value = null
   })
 })
 
@@ -631,69 +654,69 @@ function stageLabel(stage: QuestionStage): string {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 328px 1fr;
-  gap: 12px;
-  padding: 12px;
+  grid-template-columns: 300px 1fr;
+  gap: 0;
   overflow: hidden;
 }
 
-/* ── Sidebar (left pane) ── */
+/* ── Sidebar (dark pane) ── */
 
 .entry-sidebar {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   overflow: hidden;
+  background: var(--color-bg-sidebar);
+  border-right: 1px solid var(--color-border-dark);
 }
 
 .create-panel {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  box-shadow: var(--shadow-soft);
-  padding: 14px;
+  padding: 16px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.quick-hint {
-  width: 100%;
-  color: var(--color-text-secondary);
-  font-size: 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .stage-filter {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .filter-btn {
-  border: 1px solid #c9d5ec;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 8px 6px;
-  background: #f6f9ff;
-  color: #3a5b97;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(223, 230, 233, 0.6);
   cursor: pointer;
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 4px;
   justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-on-dark);
 }
 
 .filter-btn.active {
   border-color: var(--color-accent);
-  background: #e5eeff;
-  color: #1f4cb1;
+  background: rgba(108, 92, 231, 0.2);
+  color: #a29bfe;
   font-weight: 600;
 }
 
 .count-badge {
   font-size: 11px;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 .question-list-card {
@@ -701,11 +724,7 @@ function stageLabel(stage: QuestionStage): string {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  box-shadow: var(--shadow-soft);
-  padding: 14px;
+  padding: 0;
 }
 
 .question-list {
@@ -714,73 +733,81 @@ function stageLabel(stage: QuestionStage): string {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  padding: 8px;
 }
 
 .question-card {
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
-  padding: 10px;
-  background: #fbfdff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: all var(--transition-fast);
 }
 
 .question-card:hover {
-  background: #f0f5ff;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .question-card.selected {
   border-color: var(--color-accent);
-  background: #eaf1ff;
+  background: rgba(108, 92, 231, 0.12);
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .card-uuid {
   font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-on-dark);
   word-break: break-all;
 }
 
 .card-badge {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 2px 8px;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.badge-pending-stem { background: var(--color-warning-bg); color: var(--color-warning); }
-.badge-pending-answer { background: var(--color-info-bg); color: var(--color-info); }
-.badge-completed { background: var(--color-success-bg); color: var(--color-success); }
+.badge-pending-stem { background: rgba(225, 112, 85, 0.2); color: #fab1a0; }
+.badge-pending-answer { background: rgba(9, 132, 227, 0.2); color: #74b9ff; }
+.badge-completed { background: rgba(0, 184, 148, 0.2); color: #55efc4; }
 
 .card-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--color-text-secondary);
-  font-size: 12px;
+  color: rgba(223, 230, 233, 0.4);
+  font-size: 11px;
 }
 
 .empty-list {
-  color: var(--color-text-secondary);
+  color: rgba(223, 230, 233, 0.3);
   font-size: 13px;
-  padding: 6px;
+  padding: 20px 12px;
+  text-align: center;
 }
 
-/* ── Main area (right pane) ── */
+/* ── Main area (right pane — light) ── */
 
 .entry-main {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   overflow: hidden;
-  padding-right: 2px;
+  padding: 16px 20px;
+  background: var(--color-bg-primary);
 }
 
 .empty-state {
@@ -788,42 +815,37 @@ function stageLabel(stage: QuestionStage): string {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-size: 14px;
 }
 
 .work-card {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
-  padding: 14px;
+  padding: 20px;
   min-height: 0;
   display: flex;
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  animation: fadeInUp 0.3s ease;
 }
 
 .card-title {
-  margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.meta-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px 12px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  margin-bottom: 10px;
+  margin: 0 0 14px;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  letter-spacing: 0.3px;
+  color: var(--color-text-primary);
 }
 
 .work-columns {
   display: grid;
   grid-template-columns: minmax(280px, 1.2fr) minmax(220px, 1fr);
-  gap: 10px;
+  gap: 14px;
   min-height: 0;
   flex: 1;
 }
@@ -831,34 +853,37 @@ function stageLabel(stage: QuestionStage): string {
 .editor-col {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-height: 0;
 }
 
 .preview-col {
-  border: 1px solid #ccd8ef;
-  border-radius: 10px;
-  background: #f7faff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-panel);
   flex: 1;
   min-height: 0;
-  padding: 12px;
+  padding: 14px;
   overflow: auto;
   white-space: pre-wrap;
-  color: #1f355c;
+  color: var(--color-text-primary);
 }
 
 .stem-readonly {
   padding: 12px;
-  border: 1px solid #dbe4f4;
-  border-radius: 12px;
-  background: #f7faff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-panel);
 }
 
 .stem-readonly h4,
 .section h4 {
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
   margin-bottom: 6px;
+  font-weight: 700;
 }
 
 .ocr-row {
@@ -870,20 +895,22 @@ function stageLabel(stage: QuestionStage): string {
 .action-row {
   display: flex;
   gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-border);
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-light);
 }
 
 .answer-history {
-  padding: 8px;
-  border: 1px solid #d4def1;
+  padding: 10px;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #fcfdff;
+  background: var(--color-bg-panel);
 }
 
 .answer-history h4 {
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
   margin-bottom: 4px;
 }
 
@@ -893,46 +920,61 @@ function stageLabel(stage: QuestionStage): string {
   padding: 2px 0;
 }
 
-/* ── Buttons (原版 .btn 体系) ── */
+/* ── Buttons ── */
 
 .btn-primary {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 9px 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 9px 18px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   color: #fff;
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+  box-shadow: 0 2px 8px var(--color-accent-glow);
+  transition: all var(--transition-fast);
+  letter-spacing: 0.3px;
 }
 
-.btn-primary:hover { filter: brightness(0.98); }
-.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px var(--color-accent-glow);
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .btn-secondary {
-  border: 1px solid #c8d5eb;
-  border-radius: 10px;
-  padding: 9px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 9px 18px;
   cursor: pointer;
   font-weight: 500;
   background: transparent;
-  color: #274989;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
 }
 
-.btn-secondary:hover { filter: brightness(0.98); background: #e9f0ff; }
-.btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-accent {
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 9px 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 9px 18px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: linear-gradient(135deg, var(--color-success), #00a884);
+  box-shadow: 0 2px 8px rgba(0, 184, 148, 0.25);
+  transition: all var(--transition-fast);
 }
 
+.btn-accent:hover { transform: translateY(-1px); }
+
 .btn-mini {
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 8px;
   font-size: 12px;
 }
@@ -942,28 +984,36 @@ function stageLabel(stage: QuestionStage): string {
 .context-menu {
   position: fixed;
   z-index: 9999;
-  min-width: 210px;
+  min-width: 200px;
   padding: 6px;
-  border: 1px solid #c7d6ef;
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(23, 48, 90, 0.18);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.15s ease;
 }
 
 .ctx-item {
   display: block;
   width: 100%;
   text-align: left;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: none;
+  border-radius: 6px;
   background: transparent;
-  padding: 8px 10px;
-  color: #1f3660;
+  padding: 8px 12px;
+  color: var(--color-text-primary);
   cursor: pointer;
+  transition: background var(--transition-fast);
 }
 
-.ctx-item:hover { background: #eef4ff; }
-.ctx-item.danger { color: #b73333; }
-.ctx-item.danger:hover { background: #fdecec; }
+.ctx-item:hover { background: var(--color-accent-muted); color: var(--color-accent); }
+.ctx-item.danger { color: var(--color-danger); }
+.ctx-item.danger:hover { background: var(--color-danger-bg); }
 .ctx-item.disabled { color: var(--color-text-muted); cursor: default; pointer-events: none; }
+
+.completed-hint {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 20px 0;
+}
 </style>

@@ -23,6 +23,7 @@ interface QForgeScreenshotPayload {
   imageBase64: string
   width: number
   height: number
+  intent?: string
 }
 
 interface QForgeAPI {

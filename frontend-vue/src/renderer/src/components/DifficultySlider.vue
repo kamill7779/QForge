@@ -67,11 +67,13 @@ function handleInput(e: Event) {
 }
 
 .slider-label {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #8a9bba;
+  color: var(--color-text-muted);
   min-width: 4em;
   text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .slider-input {
@@ -81,7 +83,7 @@ function handleInput(e: Event) {
   -webkit-appearance: none;
   appearance: none;
   border-radius: 3px;
-  background: linear-gradient(90deg, #2fa85e 0%, #88c840 25%, #f0b840 50%, #e05050 75%, #9040c8 100%);
+  background: linear-gradient(90deg, #00b894 0%, #88c840 25%, #fdcb6e 50%, #e17055 75%, #a29bfe 100%);
   outline: none;
 }
 
@@ -94,7 +96,12 @@ function handleInput(e: Event) {
   background: #fff;
   border: 2px solid var(--color-accent);
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+  transition: transform var(--transition-fast);
+}
+
+.slider-input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
 }
 
 .slider-input:disabled {
@@ -106,7 +113,7 @@ function handleInput(e: Event) {
   font-size: 0.88rem;
   min-width: 2.5em;
   text-align: right;
-  color: #1f355c;
+  color: var(--color-text-primary);
 }
 
 .slider-level-label {
@@ -116,29 +123,29 @@ function handleInput(e: Event) {
   font-size: 0.82rem;
   font-weight: 600;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 
-/* Difficulty level colors — exact original */
+/* Difficulty level colors — warm palette */
 .d-easy {
-  color: #176b3d;
-  background: #ddf4e8;
+  color: #00b894;
+  background: rgba(0, 184, 148, 0.12);
 }
 .d-medium-easy {
-  color: #3d6b17;
-  background: #e8f5cc;
+  color: #00cec9;
+  background: rgba(0, 206, 201, 0.12);
 }
 .d-medium {
-  color: #8c6306;
-  background: #fff1d6;
+  color: #e17055;
+  background: rgba(225, 112, 85, 0.1);
 }
 .d-hard {
-  color: #af3535;
-  background: #fde3e3;
+  color: #d63031;
+  background: rgba(214, 48, 49, 0.1);
 }
 .d-very-hard {
-  color: #7a2ea0;
-  background: #f3e0fa;
+  color: #a29bfe;
+  background: rgba(162, 155, 254, 0.12);
 }
 </style>

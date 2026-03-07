@@ -39,12 +39,12 @@ const stageCounts = computed(() => questionStore.stageCounts)
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 10px;
+  padding: 0 14px;
   height: 28px;
-  background: linear-gradient(180deg, #edf4ff, #dce9ff);
-  border-top: 1px solid #c6d6ee;
-  font-size: 0.82rem;
-  color: #2a4a82;
+  background: var(--color-bg-sidebar);
+  border-top: 1px solid var(--color-border-dark);
+  font-size: 0.78rem;
+  color: rgba(223, 230, 233, 0.6);
   flex-shrink: 0;
 }
 
@@ -58,18 +58,19 @@ const stageCounts = computed(() => questionStore.stageCounts)
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #af3535;
+  background: var(--color-danger);
 }
 .ws-indicator.connected {
-  background: #176b3d;
+  background: var(--color-success);
 }
 
 .status-connection {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 2px 8px;
-  border: 1px solid #c8d8ef;
-  background: #f5f9ff;
-  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.72rem;
+  color: rgba(223, 230, 233, 0.5);
 }
 
 .status-stage-summary {
@@ -78,7 +79,7 @@ const stageCounts = computed(() => questionStore.stageCounts)
 }
 
 .status-shortcut {
-  opacity: 0.6;
-  font-size: 0.75rem;
+  opacity: 0.4;
+  font-size: 0.72rem;
 }
 </style>

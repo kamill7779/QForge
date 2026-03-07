@@ -47,10 +47,10 @@ watchEffect(() => {
   line-height: 1.8;
   font-size: 0.92rem;
   overflow-x: auto;
-  background: #f7faff;
-  border: 1px solid #ccd8ef;
-  border-radius: 10px;
-  color: #1f355c;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
 }
 
 .latex-preview.compact {
@@ -63,9 +63,9 @@ watchEffect(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #fff8e1;
-  color: #e65100;
-  border: 1px dashed #ffb74d;
+  background: rgba(253, 203, 110, 0.12);
+  color: var(--color-warning);
+  border: 1px dashed var(--color-warning);
   border-radius: 6px;
   padding: 6px 12px;
   font-size: 0.82rem;
@@ -80,8 +80,8 @@ watchEffect(() => {
   max-height: 360px;
   display: block;
   margin: 10px auto;
-  border-radius: 6px;
-  border: 1px solid #d2ddf1;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
@@ -119,15 +119,15 @@ watchEffect(() => {
 .latex-preview :deep(.blank-item) {
   display: inline-block;
   min-width: 60px;
-  border-bottom: 2px solid #c9d6ed;
+  border-bottom: 2px solid var(--color-border);
   text-align: center;
-  color: #8a9bba;
+  color: var(--color-text-muted);
   padding: 2px 8px;
 }
 
 .latex-preview :deep(.answer-area) {
   margin: 8px 0;
-  border: 1px dashed #c9d6ed;
+  border: 1px dashed var(--color-border);
   border-radius: 8px;
   padding: 8px;
 }

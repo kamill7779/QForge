@@ -97,15 +97,33 @@ defineExpose({
   /** Get current blocks as XML string. */
   toXml: editor.toXml,
   /** Re-initialize from XML. */
-  initFromXml: editor.initFromXml
+  initFromXml: editor.initFromXml,
+  /** Insert an image block at the end with the given ref. */
+  addImageBlock(ref: string) {
+    editor.addBlock('image')
+    // Update the ref of the just-added image block
+    const last = editor.blocks.value[editor.blocks.value.length - 1]
+    if (last && last.type === 'image') {
+      last.ref = ref
+    }
+  },
+  /** Set a choice item's imageRef by block index + choice index. */
+  setChoiceImageRef(blockIndex: number, choiceIndex: number, ref: string) {
+    const block = editor.blocks.value[blockIndex]
+    if (block?.type === 'choices' && block.items[choiceIndex]) {
+      block.items[choiceIndex].imageRef = ref
+    }
+  },
+  /** Access the reactive blocks for external inspection. */
+  blocks: editor.blocks
 })
 </script>
 
 <style scoped>
 .stem-editor {
-  border: 1px solid #d2ddf1;
-  border-radius: 10px;
-  background: #f7faff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-panel);
 }
 
 .editor-toolbar {
@@ -113,25 +131,25 @@ defineExpose({
   flex-wrap: wrap;
   gap: 4px;
   padding: 6px 8px;
-  border-bottom: 1px solid #e8eef8;
-  background: #f6f9ff;
-  border-radius: 10px 10px 0 0;
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-panel);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .toolbar-btn {
   padding: 3px 10px;
-  border: 1px solid #c9d6ed;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-bg-card);
   cursor: pointer;
   font-size: 0.82rem;
-  color: #3a5b97;
-  transition: all 0.15s;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
 }
 .toolbar-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
-  background: #eef3ff;
+  background: var(--color-accent-muted);
 }
 
 .toolbar-screenshot {

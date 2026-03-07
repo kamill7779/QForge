@@ -112,26 +112,28 @@ defineExpose({
 }
 
 .tag-group-label {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #8a9bba;
+  color: var(--color-text-muted);
   min-width: 4em;
   text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .tag-select {
   flex: 1;
   padding: 5px 10px;
-  border: 1px solid #c9d6ed;
-  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 0.85rem;
-  background: #fbfdff;
-  color: #1f355c;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  transition: all var(--transition-fast);
 }
 .tag-select:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
   outline: none;
 }
 
@@ -147,15 +149,16 @@ defineExpose({
   gap: 6px;
   align-items: center;
   padding: 6px 8px;
-  border: 1px solid #c9d6ed;
-  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   min-height: 38px;
-  background: #fbfdff;
+  background: var(--color-bg-input);
   cursor: text;
+  transition: all var(--transition-fast);
 }
 .tag-capsules:focus-within {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
 .tag-capsule {
@@ -163,11 +166,12 @@ defineExpose({
   align-items: center;
   gap: 4px;
   padding: 2px 8px 2px 10px;
-  background: #e8efff;
-  color: #2a4f99;
-  border-radius: 999px;
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  border-radius: var(--radius-pill);
   font-size: 0.82rem;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .tag-capsule-remove {
@@ -175,18 +179,18 @@ defineExpose({
   height: 16px;
   border: none;
   border-radius: 50%;
-  background: rgba(45, 108, 223, 0.15);
-  color: #3f6ec2;
+  background: rgba(108, 92, 231, 0.2);
+  color: var(--color-accent);
   font-size: 0.75rem;
   line-height: 1;
   cursor: pointer;
   display: grid;
   place-items: center;
   padding: 0;
-  transition: background 0.15s;
+  transition: background var(--transition-fast);
 }
 .tag-capsule-remove:hover {
-  background: rgba(45, 108, 223, 0.3);
+  background: rgba(108, 92, 231, 0.35);
 }
 
 .tag-input {
@@ -197,6 +201,6 @@ defineExpose({
   flex: 1;
   padding: 4px 0;
   background: transparent;
-  color: #1f355c;
+  color: var(--color-text-primary);
 }
 </style>

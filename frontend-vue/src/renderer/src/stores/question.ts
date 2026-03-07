@@ -155,7 +155,7 @@ export const useQuestionStore = defineStore('question', () => {
   const ocrTasks = ref(new Map<string, OcrTaskEntry>())
   const selectedQuestionUuid = ref('')
   const stageFilter = ref<QuestionStage>('PENDING_STEM')
-  const screenshotIntent = ref<'question-ocr' | 'answer-ocr' | 'insert-image'>(
+  const screenshotIntent = ref<'question-ocr' | 'answer-ocr' | 'insert-image' | 'answer-insert-image'>(
     'question-ocr'
   )
 

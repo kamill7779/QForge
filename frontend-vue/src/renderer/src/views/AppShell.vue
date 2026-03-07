@@ -126,71 +126,99 @@ async function logout() {
 }
 
 .app-header {
-  height: 62px;
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
+  height: 56px;
+  border-bottom: 1px solid var(--color-border-dark);
+  background: var(--color-bg-header);
+  backdrop-filter: blur(16px) saturate(160%);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 20px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+/* Subtle accent glow line under header */
+.app-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-accent-glow), transparent);
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 
 .logo-mark {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), #a29bfe);
   color: #fff;
   display: grid;
   place-items: center;
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: -0.5px;
+  box-shadow: 0 2px 12px var(--color-accent-glow);
+  transition: transform var(--transition-fast);
+}
+
+.logo-mark:hover {
+  transform: scale(1.08) rotate(-3deg);
 }
 
 .app-title {
-  font-size: 33px;
+  font-family: var(--font-display);
+  font-size: 22px;
   line-height: 1;
   font-weight: 800;
-  letter-spacing: 0.3px;
+  letter-spacing: 1px;
+  color: var(--color-text-header);
+  text-transform: uppercase;
 }
 
 .tab-nav {
   display: flex;
-  gap: 4px;
-  margin-left: 8px;
+  gap: 2px;
+  margin-left: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  padding: 3px;
 }
 
 .tab-link {
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 6px 14px;
+  padding: 6px 16px;
   background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 14px;
+  color: rgba(223, 230, 233, 0.6);
+  font-size: 13px;
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
+  letter-spacing: 0.3px;
 }
 
 .tab-link:hover {
-  background: #eaf0ff;
-  color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-header);
   text-decoration: none;
 }
 
 .tab-link.active {
-  background: #e5eeff;
-  color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
   font-weight: 600;
-  border-color: var(--color-accent);
+  box-shadow: 0 2px 8px var(--color-accent-glow);
 }
 
 .header-actions {
@@ -201,30 +229,35 @@ async function logout() {
 }
 
 .user-pill {
-  border-radius: 999px;
-  background: #ecf2ff;
-  color: #27488c;
-  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-on-dark);
+  padding: 4px 12px;
+  font-size: 12px;
+  letter-spacing: 0.3px;
 }
 
 .btn-logout {
-  border: 1px solid #c8d5eb;
-  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
   padding: 4px 12px;
   background: transparent;
-  color: #274989;
+  color: rgba(223, 230, 233, 0.7);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
+  transition: all var(--transition-fast);
 }
 
 .btn-logout:hover {
-  filter: brightness(0.98);
-  background: #e9f0ff;
+  background: rgba(214, 48, 49, 0.15);
+  border-color: rgba(214, 48, 49, 0.3);
+  color: #fab1a0;
 }
 
 .app-main {
   flex: 1;
   overflow: hidden;
+  animation: fadeIn 0.3s ease;
 }
 </style>
