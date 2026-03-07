@@ -10,7 +10,8 @@ import {
   isValidStemXml,
   isValidAnswerXml,
   toXmlPayload,
-  toEditorText
+  toEditorText,
+  isEmptyXmlContent
 } from '@/lib/stemXml'
 
 describe('stemXml — escaping', () => {
@@ -124,5 +125,13 @@ describe('stemXml — parameterized core', () => {
     const result = toStemXmlPayload(ocrXml)
     expect(result).not.toContain('&lt;stem')
     expect(isValidStemXml(result)).toBe(true)
+  })
+
+  it('isEmptyXmlContent detects empty XML wrappers', () => {
+    expect(isEmptyXmlContent('<answer version="1"><p></p></answer>', 'answer')).toBe(true)
+    expect(isEmptyXmlContent('<answer version="1"><p>  </p></answer>', 'answer')).toBe(true)
+    expect(isEmptyXmlContent('<answer version="1"><p>x=1</p></answer>', 'answer')).toBe(false)
+    expect(isEmptyXmlContent('<stem version="1"><p></p></stem>', 'stem')).toBe(true)
+    expect(isEmptyXmlContent('<stem version="1"><p>hello</p></stem>', 'stem')).toBe(false)
   })
 })

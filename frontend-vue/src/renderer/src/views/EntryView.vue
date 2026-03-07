@@ -265,7 +265,7 @@ import EventLog from '@/components/EventLog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useQuestionStore, stageOf, type QuestionEntry, type QuestionStage } from '@/stores/question'
 import { useNotificationStore } from '@/stores/notification'
-import { toStemXmlPayload, toAnswerXmlPayload } from '@/lib/stemXml'
+import { toStemXmlPayload, toAnswerXmlPayload, isEmptyXmlContent } from '@/lib/stemXml'
 import { refSeed, nextFigureRef } from '@/lib/imageRef'
 import type { InlineImageEntry } from '@/api/types'
 
@@ -483,9 +483,18 @@ function onDifficultyChange(val: number | null) {
 async function addAnswerAction() {
   const entry = selected.value
   if (!entry) return
+  if (!entry.answerDraft || !entry.answerDraft.trim()) {
+    notif.log('请先输入答案内容')
+    return
+  }
   const answerXml = toAnswerXmlPayload(entry.answerDraft)
   if (!answerXml) {
     notif.log('答案内容无效')
+    return
+  }
+  // Reject empty XML wrappers (all <p> are empty, no images)
+  if (isEmptyXmlContent(answerXml, 'answer')) {
+    notif.log('答案内容不能为空')
     return
   }
 
@@ -726,20 +735,30 @@ onBeforeUnmount(() => {
 
 async function requestAi() {
   if (!selected.value) return
-  await questionStore.requestAiAnalysis(auth.token, selected.value.questionUuid, 'entry')
+  try {
+    await questionStore.requestAiAnalysis(auth.token, selected.value.questionUuid, 'entry')
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'AI分析请求失败'
+    notif.log(msg)
+  }
 }
 
 async function applyAi() {
   const entry = selected.value
   const ai = questionStore.entryAi
   if (!entry || !ai.lastResult || !ai.taskUuid) return
-  await questionStore.applyAiRecommendation(
-    auth.token,
-    entry.questionUuid,
-    ai.taskUuid,
-    ai.lastResult.suggestedTags ?? undefined,
-    ai.lastResult.suggestedDifficulty ?? undefined
-  )
+  try {
+    await questionStore.applyAiRecommendation(
+      auth.token,
+      entry.questionUuid,
+      ai.taskUuid,
+      ai.lastResult.suggestedTags ?? undefined,
+      ai.lastResult.suggestedDifficulty ?? undefined
+    )
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '采纳AI推荐失败'
+    notif.log(msg)
+  }
 }
 
 // ── Answer Tabs (completed) ──

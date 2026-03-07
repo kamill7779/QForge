@@ -224,6 +224,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     @Transactional
     public AddAnswerResponse addAnswer(String questionUuid, CreateAnswerRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        validateAnswerHasContent(request.getLatexText(), questionUuid);
         Answer answer = saveOneAnswer(question, request.getLatexText());
         validateAndSyncAnswerImages(question, answer, request.getInlineImages());
         return new AddAnswerResponse(question.getQuestionUuid(), question.getStatus(), answer.getAnswerUuid());
@@ -497,6 +498,30 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         answer.setOfficial(false);
         answerRepository.save(answer);
         return answer;
+    }
+
+    /**
+     * Reject answer text that is just an empty XML wrapper with no meaningful content.
+     * E.g. {@code <answer version="1"><p></p></answer>} is structurally valid but useless.
+     * Answers containing only images (no text) are still valid.
+     */
+    private void validateAnswerHasContent(String latexText, String questionUuid) {
+        if (latexText == null || latexText.isBlank()) {
+            throw new BusinessValidationException(
+                    "ANSWER_EMPTY", "Answer text must not be empty",
+                    Map.of("questionUuid", questionUuid));
+        }
+        // If it contains <image or <img tags, it has image content — allow
+        if (latexText.contains("<image") || latexText.contains("<img")) {
+            return;
+        }
+        // Strip all XML tags, then check if any non-whitespace remains
+        String stripped = latexText.replaceAll("<[^>]+>", "").trim();
+        if (stripped.isEmpty()) {
+            throw new BusinessValidationException(
+                    "ANSWER_EMPTY", "Answer text contains no meaningful content",
+                    Map.of("questionUuid", questionUuid));
+        }
     }
 
     /**

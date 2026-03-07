@@ -37,14 +37,15 @@ public class AiAnalysisTaskConsumer {
         private static final String RESULT_END   = "##RESULT_END##";
 
         private static final String SYSTEM_PROMPT =
-            "你是教育评估专家。请严格按如下格式输出，不得先输出分析过程：\n" +
+            "你是教育评估专家。你的任务仅限于分类打标和难度评定，禁止解题、禁止输出答案或解题思路。\n" +
+            "请严格按如下格式输出，不得先输出分析过程：\n" +
             "##RESULT_START##\n" +
             "{\"tags\":[\"标签1\",\"标签2\"],\"difficulty\":0.55,\"reasoning\":\"30字内结论\"}\n" +
             "##RESULT_END##\n" +
             "标签：推荐2-5个知识点（中文，粒度如\"二次函数\"、\"解三角形\"，禁用\"数学\"等过宽表述）。\n" +
             "P值校准（通过率0.00-1.00）：0.8+极简单, 0.6-0.8简单, 0.4-0.6中等, 0.2-0.4偏难, 0.05-0.2竞赛/压轴, <0.05联赛级。\n" +
             "示例：立体几何综合→0.35, 二次函数求值→0.60, 基础填空→0.75, 竞赛组合→0.10。\n" +
-            "reasoning必须是结论句（如\"立体几何综合，空间想象要求高\"），禁止使用\"任务一\"\"**标签**\"等标题或Markdown。\n" +
+            "reasoning必须是结论句（如\"立体几何综合，空间想象要求高\"），禁止包含解题步骤或答案，禁止使用\"任务一\"\"**标签**\"等标题或Markdown。\n" +
             "注意：##RESULT_START## 和 ##RESULT_END## 是必须输出的定界符，JSON放在两者之间。";
         private static final int DEFAULT_MAX_TOKENS = 65536;
         private static final int MAX_STEM_CHARS = 8000;
@@ -286,6 +287,10 @@ public class AiAnalysisTaskConsumer {
             }
 
             String reasoning = node.has("reasoning") ? node.get("reasoning").asText() : "";
+            // Cap reasoning length — must be a short conclusion, not a solutions walkthrough
+            if (reasoning.length() > 80) {
+                reasoning = reasoning.substring(0, 80);
+            }
 
             // 异步落库：SUCCESS
             String tagsJson = null;

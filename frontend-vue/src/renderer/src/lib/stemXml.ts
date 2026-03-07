@@ -204,6 +204,20 @@ export const parseAnswerXmlDocument = (input: string) => parseXmlDocument(input,
 export const isValidStemXml = (xml: string) => isValidXml(xml, 'stem')
 export const isValidAnswerXml = (xml: string) => isValidXml(xml, 'answer')
 
+/**
+ * Check if an XML payload has no meaningful text or image content.
+ * Returns true for empty wrappers like `<answer version="1"><p></p></answer>`.
+ */
+export function isEmptyXmlContent(xml: string, rootTag: RootTag): boolean {
+  const doc = parseXmlDocument(xml, rootTag)
+  if (!doc) return true
+  const root = doc.documentElement
+  // Check if there's any non-whitespace text or <image>/<img> elements
+  const hasText = root.textContent?.trim()
+  const hasImage = root.querySelector('image') || root.querySelector('img')
+  return !hasText && !hasImage
+}
+
 export const toStemXmlPayload = (input: string) => toXmlPayload(input, 'stem')
 export const toAnswerXmlPayload = (input: string) => toXmlPayload(input, 'answer')
 

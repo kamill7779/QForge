@@ -256,7 +256,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useQuestionStore, stageOf } from '@/stores/question'
 import { useTagStore } from '@/stores/tag'
 import { useNotificationStore } from '@/stores/notification'
-import { toStemXmlPayload, toAnswerXmlPayload } from '@/lib/stemXml'
+import { toStemXmlPayload, toAnswerXmlPayload, isEmptyXmlContent } from '@/lib/stemXml'
 import { difficultyLevel } from '@/lib/difficulty'
 import type { InlineImageEntry } from '@/api/types'
 
@@ -474,10 +474,18 @@ function cancelAddAnswer() {
 async function saveNewAnswer() {
   const entry = bankEntry.value
   if (!entry) return
+  if (!answerAddDraft.value || !answerAddDraft.value.trim()) {
+    notif.log('请先输入答案内容')
+    return
+  }
 
   const answerXml = toAnswerXmlPayload(answerAddDraft.value)
   if (!answerXml) {
     notif.log('答案内容无效')
+    return
+  }
+  if (isEmptyXmlContent(answerXml, 'answer')) {
+    notif.log('答案内容不能为空')
     return
   }
 
@@ -532,20 +540,30 @@ function onBankDifficultyChange(val: number | null) {
 
 async function bankRequestAi() {
   if (!bankEntry.value) return
-  await questionStore.requestAiAnalysis(auth.token, bankEntry.value.questionUuid, 'bank')
+  try {
+    await questionStore.requestAiAnalysis(auth.token, bankEntry.value.questionUuid, 'bank')
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'AI分析请求失败'
+    notif.log(msg)
+  }
 }
 
 async function bankApplyAi() {
   const entry = bankEntry.value
   const ai = questionStore.bankAi
   if (!entry || !ai.lastResult || !ai.taskUuid) return
-  await questionStore.applyAiRecommendation(
-    auth.token,
-    entry.questionUuid,
-    ai.taskUuid,
-    ai.lastResult.suggestedTags ?? undefined,
-    ai.lastResult.suggestedDifficulty ?? undefined
-  )
+  try {
+    await questionStore.applyAiRecommendation(
+      auth.token,
+      entry.questionUuid,
+      ai.taskUuid,
+      ai.lastResult.suggestedTags ?? undefined,
+      ai.lastResult.suggestedDifficulty ?? undefined
+    )
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : '采纳AI推荐失败'
+    notif.log(msg)
+  }
 }
 
 // ── Helpers ──
