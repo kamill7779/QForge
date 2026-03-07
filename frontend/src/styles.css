@@ -2318,3 +2318,73 @@ textarea {
 .ep-empty-icon { font-size: 2.5rem; }
 .ep-empty-title { font-size: 1.1rem; font-weight: 600; }
 .ep-empty-desc { font-size: 0.85rem; }
+
+/* ===== 标签 & 难度 ===== */
+.ep-tags-difficulty {
+  border-top: 1px solid var(--border, #e0e0e0);
+  padding: 12px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ep-td-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ep-td-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-light, #888);
+  min-width: 42px;
+}
+.ep-td-input {
+  padding: 3px 8px;
+  border: 1px solid var(--border, #d0d0d0);
+  border-radius: 5px;
+  font-size: 0.85rem;
+  background: var(--bg-light, #fff);
+}
+.ep-td-wide { flex: 1; }
+.ep-secondary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  flex: 1;
+}
+.ep-tag-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #e8ecf1;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  color: #334;
+}
+.ep-tag-rm {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #999;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  line-height: 1;
+}
+.ep-tag-rm:hover { color: #c45656; }
+.ep-stag-input {
+  flex: 1;
+  min-width: 100px;
+}
+.ep-diff-slider {
+  flex: 1;
+  min-width: 100px;
+}
+.ep-diff-val {
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}

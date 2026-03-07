@@ -378,7 +378,7 @@
     if (!task) {
       panel.innerHTML =
         '<div class="ep-empty-session">' +
-        '<div class="ep-empty-icon">���</div>' +
+        '<div class="ep-empty-icon">���</div>' +
         '<div class="ep-empty-title">上传试卷开始解析</div>' +
         '<div class="ep-empty-desc">支持 PDF / 图片，可选多个文件一起上传</div></div>';
       return;
@@ -466,7 +466,13 @@
         html += buildPreviewHtml(q);
         if (q.errorMsg) html += '<div class="ep-q-error-msg">' + escHtml(q.errorMsg) + '</div>';
       }
-      html += '</div></div>';
+      html += '</div>'; // ep-focus-content
+
+      // 标签 & 难度 (非编辑模式下显示)
+      if (stage !== "EDITING_STEM" && stage !== "EDITING_ANSWER" && stage !== "CONFIRMED") {
+        html += buildTagsDifficultyHtml(q);
+      }
+      html += '</div>'; // ep-question-focus
     } else if (isRunning) {
       html += '<div class="ep-waiting"><div class="ep-spinner"></div><div>正在解析试卷，请稍候…</div></div>';
     }
@@ -479,6 +485,9 @@
       if (stg === "EDITING_STEM") postRenderStemEditor(q);
       else if (stg === "EDITING_ANSWER") postRenderAnswerEditor(q);
       else postRenderPreview(q);
+      if (stg !== "EDITING_STEM" && stg !== "EDITING_ANSWER" && stg !== "CONFIRMED") {
+        postRenderTagsDifficulty(q);
+      }
     }
     // 气泡滚动到 active
     var activeBubble = panel.querySelector(".ep-bubble.active");
@@ -504,6 +513,163 @@
       html += '<div class="empty-note" style="padding:20px;text-align:center;">该题数据为空</div>';
     }
     return html;
+  }
+
+  /* ---------- 标签 & 难度 HTML ---------- */
+  function buildTagsDifficultyHtml(q) {
+    var fd = ensureFocusData(q);
+    var html = '<div class="ep-tags-difficulty" id="ep-tags-difficulty">';
+    // 题型 select
+    html += '<div class="ep-td-row"><label class="ep-td-label">题型</label>' +
+      '<select id="ep-qtype-select" class="ep-td-input">' +
+      '<option value=""' + (!q.questionType ? ' selected' : '') + '>自动</option>';
+    var types = ["单选题", "多选题", "填空题", "判断题", "解答题", "计算题", "证明题", "作图题", "简答题", "综合题", "其他"];
+    for (var ti = 0; ti < types.length; ti++) {
+      var sel = q.questionType === types[ti] ? " selected" : "";
+      html += '<option value="' + types[ti] + '"' + sel + '>' + types[ti] + '</option>';
+    }
+    html += '</select></div>';
+    // 主标签 (渲染 renderMainTagSelectorsTo)
+    html += '<div class="ep-td-row"><label class="ep-td-label">主标签</label>' +
+      '<div id="ep-main-tags-area" class="ep-td-wide"></div></div>';
+    // 副标签 (capsule输入)
+    var stags = (fd.secondaryTags || []);
+    html += '<div class="ep-td-row"><label class="ep-td-label">副标签</label>';
+    html += '<div class="ep-secondary-tags" id="ep-secondary-tags">';
+    for (var si = 0; si < stags.length; si++) {
+      html += '<span class="ep-tag-capsule">' + escHtml(stags[si]) + '<button class="ep-tag-rm" data-tag="' + escHtml(stags[si]) + '">×</button></span>';
+    }
+    html += '<input type="text" id="ep-stag-input" class="ep-td-input ep-stag-input" placeholder="输入标签 回车添加" />';
+    html += '</div></div>';
+    // 难度 slider
+    var diff = fd.difficulty != null ? Number(fd.difficulty) : null;
+    var diffLabel = diff != null ? dl(diff).label : "未设置";
+    var diffVal = diff != null ? Math.round(diff * 100) : 50;
+    var diffCls = diff != null ? dl(diff).cls : "d-unset";
+    html += '<div class="ep-td-row"><label class="ep-td-label">难度</label>' +
+      '<input type="range" id="ep-diff-slider" min="0" max="100" value="' + diffVal + '" class="ep-diff-slider' + (diff == null ? ' unset' : '') + '" />' +
+      '<span id="ep-diff-val" class="ep-diff-val">' + (diff != null ? diff.toFixed(2) : '-') + '</span>' +
+      '<span id="ep-diff-badge" class="difficulty-badge ' + diffCls + '">' + diffLabel + '</span></div>';
+    html += '</div>';
+    return html;
+  }
+
+  function dl(v) {
+    if (v <= 0.3) return { label: "困难", cls: "d-hard" };
+    if (v <= 0.7) return { label: "中等", cls: "d-medium" };
+    return { label: "简单", cls: "d-easy" };
+  }
+
+  function renderEpMainTags(container, categories, mainTags, onChanged) {
+    container.innerHTML = "";
+    if (!categories || !categories.length) {
+      container.innerHTML = '<div class="empty-note">暂无主标签字典</div>';
+      return;
+    }
+    var map = {};
+    for (var i = 0; i < mainTags.length; i++) map[mainTags[i].categoryCode] = mainTags[i];
+    for (var ci = 0; ci < categories.length; ci++) {
+      var c = categories[ci];
+      var row = document.createElement("div");
+      row.className = "row";
+      var lab = document.createElement("label");
+      lab.className = "tag-edit-label";
+      lab.textContent = c.categoryName;
+      var sel = document.createElement("select");
+      for (var oi = 0; oi < c.options.length; oi++) {
+        var op = document.createElement("option");
+        op.value = c.options[oi].tagCode;
+        op.textContent = c.options[oi].tagName || c.options[oi].tagCode;
+        sel.appendChild(op);
+      }
+      var cur = map[c.categoryCode];
+      sel.value = cur ? cur.tagCode : (c.options[0] ? c.options[0].tagCode : "UNCATEGORIZED");
+      (function (cat) {
+        sel.addEventListener("change", function () {
+          var opt = null;
+          for (var x = 0; x < cat.options.length; x++) { if (cat.options[x].tagCode === sel.value) { opt = cat.options[x]; break; } }
+          var tags = mainTags.slice();
+          var fi = -1;
+          for (var j = 0; j < tags.length; j++) { if (tags[j].categoryCode === cat.categoryCode) { fi = j; break; } }
+          var next = { categoryCode: cat.categoryCode, categoryName: cat.categoryName, tagCode: sel.value, tagName: opt ? opt.tagName : sel.value };
+          if (fi >= 0) tags[fi] = next; else tags.push(next);
+          mainTags.length = 0;
+          for (var k = 0; k < tags.length; k++) mainTags.push(tags[k]);
+          if (onChanged) onChanged(mainTags);
+        });
+      })(c);
+      row.appendChild(lab);
+      row.appendChild(sel);
+      container.appendChild(row);
+    }
+  }
+
+  /* ---------- 后渲染: 标签 & 难度 ---------- */
+  function postRenderTagsDifficulty(q) {
+    var fd = ensureFocusData(q);
+    // 主标签 (EP 自己的实现，不依赖 global renderMainTagSelectorsTo)
+    var mainArea = $("ep-main-tags-area");
+    if (mainArea && _state && _state.tagCatalog && _state.tagCatalog.mainCategories) {
+      renderEpMainTags(mainArea, _state.tagCatalog.mainCategories, fd.mainTags || [], function (tags) {
+        fd.mainTags = tags;
+        saveLocalState();
+      });
+    }
+    // 副标签 input
+    var stagInput = $("ep-stag-input");
+    if (stagInput) {
+      stagInput.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          var v = stagInput.value.trim();
+          if (!v) return;
+          if (!fd.secondaryTags) fd.secondaryTags = [];
+          if (fd.secondaryTags.indexOf(v) < 0) fd.secondaryTags.push(v);
+          stagInput.value = "";
+          saveLocalState();
+          if (_render) _render();
+        }
+      });
+    }
+    var stagBox = $("ep-secondary-tags");
+    if (stagBox) {
+      stagBox.addEventListener("click", function (ev) {
+        var rm = ev.target.closest(".ep-tag-rm");
+        if (!rm) return;
+        var tag = rm.dataset.tag;
+        if (fd.secondaryTags) {
+          fd.secondaryTags = fd.secondaryTags.filter(function (t) { return t !== tag; });
+          saveLocalState();
+          if (_render) _render();
+        }
+      });
+    }
+    // 难度 slider
+    var slider = $("ep-diff-slider");
+    if (slider) {
+      slider.addEventListener("input", function () {
+        var v = Number(slider.value) / 100;
+        fd.difficulty = v;
+        var valSpan = $("ep-diff-val");
+        var badge = $("ep-diff-badge");
+        if (valSpan) valSpan.textContent = v.toFixed(2);
+        if (badge) { var d = dl(v); badge.textContent = d.label; badge.className = "difficulty-badge " + d.cls; }
+        slider.classList.remove("unset");
+        saveLocalState();
+      });
+    }
+    // 题型 select
+    var qsel = $("ep-qtype-select");
+    if (qsel) {
+      qsel.addEventListener("change", function () {
+        var val = qsel.value;
+        var task = getActiveTask();
+        if (!task) return;
+        updateQuestion(task.taskUuid, q.seqNo, { questionType: val }).catch(function (err) {
+          epLog("更新题型失败: " + err.message);
+        });
+      });
+    }
   }
 
   /* ---------- 题干编辑器 HTML ---------- */
