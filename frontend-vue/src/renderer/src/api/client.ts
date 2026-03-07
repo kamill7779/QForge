@@ -42,11 +42,16 @@ export async function apiRequest<T = unknown>(
   token: string = '',
   body?: unknown
 ): Promise<T> {
+  // Deep-clone body to strip Vue reactive proxies — Electron IPC requires
+  // structuredClone-compatible plain objects; Proxy instances cause
+  // "An object could not be cloned" errors.
+  const plainBody = body !== undefined ? JSON.parse(JSON.stringify(body)) : undefined
+
   const tag = `[API] ${method} ${path}`
-  console.log(tag, body !== undefined ? '→' : '', body !== undefined ? body : '')
+  console.log(tag, plainBody !== undefined ? '→' : '', plainBody !== undefined ? plainBody : '')
   const t0 = performance.now()
   try {
-    const res = await window.qforge.api.request(path, method, token, body)
+    const res = await window.qforge.api.request(path, method, token, plainBody)
     const ms = (performance.now() - t0).toFixed(0)
     if (res.status >= 400) {
       console.error(`${tag} ← ${res.status} (${ms}ms)`, res.body)
