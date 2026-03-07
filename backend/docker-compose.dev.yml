@@ -93,8 +93,9 @@ services:
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
     command: >
       bash -c "
+        mvn -q -N -DskipTests install &&
         mvn -q -DskipTests -pl libs/common-contract install &&
-        mvn -DskipTests -pl services/auth-service spring-boot:run -am
+        mvn -DskipTests -pl services/auth-service spring-boot:run
       "
     ports:
       - "8088:8088"
@@ -127,8 +128,9 @@ services:
       STEMXML_MODEL: glm-4-0520
     command: >
       bash -c "
+        mvn -q -N -DskipTests install &&
         mvn -q -DskipTests -pl libs/common-contract install &&
-        mvn -DskipTests -pl services/ocr-service spring-boot:run -am
+        mvn -DskipTests -pl services/ocr-service spring-boot:run
       "
     ports:
       - "8090:8090"
@@ -153,8 +155,9 @@ services:
       OCR_SERVICE_BASE_URL: http://ocr-service:8090
     command: >
       bash -c "
+        mvn -q -N -DskipTests install &&
         mvn -q -DskipTests -pl libs/common-contract install &&
-        mvn -DskipTests -pl services/question-service spring-boot:run -am
+        mvn -DskipTests -pl services/question-service spring-boot:run
       "
     ports:
       - "8089:8089"
@@ -181,8 +184,9 @@ services:
       <<: *infra-env
     command: >
       bash -c "
+        mvn -q -N -DskipTests install &&
         mvn -q -DskipTests -pl libs/common-contract install &&
-        mvn -DskipTests -pl services/persist-service spring-boot:run -am
+        mvn -DskipTests -pl services/persist-service spring-boot:run
       "
     ports:
       - "8091:8091"
@@ -206,8 +210,9 @@ services:
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
     command: >
       bash -c "
+        mvn -q -N -DskipTests install &&
         mvn -q -DskipTests -pl libs/common-contract install &&
-        mvn -DskipTests -pl services/gateway-service spring-boot:run -am
+        mvn -DskipTests -pl services/gateway-service spring-boot:run
       "
     ports:
       - "8080:8080"

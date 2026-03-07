@@ -156,6 +156,63 @@ function processNode(
       break
     }
 
+    case 'table': {
+      const table = document.createElement('table')
+      table.className = 'stem-table'
+      for (const child of Array.from(xmlNode.childNodes)) {
+        processNode(child, table, resolver)
+      }
+      parentEl.appendChild(table)
+      break
+    }
+
+    case 'thead': {
+      const thead = document.createElement('thead')
+      for (const child of Array.from(xmlNode.childNodes)) {
+        processNode(child, thead, resolver)
+      }
+      parentEl.appendChild(thead)
+      break
+    }
+
+    case 'tbody': {
+      const tbody = document.createElement('tbody')
+      for (const child of Array.from(xmlNode.childNodes)) {
+        processNode(child, tbody, resolver)
+      }
+      parentEl.appendChild(tbody)
+      break
+    }
+
+    case 'tr': {
+      const tr = document.createElement('tr')
+      for (const child of Array.from(xmlNode.childNodes)) {
+        processNode(child, tr, resolver)
+      }
+      parentEl.appendChild(tr)
+      break
+    }
+
+    case 'th': {
+      const th = document.createElement('th')
+      th.className = 'stem-th'
+      for (const child of Array.from(xmlNode.childNodes)) {
+        processNode(child, th, resolver)
+      }
+      parentEl.appendChild(th)
+      break
+    }
+
+    case 'td': {
+      const td = document.createElement('td')
+      td.className = 'stem-td'
+      for (const child of Array.from(xmlNode.childNodes)) {
+        processNode(child, td, resolver)
+      }
+      parentEl.appendChild(td)
+      break
+    }
+
     default: {
       // Unknown tag — render as text
       parentEl.appendChild(

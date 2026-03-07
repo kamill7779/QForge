@@ -25,7 +25,7 @@ public class AnswerXmlConverter {
             "",
             "SCHEMA:",
             "Root: <answer version=\"1\">",
-            "Allowed tags: answer, p, image, blank",
+            "Allowed tags: answer, p, image, blank, table, thead, tbody, tr, th, td",
             "",
             "RULES:",
             "1. Output root must be <answer version=\"1\">.",

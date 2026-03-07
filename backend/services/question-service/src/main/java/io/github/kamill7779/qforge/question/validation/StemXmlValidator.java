@@ -27,7 +27,8 @@ public class StemXmlValidator {
 
     private static final Set<String> ALLOWED_TAGS = Set.of(
             "stem", "p", "image", "choices", "choice",
-            "blanks", "blank", "answer-area"
+            "blanks", "blank", "answer-area",
+            "table", "thead", "tbody", "tr", "th", "td"
     );
 
     /**

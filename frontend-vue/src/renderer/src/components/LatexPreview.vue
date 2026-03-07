@@ -151,4 +151,24 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   padding: 8px;
 }
+
+.latex-preview :deep(.stem-table) {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: auto;
+  font-size: 14px;
+}
+
+.latex-preview :deep(.stem-th),
+.latex-preview :deep(.stem-td) {
+  border: 1px solid var(--color-border);
+  padding: 6px 12px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.latex-preview :deep(.stem-th) {
+  background: var(--color-background-soft);
+  font-weight: 600;
+}
 </style>
