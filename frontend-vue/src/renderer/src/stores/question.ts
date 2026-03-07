@@ -619,6 +619,9 @@ export const useQuestionStore = defineStore('question', () => {
       markDirty()
     }
     notif.log(`应用AI推荐 ${uuid.slice(0, 8)}`)
+    // Clear the AI result panel so the button disappears and can't be re-applied
+    if (entryAi.value.lastResult?.taskUuid === taskUuid) entryAi.value.lastResult = null
+    if (bankAi.value.lastResult?.taskUuid === taskUuid) bankAi.value.lastResult = null
     // Tags were updated server-side; do a targeted local refresh
     if (tags && tags.length && entry) {
       const tagStore = useTagStore()

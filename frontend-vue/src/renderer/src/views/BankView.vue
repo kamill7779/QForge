@@ -600,12 +600,13 @@ function bankCancelAi() {
 async function bankApplyAi() {
   const entry = bankEntry.value
   const ai = questionStore.bankAi
-  if (!entry || !ai.lastResult || !ai.taskUuid) return
+  if (!entry || !ai.lastResult) return
+  const taskUuid = ai.lastResult.taskUuid  // use the actual result's taskUuid, not ai.taskUuid
   try {
     await questionStore.applyAiRecommendation(
       auth.token,
       entry.questionUuid,
-      ai.taskUuid,
+      taskUuid,
       ai.lastResult.suggestedTags ?? undefined,
       ai.lastResult.suggestedDifficulty ?? undefined
     )

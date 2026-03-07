@@ -813,12 +813,13 @@ function cancelAi() {
 async function applyAi() {
   const entry = selected.value
   const ai = questionStore.entryAi
-  if (!entry || !ai.lastResult || !ai.taskUuid) return
+  if (!entry || !ai.lastResult) return
+  const taskUuid = ai.lastResult.taskUuid  // use the actual result's taskUuid, not ai.taskUuid
   try {
     await questionStore.applyAiRecommendation(
       auth.token,
       entry.questionUuid,
-      ai.taskUuid,
+      taskUuid,
       ai.lastResult.suggestedTags ?? undefined,
       ai.lastResult.suggestedDifficulty ?? undefined
     )
