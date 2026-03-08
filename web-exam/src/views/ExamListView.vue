@@ -51,8 +51,8 @@ async function createNew() {
   router.push(`/compose/${exam.id}`)
 }
 
-function openCompose(id: string) {
-  examStore.setActiveExam(id)
+async function openCompose(id: string) {
+  await examStore.setActiveExam(id)
   router.push(`/compose/${id}`)
 }
 

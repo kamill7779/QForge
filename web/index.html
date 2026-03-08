@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QForge · 智能组卷平台</title>
+<!-- KaTeX for LaTeX rendering (required for math questions) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════
+   CSS Variables — QForge Design Language
+   ═══════════════════════════════════════════════════ */
+:root {
+  --bg: #ecf2fb;
+  --bg-accent: #dde8fb;
+  --card: #ffffff;
+  --line: #d5e0f2;
+  --line-strong: #bccce8;
+  --line-light: #e8eef8;
+  --text: #102544;
+  --muted: #5f7397;
+  --primary: #2d6cdf;
+  --primary-deep: #1f55b5;
+  --primary-glow: rgba(45,108,223,.12);
+  --primary-muted: rgba(45,108,223,.08);
+  --neutral-bg: #e8f0ff;
+  --neutral-tx: #2f4f8e;
+  --warn-bg: #fff1d6;
+  --warn-tx: #8c6306;
+  --success-bg: #ddf4e8;
+  --success-tx: #176b3d;
+  --fail-bg: #fde3e3;
+  --fail-tx: #af3535;
+  --danger: #e74c3c;
+  --shadow-soft: 0 12px 26px rgba(23,49,95,.08);
+  --shadow-card: 0 2px 8px rgba(23,49,95,.06);
+  --shadow-hover: 0 6px 20px rgba(23,49,95,.12);
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --transition: .2s ease;
+  --font: "HarmonyOS Sans SC","PingFang SC","Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+}
+
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:var(--font);color:var(--text);background:radial-gradient(circle at 82% -8%,var(--bg-accent) 0,transparent 34%),var(--bg);font-size:14px;line-height:1.5}
+input,textarea,select,button{font:inherit;color:inherit}
+a{color:var(--primary);text-decoration:none}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c5d0e4;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#a0b0cc}
+
+.hidden{display:none!important}
+
+/* ═══════════════════════════════════════════════════
+   Login Page
+   ═══════════════════════════════════════════════════ */
+.login-wrap{height:100%;display:grid;place-items:center;padding:24px}
+.login-card{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:var(--radius-xl);box-shadow:var(--shadow-soft);padding:36px 32px}
+.brand-line{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.brand-icon{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px;background:linear-gradient(135deg,#2f6fe4,#5b93ff);flex-shrink:0}
+.brand-line h1{font-size:28px;font-weight:800;letter-spacing:.3px}
+.brand-line p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.login-form{display:flex;flex-direction:column;gap:14px}
+.login-form label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500;color:var(--muted)}
+.login-form input[type="text"],
+.login-form input[type="password"]{width:100%;border:1px solid #c9d6ed;border-radius:var(--radius-md);padding:11px 14px;background:#fbfdff;outline:none;transition:all var(--transition);font-size:14px}
+.login-form input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,108,223,.14)}
+.remember-line{flex-direction:row!important;align-items:center;gap:8px!important;font-size:13px;color:var(--muted);cursor:pointer}
+.remember-line input{width:auto}
+.login-error{min-height:20px;color:#d64646;font-size:13px}
+.login-hint{font-size:12px;color:var(--muted);text-align:center;margin-top:4px}
+
+/* ═══════════════════════════════════════════════════
+   Buttons
+   ═══════════════════════════════════════════════════ */
+.btn{border:1px solid transparent;border-radius:var(--radius-md);padding:10px 18px;cursor:pointer;font-weight:500;background:#e9f0ff;color:#274989;transition:all var(--transition);display:inline-flex;align-items:center;gap:6px;justify-content:center;white-space:nowrap;font-size:14px}
+.btn:hover{filter:brightness(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.btn-primary{color:#fff;background:linear-gradient(135deg,var(--primary),var(--primary-deep));border-color:transparent;box-shadow:0 2px 8px var(--primary-glow)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--primary-glow)}
+.btn-primary:disabled{transform:none}
+.btn-ghost{border-color:#c8d5eb;background:transparent;color:var(--muted)}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-muted)}
+.btn-danger{background:var(--fail-bg);color:var(--fail-tx);border-color:transparent}
+.btn-danger:hover{background:#fbd0d0}
+.btn-sm{padding:6px 12px;border-radius:var(--radius-sm);font-size:12px}
+.btn-block{width:100%}
+.btn-icon{width:34px;height:34px;padding:0;border-radius:var(--radius-sm);display:grid;place-items:center;font-size:16px}
+
+/* ═══════════════════════════════════════════════════
+   App Shell
+   ═══════════════════════════════════════════════════ */
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.92);backdrop-filter:blur(8px);display:flex;justify-content:space-between;align-items:center;padding:0 20px;flex-shrink:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;border-radius:8px;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px}
+.product-title{font-size:17px;font-weight:800;letter-spacing:.3px}
+.product-sub{color:var(--muted);font-size:12px;margin-left:4px;font-weight:400}
+
+.topbar-nav{display:flex;gap:2px;margin-left:32px}
+.nav-btn{padding:8px 16px;border-radius:var(--radius-sm);border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;font-weight:500;transition:all var(--transition);position:relative}
+.nav-btn:hover{color:var(--text);background:var(--primary-muted)}
+.nav-btn.active{color:var(--primary);background:var(--neutral-bg);font-weight:600}
+.nav-btn.active::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:20px;height:3px;background:var(--primary);border-radius:2px}
+
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-pill{border-radius:999px;background:#ecf2ff;color:#27488c;padding:5px 12px;font-size:13px;font-weight:500}
+.btn-logout{padding:5px 12px;border-radius:999px;border:1px solid #d3dced;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;transition:all var(--transition)}
+.btn-logout:hover{border-color:var(--danger);color:var(--danger)}
+
+/* ═══════════════════════════════════════════════════
+   Content Area
+   ═══════════════════════════════════════════════════ */
+.content{flex:1;min-height:0;overflow:hidden;display:flex}
+.page{flex:1;min-height:0;overflow:hidden;display:none}
+.page.active{display:flex}
+
+/* ═══════════════════════════════════════════════════
+   Tags / Badges
+   ═══════════════════════════════════════════════════ */
+.tag{display:inline-block;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:500;line-height:1.6}
+.tag-blue{background:var(--neutral-bg);color:var(--neutral-tx)}
+.tag-green{background:var(--success-bg);color:var(--success-tx)}
+.tag-orange{background:var(--warn-bg);color:var(--warn-tx)}
+.tag-red{background:var(--fail-bg);color:var(--fail-tx)}
+.tag-gray{background:#eef1f6;color:#6b7a94}
+
+.priority-high{background:var(--fail-bg);color:var(--fail-tx)}
+.priority-medium{background:var(--warn-bg);color:var(--warn-tx)}
+.priority-low{background:var(--success-bg);color:var(--success-tx)}
+
+.difficulty-badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+.diff-easy{background:#ddf4e8;color:#176b3d}
+.diff-medium-easy{background:#d8eef8;color:#1a6b8c}
+.diff-medium{background:#fff1d6;color:#8c6306}
+.diff-hard{background:#fde3c8;color:#8c4506}
+.diff-very-hard{background:#fde3e3;color:#af3535}
+
+/* ═══════════════════════════════════════════════════
+   Inputs
+   ═══════════════════════════════════════════════════ */
+.input,.select,.textarea{width:100%;border:1px solid #c9d6ed;border-radius:var(--radius-md);padding:9px 12px;background:#fbfdff;outline:none;transition:all var(--transition)}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(45,108,223,.12)}
+.textarea{resize:vertical;min-height:60px;line-height:1.5}
+.select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235f7397' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.input-sm{padding:6px 10px;font-size:12px;border-radius:var(--radius-sm)}
+
+/* ═══════════════════════════════════════════════════
+   Cards
+   ═══════════════════════════════════════════════════ */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);overflow:hidden}
+
+/* ═══════════════════════════════════════════════════
+   Page: Question Bank
+   ═══════════════════════════════════════════════════ */
+#page-bank{flex-direction:row}
+.bank-sidebar{width:260px;flex-shrink:0;border-right:1px solid var(--line);background:rgba(247,250,255,.8);display:flex;flex-direction:column;overflow:hidden}
+.bank-sidebar .filter-section{padding:14px 16px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line-light)}
+.filter-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.bank-tabs{display:flex;border-bottom:1px solid var(--line-light)}
+.bank-tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:transparent;transition:all var(--transition);border-bottom:2px solid transparent}
+.bank-tab:hover{color:var(--text)}
+.bank-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.bank-stats{padding:8px 16px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line-light)}
+.bank-stats strong{color:var(--primary);font-weight:700}
+.bank-list{flex:1;overflow-y:auto;padding:10px}
+.bank-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:13px;padding:40px 20px;text-align:center}
+
+.bank-main{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.bank-main-header{display:flex;justify-content:space-between;align-items:center}
+.bank-main-header h2{font-size:18px;font-weight:700}
+
+/* Question Card */
+.q-card{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--card);padding:14px 16px;cursor:pointer;transition:all var(--transition);position:relative}
+.q-card:hover{border-color:var(--line-strong);box-shadow:var(--shadow-hover);transform:translateY(-1px)}
+.q-card.selected{border-color:var(--primary);background:#f8fbff;box-shadow:0 0 0 2px var(--primary-glow)}
+.q-card-header{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.q-card-body{font-size:13px;color:var(--text);margin-bottom:8px;max-height:80px;overflow:hidden;position:relative;line-height:1.6}
+.q-card-body .katex{font-size:14px}
+.q-card-body::after{content:'';position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(transparent,var(--card))}
+.q-card.selected .q-card-body::after{background:linear-gradient(transparent,#f8fbff)}
+.q-card-footer{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.q-card-tags{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+.q-card-actions{display:flex;gap:4px;flex-shrink:0}
+.q-card-seq{width:28px;height:28px;border-radius:50%;background:var(--neutral-bg);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:12px;flex-shrink:0}
+.q-card-time{font-size:11px;color:var(--muted)}
+
+/* ═══════════════════════════════════════════════════
+   Page: My Exams
+   ═══════════════════════════════════════════════════ */
+#page-exams{flex-direction:column;padding:20px 28px;overflow-y:auto;gap:16px}
+.exams-header{display:flex;justify-content:space-between;align-items:center}
+.exams-header h2{font-size:20px;font-weight:700}
+.exams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.exam-card{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--card);padding:18px;cursor:pointer;transition:all var(--transition)}
+.exam-card:hover{border-color:var(--line-strong);box-shadow:var(--shadow-hover);transform:translateY(-1px)}
+.exam-card-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.exam-card-desc{font-size:13px;color:var(--muted);margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.exam-card-meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
+.exam-card-stats{display:flex;gap:12px}
+.exam-card-stats span{display:flex;align-items:center;gap:4px}
+.exams-empty{text-align:center;padding:80px 20px;color:var(--muted)}
+.exams-empty p{font-size:15px;margin-bottom:16px}
+
+/* ═══════════════════════════════════════════════════
+   Page: Compose (Exam Workspace)
+   ═══════════════════════════════════════════════════ */
+#page-compose{flex-direction:column;overflow:hidden}
+.compose-toolbar{height:52px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.9);display:flex;align-items:center;gap:12px;padding:0 20px;flex-shrink:0}
+.compose-toolbar .btn-back{font-size:13px;color:var(--muted);cursor:pointer;border:none;background:none;display:flex;align-items:center;gap:4px}
+.compose-toolbar .btn-back:hover{color:var(--primary)}
+.compose-title-input{flex:1;border:none;background:transparent;font-size:16px;font-weight:700;padding:8px 4px;outline:none}
+.compose-title-input::placeholder{color:#b8c5db}
+.compose-title-input:focus{border-bottom:2px solid var(--primary)}
+
+.compose-body{flex:1;min-height:0;display:grid;grid-template-columns:320px 1fr;overflow:hidden}
+
+/* Compose left: mini bank */
+.compose-bank{border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;background:rgba(247,250,255,.6)}
+.compose-bank-search{padding:10px 12px;border-bottom:1px solid var(--line-light)}
+.compose-bank-list{flex:1;overflow-y:auto;padding:8px}
+.compose-q-item{padding:10px 12px;border-radius:var(--radius-sm);border:1px solid transparent;cursor:pointer;transition:all var(--transition);margin-bottom:4px;font-size:13px}
+.compose-q-item:hover{background:var(--primary-muted);border-color:var(--line)}
+.compose-q-item .stem-preview{max-height:40px;overflow:hidden;color:var(--text);margin-bottom:4px}
+.compose-q-item .item-meta{display:flex;gap:6px;font-size:11px;color:var(--muted)}
+.compose-q-item .btn-add{padding:3px 8px;border-radius:6px;border:1px solid var(--primary);background:var(--primary-muted);color:var(--primary);font-size:11px;font-weight:600;cursor:pointer;transition:all var(--transition);margin-top:4px}
+.compose-q-item .btn-add:hover{background:var(--primary);color:#fff}
+
+/* Compose right: exam editor */
+.compose-editor{flex:1;overflow-y:auto;padding:20px 24px}
+.compose-sections{max-width:800px;margin:0 auto}
+.section-block{margin-bottom:24px}
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid var(--primary)}
+.section-title-input{border:none;background:transparent;font-size:16px;font-weight:700;color:var(--text);outline:none;flex:1;padding:4px 0}
+.section-title-input::placeholder{color:#b8c5db}
+.section-score-label{font-size:12px;color:var(--muted);white-space:nowrap}
+.section-actions{display:flex;gap:4px}
+
+.exam-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--card);margin-bottom:8px;transition:all var(--transition)}
+.exam-item:hover{border-color:var(--line-strong);box-shadow:var(--shadow-card)}
+.exam-item-num{width:32px;height:32px;border-radius:50%;background:var(--neutral-bg);color:var(--primary);display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
+.exam-item-content{flex:1;min-width:0}
+.exam-item-stem{font-size:13px;line-height:1.6;margin-bottom:6px;max-height:60px;overflow:hidden}
+.exam-item-stem .katex{font-size:14px}
+.exam-item-tags{display:flex;gap:4px;flex-wrap:wrap}
+.exam-item-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.score-input{width:50px;text-align:center;border:1px solid var(--line);border-radius:6px;padding:4px;font-size:13px;font-weight:600;outline:none}
+.score-input:focus{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-glow)}
+.score-unit{font-size:11px;color:var(--muted)}
+.exam-item-remove{width:24px;height:24px;border:none;background:transparent;color:var(--muted);cursor:pointer;border-radius:4px;display:grid;place-items:center;font-size:14px;transition:all var(--transition)}
+.exam-item-remove:hover{color:var(--danger);background:var(--fail-bg)}
+
+.add-section-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px;border:2px dashed var(--line);border-radius:var(--radius-md);color:var(--muted);cursor:pointer;transition:all var(--transition);font-size:13px;margin-bottom:24px}
+.add-section-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-muted)}
+
+.compose-summary{position:sticky;bottom:0;background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.summary-stats{display:flex;gap:20px;font-size:13px;color:var(--muted)}
+.summary-stats strong{color:var(--text);font-size:16px}
+.summary-actions{display:flex;gap:8px}
+
+/* ═══════════════════════════════════════════════════
+   Page: Preview
+   ═══════════════════════════════════════════════════ */
+#page-preview{flex-direction:column;overflow:hidden}
+.preview-toolbar{height:52px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.9);display:flex;align-items:center;gap:12px;padding:0 20px;flex-shrink:0}
+.preview-content{flex:1;overflow-y:auto;padding:40px;background:#f0f2f5}
+.preview-paper{max-width:800px;margin:0 auto;background:#fff;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:60px 50px;min-height:600px}
+.preview-paper h1{text-align:center;font-size:22px;margin-bottom:6px}
+.preview-paper .paper-info{text-align:center;color:var(--muted);font-size:13px;margin-bottom:30px;padding-bottom:16px;border-bottom:2px solid var(--text)}
+.preview-section-title{font-size:15px;font-weight:700;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid #ddd}
+.preview-item{margin-bottom:16px;font-size:14px;line-height:1.8}
+.preview-item .item-number{font-weight:700}
+.preview-item .item-score{color:var(--muted);font-size:12px;margin-left:4px}
+.preview-item .katex{font-size:15px}
+
+/* ═══════════════════════════════════════════════════
+   Modal
+   ═══════════════════════════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999;opacity:0;transition:opacity .2s ease;pointer-events:none}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal-dialog{background:var(--card);border-radius:var(--radius-xl);padding:28px 32px;max-width:460px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,.2);transform:translateY(10px);transition:transform .2s ease}
+.modal-overlay.show .modal-dialog{transform:translateY(0)}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:16px}
+.modal-body{margin-bottom:20px}
+.modal-body label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:500;margin-bottom:12px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* ═══════════════════════════════════════════════════
+   Toast
+   ═══════════════════════════════════════════════════ */
+.toast-container{position:fixed;top:70px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 18px;border-radius:var(--radius-md);font-size:13px;box-shadow:var(--shadow-soft);animation:toastIn .3s ease;max-width:360px}
+.toast-success{background:var(--success-bg);color:var(--success-tx);border:1px solid #b8e5cc}
+.toast-error{background:var(--fail-bg);color:var(--fail-tx);border:1px solid #f5c0c0}
+.toast-info{background:var(--neutral-bg);color:var(--neutral-tx);border:1px solid #c0d4f5}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* ═══════════════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════════════ */
+@media(max-width:900px){
+  .bank-sidebar{width:220px}
+  .compose-body{grid-template-columns:260px 1fr}
+  .topbar-nav{margin-left:16px}
+  .nav-btn{padding:6px 10px;font-size:12px}
+}
+@media(max-width:680px){
+  #page-bank{flex-direction:column}
+  .bank-sidebar{width:100%;max-height:200px;border-right:none;border-bottom:1px solid var(--line)}
+  .compose-body{grid-template-columns:1fr}
+  .compose-bank{display:none}
+  .topbar-nav{margin-left:8px;gap:0}
+}
+
+/* ═══════════════════════════════════════════════════
+   Print
+   ═══════════════════════════════════════════════════ */
+@media print{
+  body{background:#fff!important;overflow:visible!important}
+  #app>.topbar,.preview-toolbar,.toast-container{display:none!important}
+  #app,.content,.page,.preview-content{overflow:visible!important;height:auto!important;display:block!important}
+  .preview-paper{box-shadow:none!important;padding:20px!important;margin:0!important;max-width:100%!important}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ═══════════════ Login View ═══════════════ -->
+  <div id="view-login" class="login-wrap">
+    <div class="login-card">
+      <div class="brand-line">
+        <div class="brand-icon">Q</div>
+        <div>
+          <h1>QForge</h1>
+          <p>智能组卷平台 · Web 端</p>
+        </div>
+      </div>
+      <form class="login-form" id="login-form">
+        <label>
+          用户名
+          <input type="text" id="ipt-user" placeholder="请输入用户名" autocomplete="username" required>
+        </label>
+        <label>
+          密码
+          <input type="password" id="ipt-pass" placeholder="请输入密码" autocomplete="current-password" required>
+        </label>
+        <label class="remember-line">
+          <input type="checkbox" id="chk-remember">
+          记住登录状态
+        </label>
+        <div class="login-error" id="login-error"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="btn-login">登 录</button>
+        <p class="login-hint">连接至 Gateway 服务 · 与桌面端共享账号体系</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════ App Shell ═══════════════ -->
+  <div id="view-app" class="hidden" style="display:none;flex-direction:column;height:100vh">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo-mark">Q</div>
+        <span class="product-title">QForge<span class="product-sub"> 组卷</span></span>
+        <nav class="topbar-nav">
+          <button class="nav-btn active" data-page="bank">题 库</button>
+          <button class="nav-btn" data-page="exams">我的试卷</button>
+        </nav>
+      </div>
+      <div class="topbar-right">
+        <span class="user-pill" id="user-display"></span>
+        <button class="btn-logout" id="btn-logout">退出</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- ────── Page: Bank ────── -->
+      <div id="page-bank" class="page active">
+        <aside class="bank-sidebar">
+          <div class="bank-tabs">
+            <button class="bank-tab active" data-tab="private">私人题库</button>
+            <button class="bank-tab" data-tab="public">公共题库</button>
+          </div>
+          <div class="filter-section">
+            <input class="input input-sm" type="text" id="bank-search" placeholder="搜索题干 / 标签…">
+            <label class="filter-label">难度</label>
+            <select class="select input-sm" id="bank-difficulty">
+              <option value="">全部难度</option>
+              <option value="easy">简单 (p≥0.8)</option>
+              <option value="medium-easy">中等偏易</option>
+              <option value="medium">中等</option>
+              <option value="hard">较难</option>
+              <option value="very-hard">极难 (p≤0.2)</option>
+              <option value="unset">未设置</option>
+            </select>
+            <label class="filter-label">排序</label>
+            <select class="select input-sm" id="bank-sort">
+              <option value="updatedAt-desc">最近修改 ↓</option>
+              <option value="updatedAt-asc">最近修改 ↑</option>
+              <option value="createdAt-desc">入库日期 ↓</option>
+              <option value="createdAt-asc">入库日期 ↑</option>
+              <option value="difficulty-desc">难度 ↓</option>
+              <option value="difficulty-asc">难度 ↑</option>
+            </select>
+          </div>
+          <div class="bank-stats">
+            <span>共 <strong id="bank-total">0</strong> 题</span>
+          </div>
+          <div class="bank-list" id="bank-list">
+            <div class="bank-empty">加载中…</div>
+          </div>
+        </aside>
+
+        <main class="bank-main" id="bank-main">
+          <div class="bank-main-header">
+            <h2>题目详情</h2>
+          </div>
+          <div id="bank-detail" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted)">
+            点击左侧题目查看详情
+          </div>
+        </main>
+      </div>
+
+      <!-- ────── Page: Exams ────── -->
+      <div id="page-exams" class="page">
+        <div class="exams-header">
+          <h2>我的试卷</h2>
+          <button class="btn btn-primary" id="btn-new-exam">✦ 新建试卷</button>
+        </div>
+        <div id="exams-grid" class="exams-grid"></div>
+        <div id="exams-empty" class="exams-empty hidden">
+          <p>还没有试卷，点击上方按钮开始组卷</p>
+        </div>
+      </div>
+
+      <!-- ────── Page: Compose ────── -->
+      <div id="page-compose" class="page">
+        <div class="compose-toolbar">
+          <button class="btn-back" id="btn-compose-back">← 返回</button>
+          <input class="compose-title-input" type="text" id="compose-title" placeholder="输入试卷标题…">
+          <button class="btn btn-sm btn-ghost" id="btn-compose-save">💾 保存</button>
+          <button class="btn btn-sm btn-ghost" id="btn-compose-preview">👁 预览</button>
+          <button class="btn btn-sm btn-primary" id="btn-compose-export">导出 PDF</button>
+        </div>
+        <div class="compose-body">
+          <aside class="compose-bank">
+            <div class="compose-bank-search">
+              <input class="input input-sm" type="text" id="compose-search" placeholder="搜索题目添加到试卷…">
+            </div>
+            <div class="compose-bank-list" id="compose-bank-list"></div>
+          </aside>
+          <div class="compose-editor" id="compose-editor">
+            <div class="compose-sections" id="compose-sections"></div>
+            <div class="add-section-btn" id="btn-add-section">＋ 添加大题分组</div>
+          </div>
+        </div>
+        <div class="compose-summary" id="compose-summary">
+          <div class="summary-stats">
+            <span>总题数 <strong id="stat-count">0</strong></span>
+            <span>总分值 <strong id="stat-score">0</strong></span>
+            <span>大题 <strong id="stat-sections">0</strong> 组</span>
+          </div>
+          <div class="summary-actions">
+            <button class="btn btn-danger btn-sm" id="btn-delete-exam">删除此卷</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ────── Page: Preview ────── -->
+      <div id="page-preview" class="page">
+        <div class="preview-toolbar">
+          <button class="btn btn-sm btn-ghost" id="btn-preview-back">← 返回编辑</button>
+          <span style="flex:1"></span>
+          <button class="btn btn-sm btn-primary" id="btn-print">🖨 打印 / 导出PDF</button>
+        </div>
+        <div class="preview-content">
+          <div class="preview-paper" id="preview-paper"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirm -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal-dialog">
+    <div class="modal-title" id="modal-confirm-title">确认</div>
+    <div class="modal-body"><p id="modal-confirm-msg"></p></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" id="modal-confirm-cancel">取消</button>
+      <button class="btn btn-danger btn-sm" id="modal-confirm-ok">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New Exam -->
+<div class="modal-overlay" id="modal-new-exam">
+  <div class="modal-dialog">
+    <div class="modal-title">新建试卷</div>
+    <div class="modal-body">
+      <label>
+        试卷标题 <span style="color:var(--danger)">*</span>
+        <input class="input" type="text" id="ipt-exam-title" placeholder="例如：高三数学期中考试" required>
+      </label>
+      <label>
+        试卷描述
+        <textarea class="textarea" id="ipt-exam-desc" rows="3" placeholder="可选描述…"></textarea>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" id="btn-cancel-new-exam">取消</button>
+      <button class="btn btn-primary btn-sm" id="btn-create-exam">创建并进入组卷</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════
+   Configuration
+   ═══════════════════════════════════════════════════ */
+const CONFIG = {
+  /** Gateway base URL — adjust for your environment */
+  API_BASE: localStorage.getItem('qforge_api_base') || 'http://localhost:8080',
+  STORAGE_KEY_AUTH: 'qforge_web_auth',
+  STORAGE_KEY_EXAMS: 'qforge_web_exams',
+};
+
+/* ═══════════════════════════════════════════════════
+   Utility Helpers
+   ═══════════════════════════════════════════════════ */
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+
+/** Generate UUID v4 */
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+/** Format date string */
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d = new Date(typeof ts === 'number' ? ts : ts);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Difficulty level helper */
+function difficultyInfo(p) {
+  if (p == null) return { label: '未设置', cls: 'tag-gray' };
+  if (p >= 0.8) return { label: '简单', cls: 'diff-easy' };
+  if (p >= 0.6) return { label: '中等偏易', cls: 'diff-medium-easy' };
+  if (p >= 0.4) return { label: '中等', cls: 'diff-medium' };
+  if (p >= 0.2) return { label: '较难', cls: 'diff-hard' };
+  return { label: '极难', cls: 'diff-very-hard' };
+}
+
+/** Parse stem XML and render to HTML with KaTeX */
+function renderStemHtml(xml) {
+  if (!xml) return '<span style="color:var(--muted)">暂无题干</span>';
+  // Strip outer <stem> / <answer> wrapper
+  let text = xml.replace(/<\/?(?:stem|answer)[^>]*>/g, '');
+  // Handle <image ref="..." /> → placeholder
+  text = text.replace(/<image[^>]*ref="([^"]*)"[^>]*\/?>/g, '<span class="tag tag-blue">[图片:$1]</span>');
+  // Render <latex>...</latex> using KaTeX
+  text = text.replace(/<latex>([\s\S]*?)<\/latex>/g, (_, expr) => {
+    try {
+      if (typeof katex !== 'undefined') {
+        return katex.renderToString(expr.trim(), { throwOnError: false, displayMode: false });
+      }
+    } catch (_e) { /* fallback */ }
+    return `<code>${expr}</code>`;
+  });
+  // Strip remaining XML tags, keep text
+  text = text.replace(/<\/?[a-z][^>]*>/gi, '');
+  return text.trim() || '<span style="color:var(--muted)">暂无内容</span>';
+}
+
+/** Plain text from stem XML (for search) */
+function stemPlainText(xml) {
+  if (!xml) return '';
+  return xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/* ═══════════════════════════════════════════════════
+   Toast Notifications
+   ═══════════════════════════════════════════════════ */
+const Toast = {
+  _container: null,
+  init() { this._container = $('#toast-container'); },
+  show(msg, type = 'info', ms = 3000) {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    this._container.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, ms);
+  },
+  success(m) { this.show(m, 'success'); },
+  error(m) { this.show(m, 'error', 5000); },
+  info(m) { this.show(m, 'info'); }
+};
+
+/* ═══════════════════════════════════════════════════
+   Modal Helpers
+   ═══════════════════════════════════════════════════ */
+function showModal(id) { const m = $(`#${id}`); m.classList.add('show'); }
+function hideModal(id) { const m = $(`#${id}`); m.classList.remove('show'); }
+
+let _confirmResolve = null;
+function confirmDialog(title, msg) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    $('#modal-confirm-title').textContent = title;
+    $('#modal-confirm-msg').textContent = msg;
+    showModal('modal-confirm');
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   API Client
+   ═══════════════════════════════════════════════════ */
+const Api = {
+  _token: '',
+  _user: '',
+
+  async request(path, method = 'GET', body = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (this._token) {
+      headers['Authorization'] = `Bearer ${this._token}`;
+      headers['X-Auth-User'] = this._user;
+    }
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+
+    const resp = await fetch(`${CONFIG.API_BASE}${path}`, opts);
+    if (resp.status === 401) {
+      Auth.logout();
+      throw new Error('会话已过期，请重新登录');
+    }
+    if (!resp.ok) {
+      const errBody = await resp.json().catch(() => ({}));
+      throw new Error(errBody.message || `请求失败 (${resp.status})`);
+    }
+    if (resp.status === 204) return null;
+    return resp.json();
+  },
+
+  setCredentials(token, user) {
+    this._token = token;
+    this._user = user;
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   Auth Module
+   ═══════════════════════════════════════════════════ */
+const Auth = {
+  token: '',
+  username: '',
+
+  init() {
+    const saved = localStorage.getItem(CONFIG.STORAGE_KEY_AUTH);
+    if (saved) {
+      try {
+        const { token, username } = JSON.parse(saved);
+        if (token && username) {
+          this.token = token;
+          this.username = username;
+          Api.setCredentials(token, username);
+          return true;
+        }
+      } catch (_) { /* ignore */ }
+    }
+    return false;
+  },
+
+  async login(user, pass, remember) {
+    const res = await Api.request('/api/auth/login', 'POST', { username: user, password: pass });
+    this.token = res.accessToken;
+    this.username = user;
+    Api.setCredentials(this.token, this.username);
+    if (remember) {
+      localStorage.setItem(CONFIG.STORAGE_KEY_AUTH, JSON.stringify({ token: this.token, username: this.username }));
+    }
+  },
+
+  logout() {
+    this.token = '';
+    this.username = '';
+    Api.setCredentials('', '');
+    localStorage.removeItem(CONFIG.STORAGE_KEY_AUTH);
+    Router.go('login');
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   Question Bank Store
+   ═══════════════════════════════════════════════════ */
+const BankStore = {
+  questions: [],       // QuestionOverviewResponse[]
+  publicQuestions: [],  // mock public questions
+  loading: false,
+  activeTab: 'private',
+  selectedUuid: '',
+
+  async loadPrivate() {
+    this.loading = true;
+    try {
+      this.questions = await Api.request('/api/questions');
+      // Filter to only READY/COMPLETED questions for the bank
+      this.questions = this.questions.filter(q => q.status === 'READY');
+    } catch (e) {
+      Toast.error('加载题库失败: ' + e.message);
+      this.questions = [];
+    } finally {
+      this.loading = false;
+    }
+  },
+
+  async loadPublic() {
+    // Public endpoint doesn't exist yet — show a placeholder
+    this.publicQuestions = [];
+    Toast.info('公共题库功能即将上线');
+  },
+
+  getAll() {
+    return this.activeTab === 'private' ? this.questions : this.publicQuestions;
+  },
+
+  findByUuid(uuid) {
+    return this.questions.find(q => q.questionUuid === uuid)
+        || this.publicQuestions.find(q => q.questionUuid === uuid);
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   Exam Store (LocalStorage)
+   ═══════════════════════════════════════════════════ */
+const ExamStore = {
+  exams: [],        // { examUuid, title, description, status, sections: [{ id, title, sortOrder, items: [{ id, questionUuid, score, sortOrder }] }], createdAt, updatedAt }
+  currentExamUuid: '',
+
+  load() {
+    try {
+      this.exams = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY_EXAMS) || '[]');
+    } catch (_) { this.exams = []; }
+  },
+
+  save() {
+    localStorage.setItem(CONFIG.STORAGE_KEY_EXAMS, JSON.stringify(this.exams));
+  },
+
+  create(title, description) {
+    const exam = {
+      examUuid: uuid(),
+      title: title || '未命名试卷',
+      description: description || '',
+      status: 'DRAFT',
+      sections: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    this.exams.unshift(exam);
+    this.save();
+    return exam;
+  },
+
+  get(examUuid) {
+    return this.exams.find(e => e.examUuid === examUuid);
+  },
+
+  update(examUuid, patch) {
+    const exam = this.get(examUuid);
+    if (!exam) return;
+    Object.assign(exam, patch, { updatedAt: Date.now() });
+    this.save();
+  },
+
+  delete(examUuid) {
+    this.exams = this.exams.filter(e => e.examUuid !== examUuid);
+    this.save();
+  },
+
+  /** Add a section to an exam */
+  addSection(examUuid, title) {
+    const exam = this.get(examUuid);
+    if (!exam) return;
+    const section = {
+      id: uuid(),
+      title: title || '新大题',
+      sortOrder: exam.sections.length,
+      scorePerItem: 5,
+      items: []
+    };
+    exam.sections.push(section);
+    exam.updatedAt = Date.now();
+    this.save();
+    return section;
+  },
+
+  removeSection(examUuid, sectionId) {
+    const exam = this.get(examUuid);
+    if (!exam) return;
+    exam.sections = exam.sections.filter(s => s.id !== sectionId);
+    exam.updatedAt = Date.now();
+    this.save();
+  },
+
+  addItem(examUuid, sectionId, questionUuid, score = 5) {
+    const exam = this.get(examUuid);
+    if (!exam) return false;
+    const section = exam.sections.find(s => s.id === sectionId);
+    if (!section) return false;
+    // Prevent duplicate
+    if (section.items.some(it => it.questionUuid === questionUuid)) return false;
+    section.items.push({
+      id: uuid(),
+      questionUuid,
+      score,
+      sortOrder: section.items.length
+    });
+    exam.updatedAt = Date.now();
+    this.save();
+    return true;
+  },
+
+  removeItem(examUuid, sectionId, itemId) {
+    const exam = this.get(examUuid);
+    if (!exam) return;
+    const section = exam.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    section.items = section.items.filter(it => it.id !== itemId);
+    exam.updatedAt = Date.now();
+    this.save();
+  },
+
+  updateItemScore(examUuid, sectionId, itemId, score) {
+    const exam = this.get(examUuid);
+    if (!exam) return;
+    const section = exam.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    const item = section.items.find(it => it.id === itemId);
+    if (item) { item.score = parseFloat(score) || 0; exam.updatedAt = Date.now(); this.save(); }
+  },
+
+  /** Compute totals */
+  totals(examUuid) {
+    const exam = this.get(examUuid);
+    if (!exam) return { count: 0, score: 0, sections: 0 };
+    let count = 0, score = 0;
+    for (const s of exam.sections) {
+      for (const it of s.items) { count++; score += it.score; }
+    }
+    return { count, score: Math.round(score * 10) / 10, sections: exam.sections.length };
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   Router (hash-based)
+   ═══════════════════════════════════════════════════ */
+const Router = {
+  currentPage: 'bank',
+
+  init() {
+    window.addEventListener('hashchange', () => this._handle());
+    this._handle();
+  },
+
+  go(page, params = {}) {
+    if (page === 'login') {
+      this._showLogin();
+      return;
+    }
+    const paramStr = Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : '';
+    location.hash = `#${page}${paramStr}`;
+  },
+
+  _handle() {
+    const hash = location.hash.slice(1) || 'bank';
+    const [page, queryStr] = hash.split('?');
+    const params = new URLSearchParams(queryStr || '');
+
+    if (!Auth.token) { this._showLogin(); return; }
+
+    this._showApp();
+    this.currentPage = page;
+
+    // Hide all pages, show target
+    $$('.page').forEach(p => p.classList.remove('active'));
+    $$('.nav-btn').forEach(b => b.classList.remove('active'));
+
+    const target = $(`#page-${page}`);
+    if (target) {
+      target.classList.add('active');
+      const navBtn = $(`.nav-btn[data-page="${page}"]`);
+      if (navBtn) navBtn.classList.add('active');
+    }
+
+    // Page-specific handlers
+    switch (page) {
+      case 'bank': BankUI.render(); break;
+      case 'exams': ExamsUI.render(); break;
+      case 'compose': ComposeUI.open(params.get('id')); break;
+      case 'preview': PreviewUI.render(params.get('id')); break;
+      default: Router.go('bank');
+    }
+  },
+
+  _showLogin() {
+    $('#view-login').classList.remove('hidden');
+    $('#view-login').style.display = '';
+    $('#view-app').classList.add('hidden');
+    $('#view-app').style.display = 'none';
+  },
+
+  _showApp() {
+    $('#view-login').classList.add('hidden');
+    $('#view-login').style.display = 'none';
+    $('#view-app').classList.remove('hidden');
+    $('#view-app').style.display = 'flex';
+    $('#user-display').textContent = Auth.username;
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   UI: Bank Page
+   ═══════════════════════════════════════════════════ */
+const BankUI = {
+  async render() {
+    if (BankStore.questions.length === 0 && !BankStore.loading) {
+      await BankStore.loadPrivate();
+    }
+    this.renderList();
+  },
+
+  renderList() {
+    const listEl = $('#bank-list');
+    const questions = this._filtered();
+    $('#bank-total').textContent = questions.length;
+
+    if (questions.length === 0) {
+      listEl.innerHTML = `<div class="bank-empty">${BankStore.loading ? '加载中…' : (BankStore.activeTab === 'public' ? '公共题库即将上线' : '没有找到匹配的题目')}</div>`;
+      return;
+    }
+
+    listEl.innerHTML = questions.map((q, i) => `
+      <div class="q-card ${q.questionUuid === BankStore.selectedUuid ? 'selected' : ''}" data-uuid="${q.questionUuid}">
+        <div class="q-card-header">
+          <span class="q-card-seq">${i + 1}</span>
+          ${this._diffBadge(q.difficulty)}
+          <span class="q-card-time">${fmtDate(q.updatedAt)}</span>
+        </div>
+        <div class="q-card-body">${renderStemHtml(q.stemText)}</div>
+        <div class="q-card-footer">
+          <div class="q-card-tags">
+            ${(q.mainTags || []).map(t => `<span class="tag tag-blue">${this._escHtml(t.tagName)}</span>`).join('')}
+            ${(q.secondaryTags || []).map(t => `<span class="tag tag-gray">${this._escHtml(t)}</span>`).join('')}
+          </div>
+          <span style="font-size:11px;color:var(--muted)">${q.answerCount || 0} 个答案</span>
+        </div>
+      </div>
+    `).join('');
+
+    // Click handlers
+    $$('.q-card', listEl).forEach(card => {
+      card.addEventListener('click', () => {
+        BankStore.selectedUuid = card.dataset.uuid;
+        this.renderList();
+        this.renderDetail(card.dataset.uuid);
+      });
+    });
+  },
+
+  renderDetail(uuid) {
+    const q = BankStore.findByUuid(uuid);
+    const el = $('#bank-detail');
+    if (!q) { el.innerHTML = '点击左侧题目查看详情'; return; }
+
+    const diff = difficultyInfo(q.difficulty);
+    el.innerHTML = `
+      <div class="card" style="width:100%;padding:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="difficulty-badge ${diff.cls}">${diff.label}</span>
+            ${(q.mainTags || []).map(t => `<span class="tag tag-blue">${this._escHtml(t.tagName)}</span>`).join('')}
+            ${(q.secondaryTags || []).map(t => `<span class="tag tag-gray">${this._escHtml(t)}</span>`).join('')}
+          </div>
+          <span style="font-size:12px;color:var(--muted)">UUID: ${uuid.slice(0, 8)}</span>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <h4 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">题 干</h4>
+          <div style="font-size:14px;line-height:1.8;padding:12px;background:#fafcff;border-radius:8px;border:1px solid var(--line-light)">${renderStemHtml(q.stemText)}</div>
+        </div>
+
+        ${q.answers && q.answers.length ? `
+        <div style="margin-bottom:16px">
+          <h4 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">答 案 (${q.answers.length})</h4>
+          ${q.answers.map((a, i) => `
+            <div style="padding:10px 12px;background:#f8faf8;border-radius:8px;border:1px solid var(--line-light);margin-bottom:6px">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">答案 ${i + 1} ${a.official ? '<span class="tag tag-green" style="font-size:10px">标准答案</span>' : ''}</div>
+              <div style="font-size:13px;line-height:1.6">${renderStemHtml(a.latexText)}</div>
+            </div>
+          `).join('')}
+        </div>` : ''}
+
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--line-light);font-size:12px;color:var(--muted)">
+          <span>创建: ${fmtDate(q.createdAt)}</span>
+          <span>更新: ${fmtDate(q.updatedAt)}</span>
+        </div>
+      </div>
+    `;
+  },
+
+  _filtered() {
+    const search = ($('#bank-search')?.value || '').toLowerCase();
+    const diff = $('#bank-difficulty')?.value || '';
+    const sortVal = ($('#bank-sort')?.value || 'updatedAt-desc').split('-');
+    const sortField = sortVal[0];
+    const sortDir = sortVal[1] === 'asc' ? 1 : -1;
+
+    let list = [...BankStore.getAll()];
+
+    // Search filter
+    if (search) {
+      list = list.filter(q => {
+        const stem = stemPlainText(q.stemText).toLowerCase();
+        const tags = [...(q.secondaryTags || []), ...(q.mainTags || []).map(t => t.tagName)].join(' ').toLowerCase();
+        return stem.includes(search) || tags.includes(search);
+      });
+    }
+
+    // Difficulty filter
+    if (diff) {
+      list = list.filter(q => {
+        if (diff === 'unset') return q.difficulty == null;
+        const d = difficultyInfo(q.difficulty);
+        const key = diff === 'easy' ? '简单' : diff === 'medium-easy' ? '中等偏易' : diff === 'medium' ? '中等' : diff === 'hard' ? '较难' : '极难';
+        return d.label === key;
+      });
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      let av, bv;
+      if (sortField === 'difficulty') {
+        av = a.difficulty ?? -1; bv = b.difficulty ?? -1;
+      } else {
+        av = new Date(a[sortField] || 0).getTime();
+        bv = new Date(b[sortField] || 0).getTime();
+      }
+      return (av - bv) * sortDir;
+    });
+
+    return list;
+  },
+
+  _diffBadge(p) {
+    const d = difficultyInfo(p);
+    return `<span class="difficulty-badge ${d.cls}">${d.label}</span>`;
+  },
+
+  _escHtml(s) {
+    const el = document.createElement('span');
+    el.textContent = s;
+    return el.innerHTML;
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   UI: Exams Page
+   ═══════════════════════════════════════════════════ */
+const ExamsUI = {
+  render() {
+    ExamStore.load();
+    const grid = $('#exams-grid');
+    const empty = $('#exams-empty');
+
+    if (ExamStore.exams.length === 0) {
+      grid.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    grid.innerHTML = ExamStore.exams.map(exam => {
+      const t = ExamStore.totals(exam.examUuid);
+      return `
+        <div class="exam-card" data-uuid="${exam.examUuid}">
+          <div class="exam-card-title">${this._esc(exam.title)}</div>
+          <div class="exam-card-desc">${this._esc(exam.description) || '暂无描述'}</div>
+          <div class="exam-card-meta">
+            <div class="exam-card-stats">
+              <span><strong>${t.count}</strong> 题</span>
+              <span><strong>${t.score}</strong> 分</span>
+              <span><strong>${t.sections}</strong> 大题</span>
+            </div>
+            <span>${fmtDate(exam.updatedAt)}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    $$('.exam-card', grid).forEach(card => {
+      card.addEventListener('click', () => {
+        Router.go('compose', { id: card.dataset.uuid });
+      });
+    });
+  },
+
+  _esc(s) {
+    const el = document.createElement('span');
+    el.textContent = s || '';
+    return el.innerHTML;
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   UI: Compose Page
+   ═══════════════════════════════════════════════════ */
+const ComposeUI = {
+  examUuid: '',
+
+  open(examUuid) {
+    this.examUuid = examUuid;
+    ExamStore.load();
+    const exam = ExamStore.get(examUuid);
+    if (!exam) { Router.go('exams'); return; }
+
+    $('#compose-title').value = exam.title;
+    this.renderSections();
+    this.renderBankPanel();
+    this._updateStats();
+  },
+
+  renderSections() {
+    const exam = ExamStore.get(this.examUuid);
+    if (!exam) return;
+    const container = $('#compose-sections');
+
+    if (exam.sections.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">点击下方「添加大题分组」开始组卷</div>';
+      return;
+    }
+
+    let globalNum = 1;
+    container.innerHTML = exam.sections.map(section => {
+      const itemsHtml = section.items.map(item => {
+        const q = BankStore.findByUuid(item.questionUuid);
+        const num = globalNum++;
+        return `
+          <div class="exam-item" data-item-id="${item.id}" data-section-id="${section.id}">
+            <div class="exam-item-num">${num}</div>
+            <div class="exam-item-content">
+              <div class="exam-item-stem">${q ? renderStemHtml(q.stemText) : '<span style="color:var(--muted)">[题目已删除]</span>'}</div>
+              <div class="exam-item-tags">
+                ${q ? (q.mainTags || []).map(t => `<span class="tag tag-blue">${t.tagName}</span>`).join('') : ''}
+                ${q ? `<span class="difficulty-badge ${difficultyInfo(q.difficulty).cls}" style="font-size:10px">${difficultyInfo(q.difficulty).label}</span>` : ''}
+              </div>
+            </div>
+            <div class="exam-item-right">
+              <div style="display:flex;align-items:center;gap:4px">
+                <input class="score-input" type="number" min="0" step="0.5" value="${item.score}" data-exam="${this.examUuid}" data-section="${section.id}" data-item="${item.id}">
+                <span class="score-unit">分</span>
+              </div>
+              <button class="exam-item-remove" title="移除" data-exam="${this.examUuid}" data-section="${section.id}" data-item="${item.id}">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const sectionScore = section.items.reduce((s, it) => s + it.score, 0);
+      return `
+        <div class="section-block" data-section-id="${section.id}">
+          <div class="section-header">
+            <input class="section-title-input" type="text" value="${section.title}" data-section="${section.id}" placeholder="大题标题">
+            <span class="section-score-label">${section.items.length} 题 · ${Math.round(sectionScore * 10) / 10} 分</span>
+            <div class="section-actions">
+              <button class="btn btn-sm btn-danger" data-remove-section="${section.id}" title="删除此大题">✕</button>
+            </div>
+          </div>
+          ${itemsHtml || '<div style="padding:12px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line);border-radius:8px">从左侧题库添加题目到此处</div>'}
+        </div>
+      `;
+    }).join('');
+
+    // Bind events
+    this._bindSectionEvents();
+    this._updateStats();
+  },
+
+  _bindSectionEvents() {
+    // Score change
+    $$('.score-input').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const { exam, section, item } = e.target.dataset;
+        ExamStore.updateItemScore(exam, section, item, e.target.value);
+        this.renderSections();
+      });
+    });
+
+    // Remove item
+    $$('.exam-item-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const { exam, section, item } = e.target.dataset;
+        ExamStore.removeItem(exam, section, item);
+        this.renderSections();
+        this.renderBankPanel();
+        Toast.info('已移除题目');
+      });
+    });
+
+    // Section title change
+    $$('.section-title-input').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const exam = ExamStore.get(this.examUuid);
+        if (!exam) return;
+        const section = exam.sections.find(s => s.id === e.target.dataset.section);
+        if (section) { section.title = e.target.value; ExamStore.save(); }
+      });
+    });
+
+    // Remove section
+    $$('[data-remove-section]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const ok = await confirmDialog('删除大题', '确认删除此大题及其包含的所有题目？');
+        if (!ok) return;
+        ExamStore.removeSection(this.examUuid, e.target.dataset.removeSection);
+        this.renderSections();
+        Toast.info('大题已删除');
+      });
+    });
+  },
+
+  renderBankPanel() {
+    const listEl = $('#compose-bank-list');
+    const search = ($('#compose-search')?.value || '').toLowerCase();
+    const exam = ExamStore.get(this.examUuid);
+    if (!exam) return;
+
+    // Collect all already-added question UUIDs
+    const addedSet = new Set();
+    exam.sections.forEach(s => s.items.forEach(it => addedSet.add(it.questionUuid)));
+
+    let questions = BankStore.questions.filter(q => q.status === 'READY');
+    if (search) {
+      questions = questions.filter(q => stemPlainText(q.stemText).toLowerCase().includes(search));
+    }
+
+    if (questions.length === 0) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">无题目</div>';
+      return;
+    }
+
+    listEl.innerHTML = questions.map(q => {
+      const isAdded = addedSet.has(q.questionUuid);
+      const diff = difficultyInfo(q.difficulty);
+      return `
+        <div class="compose-q-item ${isAdded ? 'added' : ''}" data-uuid="${q.questionUuid}">
+          <div class="stem-preview">${renderStemHtml(q.stemText)}</div>
+          <div class="item-meta">
+            <span class="difficulty-badge ${diff.cls}" style="font-size:10px;padding:1px 6px">${diff.label}</span>
+            ${(q.mainTags || []).slice(0, 2).map(t => `<span>${t.tagName}</span>`).join('')}
+          </div>
+          ${isAdded
+            ? '<div style="font-size:11px;color:var(--success-tx);margin-top:4px">✓ 已添加</div>'
+            : `<button class="btn-add" data-uuid="${q.questionUuid}">＋ 添加到试卷</button>`
+          }
+        </div>
+      `;
+    }).join('');
+
+    // Add button clicks
+    $$('.btn-add', listEl).forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const qUuid = e.target.dataset.uuid;
+        this._addToExam(qUuid);
+      });
+    });
+  },
+
+  _addToExam(questionUuid) {
+    const exam = ExamStore.get(this.examUuid);
+    if (!exam) return;
+
+    if (exam.sections.length === 0) {
+      Toast.info('请先添加一个大题分组');
+      return;
+    }
+
+    // Add to last section by default
+    const lastSection = exam.sections[exam.sections.length - 1];
+    const added = ExamStore.addItem(this.examUuid, lastSection.id, questionUuid, lastSection.scorePerItem || 5);
+    if (added) {
+      Toast.success('已添加至「' + lastSection.title + '」');
+      this.renderSections();
+      this.renderBankPanel();
+    } else {
+      Toast.info('该题目已在试卷中');
+    }
+  },
+
+  _updateStats() {
+    const t = ExamStore.totals(this.examUuid);
+    $('#stat-count').textContent = t.count;
+    $('#stat-score').textContent = t.score;
+    $('#stat-sections').textContent = t.sections;
+  },
+
+  saveTitle() {
+    const title = $('#compose-title').value.trim();
+    if (title) {
+      ExamStore.update(this.examUuid, { title });
+    }
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   UI: Preview Page
+   ═══════════════════════════════════════════════════ */
+const PreviewUI = {
+  examUuid: '',
+
+  render(examUuid) {
+    this.examUuid = examUuid;
+    ExamStore.load();
+    const exam = ExamStore.get(examUuid);
+    if (!exam) { Router.go('exams'); return; }
+
+    const paper = $('#preview-paper');
+    const totals = ExamStore.totals(examUuid);
+
+    let globalNum = 1;
+    const sectionsHtml = exam.sections.map(section => {
+      const sectionScore = section.items.reduce((s, it) => s + it.score, 0);
+      const itemsHtml = section.items.map(item => {
+        const q = BankStore.findByUuid(item.questionUuid);
+        const num = globalNum++;
+        return `
+          <div class="preview-item">
+            <span class="item-number">${num}.</span>
+            <span class="item-score">(${item.score}分)</span>
+            ${q ? renderStemHtml(q.stemText) : '[题目已删除]'}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="preview-section-title">${section.title}（共 ${section.items.length} 题，${Math.round(sectionScore * 10) / 10} 分）</div>
+        ${itemsHtml}
+      `;
+    }).join('');
+
+    paper.innerHTML = `
+      <h1>${exam.title || '未命名试卷'}</h1>
+      <div class="paper-info">
+        共 ${totals.count} 题 · 满分 ${totals.score} 分 · ${fmtDate(exam.updatedAt)}
+      </div>
+      ${sectionsHtml || '<p style="text-align:center;color:var(--muted);padding:40px">试卷为空</p>'}
+    `;
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   Event Binding
+   ═══════════════════════════════════════════════════ */
+function initEvents() {
+  // ── Login ──
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const user = $('#ipt-user').value.trim();
+    const pass = $('#ipt-pass').value;
+    const remember = $('#chk-remember').checked;
+    const errEl = $('#login-error');
+    const btn = $('#btn-login');
+
+    if (!user || !pass) { errEl.textContent = '请输入用户名和密码'; return; }
+
+    btn.disabled = true;
+    btn.textContent = '登录中…';
+    errEl.textContent = '';
+
+    try {
+      await Auth.login(user, pass, remember);
+      Toast.success(`欢迎回来, ${user}`);
+      Router.go('bank');
+      // Load bank data immediately
+      BankStore.loadPrivate();
+    } catch (err) {
+      errEl.textContent = err.message || '登录失败';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '登 录';
+    }
+  });
+
+  // ── Logout ──
+  $('#btn-logout').addEventListener('click', () => {
+    Auth.logout();
+    Toast.info('已退出登录');
+  });
+
+  // ── Navigation ──
+  $$('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => Router.go(btn.dataset.page));
+  });
+
+  // ── Bank tabs ──
+  $$('.bank-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.bank-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      BankStore.activeTab = tab.dataset.tab;
+      if (tab.dataset.tab === 'public') BankStore.loadPublic();
+      BankUI.renderList();
+    });
+  });
+
+  // ── Bank filters ──
+  ['bank-search', 'bank-difficulty', 'bank-sort'].forEach(id => {
+    const el = $(`#${id}`);
+    if (el) el.addEventListener('input', () => BankUI.renderList());
+    if (el) el.addEventListener('change', () => BankUI.renderList());
+  });
+
+  // ── New Exam ──
+  $('#btn-new-exam').addEventListener('click', () => {
+    $('#ipt-exam-title').value = '';
+    $('#ipt-exam-desc').value = '';
+    showModal('modal-new-exam');
+    setTimeout(() => $('#ipt-exam-title').focus(), 100);
+  });
+
+  $('#btn-cancel-new-exam').addEventListener('click', () => hideModal('modal-new-exam'));
+  $('#modal-new-exam').addEventListener('click', e => { if (e.target === e.currentTarget) hideModal('modal-new-exam'); });
+
+  $('#btn-create-exam').addEventListener('click', () => {
+    const title = $('#ipt-exam-title').value.trim();
+    if (!title) { Toast.error('请输入试卷标题'); return; }
+    const desc = $('#ipt-exam-desc').value.trim();
+    const exam = ExamStore.create(title, desc);
+    hideModal('modal-new-exam');
+    Toast.success('试卷已创建');
+    Router.go('compose', { id: exam.examUuid });
+  });
+
+  // ── Compose toolbar ──
+  $('#btn-compose-back').addEventListener('click', () => {
+    ComposeUI.saveTitle();
+    Router.go('exams');
+  });
+
+  $('#btn-compose-save').addEventListener('click', () => {
+    ComposeUI.saveTitle();
+    Toast.success('已保存');
+  });
+
+  $('#btn-compose-preview').addEventListener('click', () => {
+    ComposeUI.saveTitle();
+    Router.go('preview', { id: ComposeUI.examUuid });
+  });
+
+  $('#btn-compose-export').addEventListener('click', () => {
+    ComposeUI.saveTitle();
+    Router.go('preview', { id: ComposeUI.examUuid });
+    setTimeout(() => window.print(), 300);
+  });
+
+  $('#compose-title').addEventListener('change', () => ComposeUI.saveTitle());
+
+  // ── Add section ──
+  $('#btn-add-section').addEventListener('click', () => {
+    if (!ComposeUI.examUuid) return;
+    const exam = ExamStore.get(ComposeUI.examUuid);
+    if (!exam) return;
+    const numChinese = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+    const idx = exam.sections.length;
+    const defaultTitle = idx < numChinese.length ? `${numChinese[idx]}、未命名大题` : `第${idx + 1}大题`;
+    ExamStore.addSection(ComposeUI.examUuid, defaultTitle);
+    ComposeUI.renderSections();
+    Toast.info('已添加大题分组');
+  });
+
+  // ── Delete exam ──
+  $('#btn-delete-exam').addEventListener('click', async () => {
+    const ok = await confirmDialog('删除试卷', '确认永久删除此试卷？此操作不可恢复。');
+    if (!ok) return;
+    ExamStore.delete(ComposeUI.examUuid);
+    Toast.success('试卷已删除');
+    Router.go('exams');
+  });
+
+  // ── Compose bank search ──
+  $('#compose-search').addEventListener('input', () => ComposeUI.renderBankPanel());
+
+  // ── Preview ──
+  $('#btn-preview-back').addEventListener('click', () => {
+    Router.go('compose', { id: PreviewUI.examUuid });
+  });
+
+  $('#btn-print').addEventListener('click', () => window.print());
+
+  // ── Confirm Modal ──
+  $('#modal-confirm-cancel').addEventListener('click', () => {
+    hideModal('modal-confirm');
+    if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+  });
+  $('#modal-confirm-ok').addEventListener('click', () => {
+    hideModal('modal-confirm');
+    if (_confirmResolve) { _confirmResolve(true); _confirmResolve = null; }
+  });
+  $('#modal-confirm').addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      hideModal('modal-confirm');
+      if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+    }
+  });
+
+  // ── Keyboard shortcuts ──
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      $$('.modal-overlay.show').forEach(m => {
+        hideModal(m.id);
+        if (_confirmResolve) { _confirmResolve(false); _confirmResolve = null; }
+      });
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   Initialization
+   ═══════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  Toast.init();
+  ExamStore.load();
+
+  const restored = Auth.init();
+  initEvents();
+
+  if (restored) {
+    Router._showApp();
+    Router.init();
+    BankStore.loadPrivate();
+  } else {
+    Router._showLogin();
+    Router.init();
+  }
+});
+</script>
+</body>
+</html>

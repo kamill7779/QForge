@@ -63,7 +63,7 @@ public class ExamPaperController {
      */
     @GetMapping("/{paperUuid}")
     public ResponseEntity<ExamPaperDetailResponse> getPaperDetail(
-            @PathVariable String paperUuid,
+            @PathVariable("paperUuid") String paperUuid,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         return ResponseEntity.ok(examPaperService.getPaperDetail(paperUuid, requestUser));
@@ -74,7 +74,7 @@ public class ExamPaperController {
      */
     @PutMapping("/{paperUuid}")
     public ResponseEntity<ExamPaperDetailResponse> updatePaper(
-            @PathVariable String paperUuid,
+            @PathVariable("paperUuid") String paperUuid,
             @RequestBody UpdateExamPaperRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
@@ -86,7 +86,7 @@ public class ExamPaperController {
      */
     @DeleteMapping("/{paperUuid}")
     public ResponseEntity<Void> deletePaper(
-            @PathVariable String paperUuid,
+            @PathVariable("paperUuid") String paperUuid,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         examPaperService.deletePaper(paperUuid, requestUser);
@@ -98,7 +98,7 @@ public class ExamPaperController {
      */
     @PutMapping("/{paperUuid}/content")
     public ResponseEntity<ExamPaperDetailResponse> saveContent(
-            @PathVariable String paperUuid,
+            @PathVariable("paperUuid") String paperUuid,
             @RequestBody SaveExamContentRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
@@ -110,7 +110,7 @@ public class ExamPaperController {
      */
     @PostMapping("/{paperUuid}/export/word")
     public ResponseEntity<byte[]> exportWord(
-            @PathVariable String paperUuid,
+            @PathVariable("paperUuid") String paperUuid,
             @RequestBody ExamPaperExportRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {

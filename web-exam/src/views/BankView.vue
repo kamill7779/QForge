@@ -112,13 +112,14 @@ function toggleDetail(q: QuestionEntry) {
   detailQuestion.value = detailQuestion.value?.questionUuid === q.questionUuid ? null : q
 }
 
-function toggleSelect(q: QuestionEntry) {
+async function toggleSelect(q: QuestionEntry) {
   if (!examStore.activeExam) {
     // Auto-create exam if none exists
-    examStore.createExam()
+    await examStore.createExam()
     notif.log('已自动创建新试卷')
   }
-  const exam = examStore.activeExam!
+  const exam = examStore.activeExam
+  if (!exam) return
   if (examStore.isQuestionInExam(q.questionUuid)) {
     // Remove from first section that contains it
     for (const sec of exam.sections) {

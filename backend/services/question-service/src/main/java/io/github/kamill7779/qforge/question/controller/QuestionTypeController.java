@@ -56,7 +56,7 @@ public class QuestionTypeController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<QuestionTypeResponse> updateType(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody SaveQuestionTypeRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
@@ -68,7 +68,7 @@ public class QuestionTypeController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteType(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         questionTypeService.deleteCustom(id, requestUser);
