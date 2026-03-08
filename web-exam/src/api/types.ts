@@ -285,3 +285,13 @@ export interface SaveQuestionTypeRequest {
   sortOrder?: number
 }
 
+// ──────────────────── Question Basket (Cart) ────────────────────
+
+export interface BasketItemResponse {
+  questionUuid: string
+  stemText: string | null
+  source: string | null
+  difficulty: number | null
+  addedAt: string
+}
+

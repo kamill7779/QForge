@@ -295,6 +295,26 @@ services:
       nacos:
         condition: service_started
 
+  # ========================= Web Exam Frontend (Vue + Nginx) =========================
+  web-exam:
+    pull_policy: never
+    build:
+      context: ../web-exam
+      dockerfile: Dockerfile
+      pull: false
+    container_name: qforge-web-exam
+    networks: [qforge-net]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "5173:80"
+    depends_on:
+      gateway-service:
+        condition: service_started
+
 volumes:
   mysql-data:  # persistent: survives docker compose down; use down -v to wipe
   nacos-data:  # Nacos 热配置持久化，目录 /home/nacos/data

@@ -245,6 +245,20 @@ services:
       nacos:
         condition: service_started
 
+  # ========================= Web Exam Frontend (Vue + Nginx) =========================
+  web-exam:
+    build:
+      context: ../web-exam
+      dockerfile: Dockerfile
+    container_name: qforge-dev-web-exam
+    networks:
+      - qforge-net
+    ports:
+      - "5173:80"
+    depends_on:
+      gateway-service:
+        condition: service_started
+
 networks:
   qforge-net:
     driver: bridge

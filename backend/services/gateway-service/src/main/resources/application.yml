@@ -31,7 +31,7 @@ spring:
             - id: question-service-route
               uri: lb://question-service
               predicates:
-                - Path=/api/questions/**,/api/ocr-tasks/**,/api/tags/**,/api/exam-papers/**,/api/question-types/**
+                - Path=/api/questions/**,/api/ocr-tasks/**,/api/tags/**,/api/exam-papers/**,/api/question-types/**,/api/question-basket/**
             - id: question-service-ws-route
               uri: lb:ws://question-service
               predicates:

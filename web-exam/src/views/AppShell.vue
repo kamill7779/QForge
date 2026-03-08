@@ -6,6 +6,7 @@
         <div class="app-title">QForge</div>
         <nav class="tab-nav">
           <router-link to="/bank" class="tab-link" active-class="active">题库</router-link>
+          <router-link to="/basket" class="tab-link" active-class="active">试题篮</router-link>
           <router-link to="/exams" class="tab-link" active-class="active">我的试卷</router-link>
           <router-link to="/compose" class="tab-link" active-class="active">组卷</router-link>
         </nav>
@@ -24,6 +25,7 @@
       <span class="status-user">{{ auth.username || '未登录' }}</span>
       <span class="status-info">
         题库 {{ questionStore.totalCount }} 题 ·
+        试题篮 {{ basketStore.count }} 题 ·
         试卷 {{ examStore.exams.length }} 份
       </span>
     </footer>
@@ -37,6 +39,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useQuestionStore } from '@/stores/question'
 import { useTagStore } from '@/stores/tag'
 import { useExamStore } from '@/stores/exam'
+import { useBasketStore } from '@/stores/basket'
 import { useNotificationStore } from '@/stores/notification'
 import { registerOn401, unregisterOn401 } from '@/api/client'
 
@@ -45,6 +48,7 @@ const auth = useAuthStore()
 const questionStore = useQuestionStore()
 const tagStore = useTagStore()
 const examStore = useExamStore()
+const basketStore = useBasketStore()
 const notif = useNotificationStore()
 
 // 401 interceptor: redirect to login on expired token

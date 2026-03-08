@@ -24,6 +24,11 @@ const router = createRouter({
           component: () => import('@/views/ExamListView.vue')
         },
         {
+          path: 'basket',
+          name: 'basket',
+          component: () => import('@/views/BasketView.vue')
+        },
+        {
           path: 'compose/:id?',
           name: 'compose',
           component: () => import('@/views/ExamComposeView.vue')

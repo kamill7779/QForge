@@ -107,7 +107,7 @@
             :key="q.questionUuid"
             :entry="q"
             :seq="i + 1"
-            :is-selected="examStore.selectedQuestionUuids.has(q.questionUuid)"
+            :is-selected="basketStore.isInBasket(q.questionUuid)"
             @toggle-detail="toggleDetail(q)"
             @toggle-select="toggleSelect(q)"
           />
@@ -122,14 +122,14 @@
       </div>
 
       <!-- Cart status bar -->
-      <div v-if="examStore.activeExam" class="cart-status-bar">
+      <div class="cart-status-bar">
         <span class="cart-icon">🛒</span>
-        <span class="cart-label">{{ examStore.activeExam.title }}</span>
+        <span class="cart-label">试题篮</span>
         <span class="cart-count">
-          已选 {{ cartQuestionCount }} 题 / {{ examStore.activeExam.totalScore }} 分
+          已选 {{ basketStore.count }} 题
         </span>
-        <router-link :to="'/compose/' + examStore.activeExam.id" class="cart-go-btn">
-          去组卷 →
+        <router-link to="/basket" class="cart-go-btn">
+          查看试题篮 →
         </router-link>
       </div>
     </div>
@@ -177,7 +177,7 @@
               class="btn-action primary"
               @click="toggleSelect(detailQuestion!); detailQuestion = null"
             >
-              {{ examStore.selectedQuestionUuids.has(detailQuestion.questionUuid) ? '取消选题' : '+ 选入试卷' }}
+              {{ basketStore.isInBasket(detailQuestion.questionUuid) ? '取消选题' : '+ 选入试题篮' }}
             </button>
           </div>
         </div>
@@ -191,13 +191,13 @@ import { ref, computed, watch, onMounted } from 'vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import LatexPreview from '@/components/LatexPreview.vue'
 import { useQuestionStore } from '@/stores/question'
-import { useExamStore } from '@/stores/exam'
+import { useBasketStore } from '@/stores/basket'
 import { useNotificationStore } from '@/stores/notification'
 import { difficultyLabel } from '@/lib/difficulty'
 import type { QuestionEntry, TreeNode } from '@/stores/question'
 
 const questionStore = useQuestionStore()
-const examStore = useExamStore()
+const basketStore = useBasketStore()
 const notif = useNotificationStore()
 
 const keyword = ref('')
@@ -209,11 +209,7 @@ const sidebarSearch = ref('')
 // Track which tree branches are expanded
 const expandedBranches = ref(new Set<string>(['grade', 'knowledge', 'difficulty', 'source']))
 
-const cartQuestionCount = computed(() => {
-  const exam = examStore.activeExam
-  if (!exam) return 0
-  return exam.sections.reduce((s, sec) => s + sec.questions.length, 0)
-})
+// Cart count is directly from basket store (basketStore.count)
 
 // Filter category tree based on sidebar search
 const filteredTree = computed(() => {
@@ -234,16 +230,8 @@ onMounted(async () => {
   if (!questionStore.allQuestions.length) {
     await questionStore.fetchQuestions()
   }
-  // Auto-create default exam if none
-  if (!examStore.activeExam && !examStore.exams.length) {
-    await examStore.fetchExams()
-    if (!examStore.exams.length) {
-      await examStore.createExam('我的选题篮')
-      notif.log('已自动创建选题篮')
-    } else if (!examStore.activeExamId) {
-      await examStore.setActiveExam(examStore.exams[0].id)
-    }
-  }
+  // Initialize basket store — loads UUID set from backend
+  await basketStore.init()
 })
 
 // Sync editSource when detail modal opens
@@ -315,24 +303,11 @@ function toggleDetail(q: QuestionEntry) {
 }
 
 async function toggleSelect(q: QuestionEntry) {
-  if (!examStore.activeExam) {
-    await examStore.createExam('我的选题篮')
-    notif.log('已自动创建选题篮')
-  }
-  const exam = examStore.activeExam
-  if (!exam) return
-  if (examStore.isQuestionInExam(q.questionUuid)) {
-    for (const sec of exam.sections) {
-      if (sec.questions.some((item) => item.questionUuid === q.questionUuid)) {
-        examStore.removeQuestion(exam.id, sec.id, q.questionUuid)
-        break
-      }
-    }
-  } else {
-    const sec = exam.sections[0]
-    if (sec) {
-      examStore.addQuestionToSection(exam.id, sec.id, q)
-    }
+  try {
+    const inBasket = await basketStore.toggle(q.questionUuid)
+    notif.log(inBasket ? '已加入试题篮' : '已从试题篮移除')
+  } catch {
+    notif.log('操作失败，请重试')
   }
 }
 

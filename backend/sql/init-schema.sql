@@ -464,3 +464,18 @@ INSERT INTO q_question_type (type_code, type_label, owner_user, xml_hint, sort_o
 ('COMPREHENSIVE',  '综合题',     '', 'answer-area',     90),
 ('OTHER',          '其他',       '', NULL,              999)
 ON DUPLICATE KEY UPDATE type_label = VALUES(type_label);
+
+-- =====================================================================
+-- 试题篮 (Question Basket / Cart) — 2026-03-10
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS q_question_basket (
+    id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+    owner_user    VARCHAR(128) NOT NULL,
+    question_id   BIGINT       NOT NULL,
+    question_uuid CHAR(36)     NOT NULL,
+    added_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_qb_owner_question (owner_user, question_id),
+    INDEX idx_qb_owner_added (owner_user, added_at),
+    CONSTRAINT fk_qb_question FOREIGN KEY (question_id) REFERENCES q_question(id)
+) COMMENT '试题篮（购物车），每个用户一个篮';
