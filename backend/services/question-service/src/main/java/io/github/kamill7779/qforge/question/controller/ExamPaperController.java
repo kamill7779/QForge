@@ -59,6 +59,17 @@ public class ExamPaperController {
     }
 
     /**
+     * 从试题篮创建试卷 — 将篮中所有题目一键导入新试卷。
+     */
+    @PostMapping("/from-basket")
+    public ResponseEntity<ExamPaperDetailResponse> createFromBasket(
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        ExamPaperDetailResponse response = examPaperService.createFromBasket(requestUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
      * 详情 — 含完整大题 + 题目。
      */
     @GetMapping("/{paperUuid}")

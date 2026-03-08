@@ -12,7 +12,7 @@ spring:
         server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
         file-extension: yml
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:qforge}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:qforge}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&useUnicode=true
     username: ${MYSQL_USER:qforge}
     password: ${MYSQL_PASSWORD:qforge}
   jpa:

@@ -14,10 +14,12 @@ import io.github.kamill7779.qforge.question.entity.ExamPaper;
 import io.github.kamill7779.qforge.question.entity.ExamQuestion;
 import io.github.kamill7779.qforge.question.entity.ExamSection;
 import io.github.kamill7779.qforge.question.entity.Question;
+import io.github.kamill7779.qforge.question.entity.QuestionBasket;
 import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.question.repository.ExamPaperRepository;
 import io.github.kamill7779.qforge.question.repository.ExamQuestionRepository;
 import io.github.kamill7779.qforge.question.repository.ExamSectionRepository;
+import io.github.kamill7779.qforge.question.repository.QuestionBasketRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -44,6 +46,7 @@ public class ExamPaperService {
     private final ExamSectionRepository examSectionRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final QuestionRepository questionRepository;
+    private final QuestionBasketRepository basketRepository;
     private final ExportService exportService;
 
     public ExamPaperService(
@@ -51,12 +54,14 @@ public class ExamPaperService {
             ExamSectionRepository examSectionRepository,
             ExamQuestionRepository examQuestionRepository,
             QuestionRepository questionRepository,
+            QuestionBasketRepository basketRepository,
             ExportService exportService
     ) {
         this.examPaperRepository = examPaperRepository;
         this.examSectionRepository = examSectionRepository;
         this.examQuestionRepository = examQuestionRepository;
         this.questionRepository = questionRepository;
+        this.basketRepository = basketRepository;
         this.exportService = exportService;
     }
 
@@ -296,6 +301,69 @@ public class ExamPaperService {
         );
 
         return exportService.exportQuestionsWord(exportRequest, requestUser);
+    }
+
+    // ───────── 从试题篮创建试卷 ─────────
+
+    @Transactional
+    public ExamPaperDetailResponse createFromBasket(String requestUser) {
+        // 1. 读取试题篮
+        List<QuestionBasket> basketItems = basketRepository.findByOwnerUser(requestUser);
+        if (basketItems.isEmpty()) {
+            throw new BusinessValidationException("BASKET_EMPTY", "试题篮为空，无法创建试卷",
+                    Map.of(), HttpStatus.BAD_REQUEST);
+        }
+
+        // 2. 批量加载题目信息
+        List<String> uuids = basketItems.stream().map(QuestionBasket::getQuestionUuid).toList();
+        List<Question> questions = questionRepository.findByQuestionUuidsAndOwnerUser(uuids, requestUser);
+        Map<String, Question> questionMap = questions.stream()
+                .collect(Collectors.toMap(Question::getQuestionUuid, q -> q));
+
+        // 3. 创建试卷
+        ExamPaper paper = new ExamPaper();
+        paper.setPaperUuid(UUID.randomUUID().toString());
+        paper.setOwnerUser(requestUser);
+        paper.setTitle("试题篮组卷 — " + basketItems.size() + " 题");
+        paper.setDurationMinutes(120);
+        paper.setTotalScore(BigDecimal.ZERO);
+        paper.setStatus("DRAFT");
+        paper.setDeleted(false);
+        examPaperRepository.save(paper);
+
+        // 4. 创建默认 section，将所有题目放入
+        ExamSection section = new ExamSection();
+        section.setSectionUuid(UUID.randomUUID().toString());
+        section.setPaperId(paper.getId());
+        section.setTitle("全部题目");
+        section.setDefaultScore(new BigDecimal("5.0"));
+        section.setSortOrder(0);
+        examSectionRepository.save(section);
+
+        BigDecimal totalScore = BigDecimal.ZERO;
+        int sortOrder = 0;
+        for (QuestionBasket basketItem : basketItems) {
+            Question q = questionMap.get(basketItem.getQuestionUuid());
+            if (q == null) continue;
+
+            ExamQuestion eq = new ExamQuestion();
+            eq.setSectionId(section.getId());
+            eq.setQuestionId(q.getId());
+            eq.setQuestionUuid(q.getQuestionUuid());
+            eq.setSortOrder(sortOrder++);
+            eq.setScore(section.getDefaultScore());
+            examQuestionRepository.save(eq);
+            totalScore = totalScore.add(eq.getScore());
+        }
+
+        // 5. 更新总分
+        paper.setTotalScore(totalScore);
+        examPaperRepository.save(paper);
+
+        log.info("User [{}] created exam paper from basket: {} with {} questions",
+                requestUser, paper.getPaperUuid(), sortOrder);
+
+        return getPaperDetail(paper.getPaperUuid(), requestUser);
     }
 
     // ───────── 内部工具 ─────────

@@ -54,11 +54,34 @@
         <div class="sections-area">
           <div v-for="(sec, sIdx) in exam.sections" :key="sec.id" class="section-block">
             <div class="section-header">
-              <input v-model="sec.title" class="section-title-input" placeholder="大题标题" />
+              <div class="section-title-row">
+                <span class="section-seq">{{ chineseOrdinal(sIdx) }}、</span>
+                <select
+                  class="section-type-select"
+                  :value="sec.questionTypeCode ?? ''"
+                  @change="onSectionTypeChange(sec, sIdx, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">自定义</option>
+                  <option v-for="[code, label] in questionTypeStore.typeEntries" :key="code" :value="code">{{ label }}</option>
+                </select>
+                <input v-model="sec.title" class="section-title-input" placeholder="大题标题" />
+                <button class="type-manage-btn" title="管理题型" @click="showTypeManager = true">⚙</button>
+              </div>
               <div class="section-actions">
+                <label class="default-score-label">默认分值
+                  <input
+                    type="number"
+                    class="default-score-input"
+                    :value="sec.defaultScore ?? 5"
+                    min="0"
+                    @change="onDefaultScoreChange(sec, Number(($event.target as HTMLInputElement).value))"
+                  />
+                </label>
                 <span class="section-stats">{{ sec.questions.length }} 题 · {{ sectionScore(sec) }} 分</span>
+                <button class="sec-btn sec-move" :disabled="sIdx === 0" @click="examStore.moveSection(exam!.id, sIdx, sIdx - 1)">↑</button>
+                <button class="sec-btn sec-move" :disabled="sIdx === exam!.sections.length - 1" @click="examStore.moveSection(exam!.id, sIdx, sIdx + 1)">↓</button>
                 <button class="sec-btn" @click="examStore.removeSection(exam!.id, sec.id)" v-if="exam!.sections.length > 1">
-                  删除大题
+                  删除
                 </button>
               </div>
             </div>
@@ -113,6 +136,9 @@
         <button class="btn-create" @click="createNew">+ 新建试卷</button>
       </div>
     </section>
+
+    <!-- Question Type Manager Modal -->
+    <QuestionTypeManager v-if="showTypeManager" @close="showTypeManager = false" />
   </div>
 </template>
 
@@ -120,8 +146,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LatexPreview from '@/components/LatexPreview.vue'
+import QuestionTypeManager from '@/components/QuestionTypeManager.vue'
 import { useQuestionStore } from '@/stores/question'
 import { useExamStore } from '@/stores/exam'
+import { useQuestionTypeStore } from '@/stores/questionType'
 import type { ExamSection } from '@/stores/exam'
 import type { QuestionEntry } from '@/stores/question'
 
@@ -129,10 +157,12 @@ const route = useRoute()
 const router = useRouter()
 const questionStore = useQuestionStore()
 const examStore = useExamStore()
+const questionTypeStore = useQuestionTypeStore()
 
 const keyword = ref('')
 const bankListRef = ref<HTMLElement>()
 const activeSectionId = ref<string | null>(null)
+const showTypeManager = ref(false)
 
 const exam = computed(() => examStore.activeExam)
 
@@ -145,6 +175,11 @@ onMounted(async () => {
   // Ensure exam list is loaded from backend
   if (!examStore.exams.length) {
     await examStore.fetchExams()
+  }
+
+  // Ensure question types are loaded
+  if (!questionTypeStore.types.length) {
+    questionTypeStore.fetchTypes()
   }
 
   const id = route.params.id as string
@@ -218,6 +253,29 @@ function globalSeq(sIdx: number, qIdx: number): number {
     seq += exam.value.sections[i].questions.length
   }
   return seq + qIdx + 1
+}
+
+const CHINESE_NUMS = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十',
+  '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十']
+
+function chineseOrdinal(idx: number): string {
+  return CHINESE_NUMS[idx] ?? String(idx + 1)
+}
+
+function onSectionTypeChange(sec: ExamSection, sIdx: number, code: string): void {
+  if (!exam.value) return
+  const typeCode = code || undefined
+  const label = code ? questionTypeStore.labelOf(code) : ''
+  const title = label ? `${chineseOrdinal(sIdx)}、${label}` : sec.title
+  examStore.updateSection(exam.value.id, sec.id, {
+    questionTypeCode: typeCode,
+    title
+  })
+}
+
+function onDefaultScoreChange(sec: ExamSection, value: number): void {
+  if (!exam.value) return
+  examStore.updateSection(exam.value.id, sec.id, { defaultScore: Math.max(0, value) })
 }
 </script>
 
@@ -408,6 +466,77 @@ function globalSeq(sIdx: number, qIdx: number): number {
   padding: 12px 16px;
   background: var(--color-bg-panel);
   border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.section-seq {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--color-accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.section-type-select {
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.section-type-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.type-manage-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.type-manage-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+.default-score-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.default-score-input {
+  width: 48px;
+  text-align: center;
+  padding: 3px 4px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.sec-move {
+  font-size: 12px;
+}
+.sec-move:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 .section-title-input {
   font-size: 15px;

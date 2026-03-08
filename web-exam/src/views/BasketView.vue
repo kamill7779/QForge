@@ -70,8 +70,11 @@
         共 {{ basketStore.count }} 题
       </div>
       <div class="footer-actions">
-        <router-link to="/exams" class="footer-btn">
-          管理试卷 →
+        <button class="footer-btn compose-btn" :disabled="composing" @click="handleCompose">
+          {{ composing ? '创建中…' : '开始组卷 →' }}
+        </button>
+        <router-link to="/exams" class="footer-btn secondary-btn">
+          管理试卷
         </router-link>
       </div>
     </div>
@@ -79,14 +82,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import LatexPreview from '@/components/LatexPreview.vue'
 import { useBasketStore } from '@/stores/basket'
 import { useNotificationStore } from '@/stores/notification'
+import { examPaperApi } from '@/api/examPaper'
 import { difficultyLabel } from '@/lib/difficulty'
 
+const router = useRouter()
 const basketStore = useBasketStore()
 const notif = useNotificationStore()
+const composing = ref(false)
 
 onMounted(async () => {
   await basketStore.fetchItems()
@@ -110,6 +117,19 @@ async function handleClear() {
     notif.log('试题篮已清空')
   } catch {
     notif.log('清空失败')
+  }
+}
+
+async function handleCompose() {
+  composing.value = true
+  try {
+    const detail = await examPaperApi.createFromBasket()
+    notif.log(`已创建试卷「${detail.title}」，共 ${detail.sections.reduce((s, sec) => s + sec.questions.length, 0)} 题`)
+    router.push(`/compose/${detail.paperUuid}`)
+  } catch (e: any) {
+    notif.log(e?.message ?? '创建试卷失败')
+  } finally {
+    composing.value = false
   }
 }
 
@@ -394,5 +414,24 @@ function formatDate(iso: string): string {
   transform: translateY(-1px);
   box-shadow: 0 6px 24px var(--color-accent-glow);
   color: #fff;
+}
+
+.compose-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.secondary-btn {
+  background: transparent;
+  color: var(--color-text-secondary);
+  box-shadow: none;
+  border: 1px solid var(--color-border);
+}
+
+.secondary-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  box-shadow: none;
 }
 </style>

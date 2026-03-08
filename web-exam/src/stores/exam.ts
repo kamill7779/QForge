@@ -83,15 +83,18 @@ export const useExamStore = defineStore('exam', () => {
   )
 
   const examList = computed(() =>
-    exams.value.map((e) => ({
-      id: e.id,
-      title: e.title,
-      subtitle: e.subtitle,
-      status: e.status,
-      totalScore: e.totalScore,
-      questionCount: e.sections.reduce((s, sec) => s + sec.questions.length, 0),
-      updatedAt: e.updatedAt
-    }))
+    exams.value.map((e) => {
+      const loadedCount = e.sections.reduce((s, sec) => s + sec.questions.length, 0)
+      return {
+        id: e.id,
+        title: e.title,
+        subtitle: e.subtitle,
+        status: e.status,
+        totalScore: e.totalScore,
+        questionCount: loadedCount > 0 ? loadedCount : ((e as any).questionCount ?? 0),
+        updatedAt: e.updatedAt
+      }
+    })
   )
 
   // ── API operations ──
@@ -109,6 +112,8 @@ export const useExamStore = defineStore('exam', () => {
         status: p.status,
         duration: p.durationMinutes ?? 120,
         totalScore: p.totalScore,
+        questionCount: p.questionCount ?? 0,
+        sectionCount: p.sectionCount ?? 0,
         sections: [],   // lazy-loaded on detail
         createdAt: p.createdAt,
         updatedAt: p.updatedAt
@@ -242,17 +247,28 @@ export const useExamStore = defineStore('exam', () => {
     debouncedSaveContent(examId)
   }
 
-  function addQuestionToSection(examId: string, sectionId: string, entry: QuestionEntry, score = 5): void {
+  function moveSection(examId: string, fromIdx: number, toIdx: number): void {
+    const exam = exams.value.find((e) => e.id === examId)
+    if (!exam) return
+    if (toIdx < 0 || toIdx >= exam.sections.length) return
+    const [item] = exam.sections.splice(fromIdx, 1)
+    exam.sections.splice(toIdx, 0, item)
+    exam.updatedAt = nowIso()
+    debouncedSaveContent(examId)
+  }
+
+  function addQuestionToSection(examId: string, sectionId: string, entry: QuestionEntry, score?: number): void {
     const exam = exams.value.find((e) => e.id === examId)
     if (!exam) return
     const sec = exam.sections.find((s) => s.id === sectionId)
     if (!sec) return
     if (sec.questions.some((q) => q.questionUuid === entry.questionUuid)) return
 
+    const resolvedScore = score ?? sec.defaultScore ?? 5
     sec.questions.push({
       questionUuid: entry.questionUuid,
       seq: sec.questions.length + 1,
-      score,
+      score: resolvedScore,
       snapshot: { ...entry }
     })
     recalcScores(exam)
@@ -477,6 +493,7 @@ export const useExamStore = defineStore('exam', () => {
     addSection,
     removeSection,
     updateSection,
+    moveSection,
     addQuestionToSection,
     removeQuestion,
     updateQuestionScore,
