@@ -5,10 +5,20 @@
         ← 返回编辑
       </router-link>
       <span class="toolbar-title">试卷预览</span>
-      <button class="print-btn" @click="doPrint">🖨 打印 / 导出 PDF</button>
+      <div class="toolbar-actions">
+        <button class="tool-btn" @click="doPrint">🖨 打印</button>
+        <button class="tool-btn export-word-btn" @click="doExportWord" :disabled="exporting">
+          {{ exporting ? '导出中…' : '📄 导出 Word' }}
+        </button>
+      </div>
     </div>
 
-    <div v-if="exam" class="paper-wrapper">
+    <!-- Loading state -->
+    <div v-if="loading" class="preview-loading">
+      加载中…
+    </div>
+
+    <div v-else-if="exam" class="paper-wrapper">
       <article class="paper-page">
         <!-- Paper header -->
         <header class="paper-header">
@@ -47,7 +57,12 @@
               <span class="pq-score">（{{ q.score }} 分）</span>
             </div>
             <div class="pq-body">
-              <LatexPreview :xml="q.snapshot.stemText" class="pq-stem" />
+              <LatexPreview
+                :xml="q.snapshot.stemText"
+                :image-resolver="assetHelper.resolverFor(q.questionUuid)"
+                :render-key="assetRenderKey"
+                class="pq-stem"
+              />
             </div>
             <!-- Answer area -->
             <div class="pq-answer-area"></div>
@@ -64,18 +79,38 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import LatexPreview from '@/components/LatexPreview.vue'
 import { useExamStore } from '@/stores/exam'
+import { useNotificationStore } from '@/stores/notification'
+import { useQuestionAssets } from '@/composables/useQuestionAssets'
 import type { ExamSection } from '@/stores/exam'
 
 const route = useRoute()
 const examStore = useExamStore()
+const notif = useNotificationStore()
+const assetHelper = useQuestionAssets()
 
-onMounted(() => {
+const assetRenderKey = ref(0)
+const exporting = ref(false)
+const loading = ref(true)
+
+onMounted(async () => {
   const id = route.params.id as string
-  if (id) examStore.setActiveExam(id)
+  if (id) {
+    // Ensure exam is loaded (handles page refresh)
+    await examStore.setActiveExam(id)
+    // Load image assets for all questions
+    const e = examStore.activeExam
+    if (e) {
+      const uuids = e.sections.flatMap(s => s.questions.map(q => q.questionUuid))
+      assetHelper.loadAssetsForMany(uuids).then(() => {
+        assetRenderKey.value++
+      })
+    }
+  }
+  loading.value = false
 })
 
 const exam = computed(() => examStore.activeExam)
@@ -101,6 +136,19 @@ function globalSeq(sIdx: number, qIdx: number): number {
 
 function doPrint() {
   window.print()
+}
+
+async function doExportWord() {
+  if (!exam.value) return
+  exporting.value = true
+  try {
+    await examStore.exportWord(exam.value.id, true)
+    notif.log('试卷已导出')
+  } catch (e: any) {
+    notif.log(e?.message ?? '导出失败')
+  } finally {
+    exporting.value = false
+  }
 }
 </script>
 
@@ -139,20 +187,45 @@ function doPrint() {
   font-weight: 600;
   color: var(--color-text-primary);
 }
-.print-btn {
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+.tool-btn {
   padding: 8px 20px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--color-accent);
-  background: var(--color-accent-muted);
-  color: var(--color-accent);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
-.print-btn:hover {
+.tool-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.export-word-btn {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+.export-word-btn:hover {
   background: var(--color-accent);
   color: #fff;
+}
+.export-word-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.preview-loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
 }
 
 /* ── Paper wrapper ── */

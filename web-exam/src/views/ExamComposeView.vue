@@ -56,16 +56,20 @@
             <div class="section-header">
               <div class="section-title-row">
                 <span class="section-seq">{{ chineseOrdinal(sIdx) }}、</span>
-                <select
-                  class="section-type-select"
-                  :value="sec.questionTypeCode ?? ''"
-                  @change="onSectionTypeChange(sec, sIdx, ($event.target as HTMLSelectElement).value)"
-                >
-                  <option value="">自定义</option>
-                  <option v-for="[code, label] in questionTypeStore.typeEntries" :key="code" :value="code">{{ label }}</option>
-                </select>
-                <input v-model="sec.title" class="section-title-input" placeholder="大题标题" />
-                <button class="type-manage-btn" title="管理题型" @click="showTypeManager = true">⚙</button>
+                <template v-if="editingSectionId === sec.id">
+                  <input
+                    v-model="sec.title"
+                    class="section-title-input"
+                    placeholder="大题标题"
+                    @blur="finishEditSection(sec)"
+                    @keydown.enter="finishEditSection(sec)"
+                    :ref="(el) => { if (el) sectionInputRef = el as HTMLInputElement }"
+                  />
+                </template>
+                <template v-else>
+                  <span class="section-title-text">{{ sec.title || '未命名' }}</span>
+                  <button class="section-edit-btn" @click="startEditSection(sec.id)" title="编辑标题">✎</button>
+                </template>
               </div>
               <div class="section-actions">
                 <label class="default-score-label">默认分值
@@ -78,11 +82,13 @@
                   />
                 </label>
                 <span class="section-stats">{{ sec.questions.length }} 题 · {{ sectionScore(sec) }} 分</span>
-                <button class="sec-btn sec-move" :disabled="sIdx === 0" @click="examStore.moveSection(exam!.id, sIdx, sIdx - 1)">↑</button>
-                <button class="sec-btn sec-move" :disabled="sIdx === exam!.sections.length - 1" @click="examStore.moveSection(exam!.id, sIdx, sIdx + 1)">↓</button>
-                <button class="sec-btn" @click="examStore.removeSection(exam!.id, sec.id)" v-if="exam!.sections.length > 1">
-                  删除
-                </button>
+                <div class="section-move-btns">
+                  <button class="sec-btn sec-move" :disabled="sIdx === 0" @click="examStore.moveSection(exam!.id, sIdx, sIdx - 1)">↑</button>
+                  <button class="sec-btn sec-move" :disabled="sIdx === exam!.sections.length - 1" @click="examStore.moveSection(exam!.id, sIdx, sIdx + 1)">↓</button>
+                  <button class="sec-btn sec-delete" @click="examStore.removeSection(exam!.id, sec.id)" v-if="exam!.sections.length > 1">
+                    删除
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -93,9 +99,14 @@
                 :key="q.questionUuid"
                 class="exam-question-item"
               >
-                <div class="eq-left">
+                <div class="eq-left" @click="openDetail(q.questionUuid)">
                   <span class="eq-seq">{{ globalSeq(sIdx, qIdx) }}.</span>
-                  <LatexPreview :xml="q.snapshot.stemText" compact class="eq-stem" />
+                  <LatexPreview
+                    :xml="q.snapshot.stemText"
+                    :image-resolver="assetHelper.resolverFor(q.questionUuid)"
+                    :render-key="assetRenderKey"
+                    class="eq-stem"
+                  />
                 </div>
                 <div class="eq-right">
                   <input
@@ -127,6 +138,9 @@
           <router-link :to="`/preview/${exam.id}`" class="footer-btn preview-btn">
             预览试卷
           </router-link>
+          <button class="footer-btn export-btn" @click="doExportWord" :disabled="exporting">
+            {{ exporting ? '导出中…' : '📄 导出 Word' }}
+          </button>
         </div>
       </div>
 
@@ -139,17 +153,27 @@
 
     <!-- Question Type Manager Modal -->
     <QuestionTypeManager v-if="showTypeManager" @close="showTypeManager = false" />
+
+    <!-- Question Detail Modal -->
+    <QuestionDetailModal
+      v-if="detailUuid"
+      :question-uuid="detailUuid"
+      @close="detailUuid = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LatexPreview from '@/components/LatexPreview.vue'
 import QuestionTypeManager from '@/components/QuestionTypeManager.vue'
+import QuestionDetailModal from '@/components/QuestionDetailModal.vue'
 import { useQuestionStore } from '@/stores/question'
 import { useExamStore } from '@/stores/exam'
 import { useQuestionTypeStore } from '@/stores/questionType'
+import { useNotificationStore } from '@/stores/notification'
+import { useQuestionAssets } from '@/composables/useQuestionAssets'
 import type { ExamSection } from '@/stores/exam'
 import type { QuestionEntry } from '@/stores/question'
 
@@ -158,11 +182,22 @@ const router = useRouter()
 const questionStore = useQuestionStore()
 const examStore = useExamStore()
 const questionTypeStore = useQuestionTypeStore()
+const notif = useNotificationStore()
+const assetHelper = useQuestionAssets()
 
 const keyword = ref('')
 const bankListRef = ref<HTMLElement>()
 const activeSectionId = ref<string | null>(null)
 const showTypeManager = ref(false)
+const assetRenderKey = ref(0)
+const exporting = ref(false)
+
+// Editable section title state
+const editingSectionId = ref<string | null>(null)
+const sectionInputRef = ref<HTMLInputElement | null>(null)
+
+// Detail modal state
+const detailUuid = ref<string | null>(null)
 
 const exam = computed(() => examStore.activeExam)
 
@@ -191,11 +226,28 @@ onMounted(async () => {
   if (!questionStore.questions.length) {
     questionStore.fetchQuestions()
   }
+
+  // Load image assets for all questions in current exam
+  loadExamAssets()
 })
 
 watch(() => route.params.id, (id) => {
-  if (id) examStore.setActiveExam(id as string)
+  if (id) {
+    examStore.setActiveExam(id as string).then(() => loadExamAssets())
+  }
 })
+
+/** Load image assets for all questions in current exam sections. */
+function loadExamAssets() {
+  const e = exam.value
+  if (!e) return
+  const uuids = e.sections.flatMap(s => s.questions.map(q => q.questionUuid))
+  if (uuids.length) {
+    assetHelper.loadAssetsForMany(uuids).then(() => {
+      assetRenderKey.value++
+    })
+  }
+}
 
 async function createNew() {
   const e = await examStore.createExam()
@@ -233,12 +285,16 @@ function addToCurrentSection(q: QuestionEntry) {
     }
     return
   }
-  // Add to active section or first section
+  // Add to active section or last section
   const targetSec = activeSectionId.value
     ? e.sections.find((s) => s.id === activeSectionId.value)
     : e.sections[e.sections.length - 1]
   if (targetSec) {
     examStore.addQuestionToSection(e.id, targetSec.id, q)
+    // Load assets for this question in background
+    assetHelper.loadAssets(q.questionUuid).then(() => {
+      assetRenderKey.value++
+    })
   }
 }
 
@@ -262,20 +318,41 @@ function chineseOrdinal(idx: number): string {
   return CHINESE_NUMS[idx] ?? String(idx + 1)
 }
 
-function onSectionTypeChange(sec: ExamSection, sIdx: number, code: string): void {
-  if (!exam.value) return
-  const typeCode = code || undefined
-  const label = code ? questionTypeStore.labelOf(code) : ''
-  const title = label ? `${chineseOrdinal(sIdx)}、${label}` : sec.title
-  examStore.updateSection(exam.value.id, sec.id, {
-    questionTypeCode: typeCode,
-    title
+function startEditSection(sectionId: string) {
+  editingSectionId.value = sectionId
+  nextTick(() => {
+    sectionInputRef.value?.focus()
+    sectionInputRef.value?.select()
   })
+}
+
+function finishEditSection(sec: ExamSection) {
+  editingSectionId.value = null
+  if (exam.value) {
+    examStore.updateSection(exam.value.id, sec.id, { title: sec.title })
+  }
 }
 
 function onDefaultScoreChange(sec: ExamSection, value: number): void {
   if (!exam.value) return
   examStore.updateSection(exam.value.id, sec.id, { defaultScore: Math.max(0, value) })
+}
+
+function openDetail(questionUuid: string) {
+  detailUuid.value = questionUuid
+}
+
+async function doExportWord() {
+  if (!exam.value) return
+  exporting.value = true
+  try {
+    await examStore.exportWord(exam.value.id, true)
+    notif.log('试卷已导出')
+  } catch (e: any) {
+    notif.log(e?.message ?? '导出失败')
+  } finally {
+    exporting.value = false
+  }
 }
 </script>
 
@@ -461,20 +538,16 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
 }
 .section-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   padding: 12px 16px;
   background: var(--color-bg-panel);
   border-bottom: 1px solid var(--color-border-light);
-  flex-wrap: wrap;
   gap: 8px;
 }
 .section-title-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
-  min-width: 0;
 }
 .section-seq {
   font-weight: 700;
@@ -483,24 +556,16 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   white-space: nowrap;
   flex-shrink: 0;
 }
-.section-type-select {
-  padding: 4px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-card);
+.section-title-text {
+  font-size: 15px;
+  font-weight: 600;
   color: var(--color-text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  flex-shrink: 0;
+  cursor: default;
 }
-.section-type-select:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-.type-manage-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--color-border);
+.section-edit-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-muted);
@@ -509,11 +574,32 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   place-items: center;
   font-size: 14px;
   flex-shrink: 0;
+  transition: all var(--transition-fast);
 }
-.type-manage-btn:hover {
+.section-edit-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
   background: var(--color-accent-muted);
+}
+.section-title-input {
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid var(--color-accent);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  flex: 1;
+}
+.section-title-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .default-score-label {
   display: flex;
@@ -538,27 +624,10 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   opacity: 0.3;
   cursor: not-allowed;
 }
-.section-title-input {
-  font-size: 15px;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  padding: 4px 0;
-  flex: 1;
-}
-.section-title-input:focus {
-  outline: none;
-  border-bottom: 1px solid var(--color-accent);
-}
-.section-actions {
+.section-move-btns {
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-.section-stats {
-  font-size: 12px;
-  color: var(--color-text-muted);
+  gap: 4px;
 }
 .sec-btn {
   padding: 4px 10px;
@@ -570,6 +639,10 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   cursor: pointer;
 }
 .sec-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.sec-delete:hover {
   border-color: var(--color-danger);
   color: var(--color-danger);
   background: var(--color-danger-bg);
@@ -592,6 +665,7 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   gap: 6px;
   flex: 1;
   min-width: 0;
+  cursor: pointer;
 }
 .eq-seq {
   font-weight: 700;
@@ -602,8 +676,6 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
 }
 .eq-stem {
   flex: 1;
-  max-height: 60px;
-  overflow: hidden;
   font-size: 13px;
 }
 .eq-right {
@@ -688,6 +760,7 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   padding: 16px 0;
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
 }
 .footer-btn {
   padding: 10px 28px;
@@ -697,6 +770,7 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   cursor: pointer;
   text-decoration: none;
   transition: all var(--transition-fast);
+  border: none;
 }
 .preview-btn {
   background: linear-gradient(135deg, var(--color-accent), #a29bfe);
@@ -708,6 +782,19 @@ function onDefaultScoreChange(sec: ExamSection, value: number): void {
   box-shadow: 0 6px 24px var(--color-accent-glow);
   text-decoration: none;
   color: #fff;
+}
+.export-btn {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+}
+.export-btn:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+.export-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .no-exam {

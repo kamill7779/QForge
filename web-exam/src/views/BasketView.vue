@@ -42,11 +42,17 @@
         v-for="(item, idx) in basketStore.items"
         :key="item.questionUuid"
         class="basket-item"
+        @click="openDetail(item)"
       >
         <div class="item-left">
           <span class="item-seq">{{ idx + 1 }}.</span>
           <div class="item-content">
-            <LatexPreview :xml="item.stemText ?? ''" compact class="item-stem" />
+            <LatexPreview
+              :xml="item.stemText ?? ''"
+              :image-resolver="assetHelper.resolverFor(item.questionUuid)"
+              :render-key="assetRenderKey"
+              class="item-stem"
+            />
             <div class="item-meta">
               <span v-if="item.source" class="item-source">📁 {{ item.source }}</span>
               <span v-if="item.difficulty != null" class="item-diff">
@@ -56,7 +62,7 @@
             </div>
           </div>
         </div>
-        <div class="item-right">
+        <div class="item-right" @click.stop>
           <button class="btn-remove" @click="handleRemove(item.questionUuid)" title="移除">
             ×
           </button>
@@ -78,6 +84,15 @@
         </router-link>
       </div>
     </div>
+
+    <!-- Detail modal -->
+    <QuestionDetailModal
+      v-if="detailUuid"
+      :question-uuid="detailUuid"
+      :override-source="detailSource"
+      :override-difficulty="detailDifficulty"
+      @close="detailUuid = null"
+    />
   </div>
 </template>
 
@@ -85,24 +100,44 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import LatexPreview from '@/components/LatexPreview.vue'
+import QuestionDetailModal from '@/components/QuestionDetailModal.vue'
 import { useBasketStore } from '@/stores/basket'
 import { useNotificationStore } from '@/stores/notification'
+import { useQuestionAssets } from '@/composables/useQuestionAssets'
 import { examPaperApi } from '@/api/examPaper'
 import { difficultyLabel } from '@/lib/difficulty'
+import type { BasketItemResponse } from '@/api/types'
 
 const router = useRouter()
 const basketStore = useBasketStore()
 const notif = useNotificationStore()
+const assetHelper = useQuestionAssets()
 const composing = ref(false)
+const assetRenderKey = ref(0)
+
+// Detail modal state
+const detailUuid = ref<string | null>(null)
+const detailSource = ref<string | undefined>()
+const detailDifficulty = ref<number | null | undefined>()
 
 onMounted(async () => {
   await basketStore.fetchItems()
+  // Load image assets for all basket items in background
+  const uuids = basketStore.items.map(i => i.questionUuid)
+  assetHelper.loadAssetsForMany(uuids).then(() => {
+    assetRenderKey.value++
+  })
 })
+
+function openDetail(item: BasketItemResponse) {
+  detailUuid.value = item.questionUuid
+  detailSource.value = item.source ?? undefined
+  detailDifficulty.value = item.difficulty
+}
 
 async function handleRemove(questionUuid: string) {
   try {
     await basketStore.toggle(questionUuid)
-    // Refresh items list
     await basketStore.fetchItems()
     notif.log('已从试题篮移除')
   } catch {
@@ -294,6 +329,7 @@ function formatDate(iso: string): string {
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   transition: all var(--transition-fast);
+  cursor: pointer;
 }
 
 .basket-item:hover {
@@ -325,8 +361,6 @@ function formatDate(iso: string): string {
 .item-stem {
   font-size: 14px;
   line-height: 1.6;
-  max-height: 120px;
-  overflow: hidden;
   margin-bottom: 8px;
 }
 

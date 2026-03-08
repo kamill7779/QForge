@@ -16,6 +16,14 @@ import type {
 } from '@/api/types'
 import { difficultyLevel } from '@/lib/difficulty'
 
+/** Answer entry (from backend overview). */
+export interface AnswerEntry {
+  answerUuid: string
+  latexText: string
+  sortOrder: number
+  official: boolean
+}
+
 /** Simplified question entry for bank browsing. */
 export interface QuestionEntry {
   questionUuid: string
@@ -26,6 +34,7 @@ export interface QuestionEntry {
   difficulty: number | null
   source: string
   answerCount: number
+  answers: AnswerEntry[]
   createdAt: string
   updatedAt: string
 }
@@ -233,6 +242,12 @@ export const useQuestionStore = defineStore('question', () => {
         difficulty: q.difficulty ?? null,
         source: q.source || '未分类',
         answerCount: q.answerCount ?? 0,
+        answers: (q.answers ?? []).map(a => ({
+          answerUuid: a.answerUuid,
+          latexText: a.latexText,
+          sortOrder: a.sortOrder,
+          official: a.official
+        })),
         createdAt: q.createdAt || '',
         updatedAt: q.updatedAt || ''
       }))

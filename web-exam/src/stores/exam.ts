@@ -194,12 +194,12 @@ export const useExamStore = defineStore('exam', () => {
     }
   }
 
-  /** Set active exam (and load detail if not already loaded). */
+  /** Set active exam (and load detail if not already loaded or not found). */
   async function setActiveExam(examId: string): Promise<void> {
     activeExamId.value = examId
     const exam = exams.value.find((e) => e.id === examId)
-    // Load detail if sections are empty (not yet loaded)
-    if (exam && exam.sections.length === 0) {
+    // Load detail if exam not found locally OR sections are empty
+    if (!exam || exam.sections.length === 0) {
       await loadExamDetail(examId)
     }
   }
@@ -450,6 +450,7 @@ export const useExamStore = defineStore('exam', () => {
             difficulty: null,
             source: '未分类',
             answerCount: 0,
+            answers: [],
             createdAt: '',
             updatedAt: ''
           }
