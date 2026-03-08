@@ -21,6 +21,12 @@ LATEX_RE = re.compile(
     r'|\$(?:[^$\\]|\\.)+?\$)'          # inline $...$
 )
 
+# ── XML 修复: 转义文本中非标签的 < 和未闭合的 & ──
+_BAD_LT_RE = re.compile(r'<(?![a-zA-Z/!?])')    # <6 <3 等
+_BAD_AMP_RE = re.compile(
+    r'&(?!(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-fA-F]+);)'
+)
+
 
 def _parse_text_segments(text: str) -> List[Segment]:
     """将含 LaTeX 的纯文本拆分为 Text / Latex / LatexBlock segments。"""
@@ -151,6 +157,18 @@ def _parse_table(elem: ET.Element) -> TableNode:
     return node
 
 
+def _sanitize_xml(s: str) -> str:
+    """修复常见的 XML 非法字符，使 ET.fromstring 能正确解析。
+
+    处理:
+    1. 未转义的 < (如 LaTeX 中的 x<6) → &lt;
+    2. 未转义的 & (如 a&b) → &amp;
+    """
+    s = _BAD_AMP_RE.sub('&amp;', s)
+    s = _BAD_LT_RE.sub('&lt;', s)
+    return s
+
+
 # ── 公开 API ──
 
 def parse_stem_xml(xml_str: str) -> StemNode:
@@ -158,13 +176,21 @@ def parse_stem_xml(xml_str: str) -> StemNode:
     root_node = StemNode()
     if not xml_str or not xml_str.strip():
         return root_node
+    s = xml_str.strip()
+    # 尝试原始解析
     try:
-        root = ET.fromstring(xml_str.strip())
+        root = ET.fromstring(s)
     except ET.ParseError:
-        root_node.children.append(
-            ParagraphNode(segments=[Segment(SegmentType.TEXT, xml_str)])
-        )
-        return root_node
+        # 尝试修复后重新解析
+        try:
+            root = ET.fromstring(_sanitize_xml(s))
+        except ET.ParseError:
+            # 仍然失败 → 剥离标签后做 LaTeX 解析
+            cleaned = _strip_xml_tags(s)
+            root_node.children.append(
+                ParagraphNode(segments=_parse_text_segments(cleaned))
+            )
+            return root_node
     for child in root:
         n = _parse_element(child)
         if n:

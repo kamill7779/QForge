@@ -1,6 +1,27 @@
 """LaTeX → OMML 引擎 (latex2word — 纯 Python)。"""
 from __future__ import annotations
 
+import re
+
+
+# ── LaTeX 预处理: 替换 latex2word 不支持的命令 ──
+_LATEX_PREPROCESS = [
+    # \overrightarrow{X} → \overset{\rightarrow}{X}   (groupChr bug)
+    (re.compile(r'\\overrightarrow\{([^}]*)\}'), r'\\overset{\\rightarrow}{\1}'),
+    # \vec{X} → \overset{\rightarrow}{X}
+    (re.compile(r'\\vec\{([^}]*)\}'), r'\\overset{\\rightarrow}{\1}'),
+    # \bar{X} → \overline{X}
+    (re.compile(r'\\bar\{([^}]*)\}'), r'\\overline{\1}'),
+]
+
+
+def _preprocess_latex(latex: str) -> str:
+    """将 latex2word 不支持的命令替换为等效的兼容命令。"""
+    s = latex
+    for pattern, repl in _LATEX_PREPROCESS:
+        s = pattern.sub(repl, s)
+    return s
+
 
 class LatexEngine:
     """将 LaTeX 表达式渲染为 Word OMML 数学对象，追加到段落。"""
@@ -25,7 +46,8 @@ class LatexEngine:
         if not self._available or not self._cls:
             return False
         try:
-            elem = self._cls(latex)
+            processed = _preprocess_latex(latex)
+            elem = self._cls(processed)
             elem.add_latex_to_paragraph(paragraph)
             return True
         except Exception:
