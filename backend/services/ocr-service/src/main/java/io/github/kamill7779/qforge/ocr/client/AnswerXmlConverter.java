@@ -6,6 +6,7 @@ import ai.z.openapi.service.model.ChatCompletionResponse;
 import ai.z.openapi.service.model.ChatMessage;
 import ai.z.openapi.service.model.ChatMessageRole;
 import io.github.kamill7779.qforge.ocr.config.AnswerXmlProperties;
+import io.github.kamill7779.qforge.ocr.config.QForgeOcrProperties;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Component;
 public class AnswerXmlConverter {
 
     private static final Logger log = LoggerFactory.getLogger(AnswerXmlConverter.class);
-    private static final int MAX_RETRIES = 2;
 
     private static final String SYSTEM_PROMPT = String.join("\n",
             "You are an XML conversion engine for math answer content.",
@@ -38,10 +38,13 @@ public class AnswerXmlConverter {
 
     private final ZhipuAiClient zhipuAiClient;
     private final AnswerXmlProperties properties;
+    private final QForgeOcrProperties ocrProps;
 
-    public AnswerXmlConverter(ZhipuAiClient zhipuAiClient, AnswerXmlProperties properties) {
+    public AnswerXmlConverter(ZhipuAiClient zhipuAiClient, AnswerXmlProperties properties,
+                               QForgeOcrProperties ocrProps) {
         this.zhipuAiClient = zhipuAiClient;
         this.properties = properties;
+        this.ocrProps = ocrProps;
     }
 
     public String convertToAnswerXml(String ocrText) {
@@ -49,21 +52,22 @@ public class AnswerXmlConverter {
             return ocrText;
         }
 
+        int maxRetries = ocrProps.getLlmEmptyRetries();
         log.info("Converting OCR text to answer XML via GLM (model={}, text_len={})",
                 properties.getModel(), ocrText.length());
 
-        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
             String xml = doConvert(ocrText);
             if (xml != null && !xml.isBlank()) {
                 log.info("Answer XML conversion complete (xml_len={}, attempt={})", xml.length(), attempt);
                 return xml;
             }
             log.warn("GLM returned empty content for answer XML conversion (attempt={}/{})",
-                    attempt, MAX_RETRIES);
+                    attempt, maxRetries);
         }
 
         throw new RuntimeException("GLM answer XML conversion returned empty content after "
-                + MAX_RETRIES + " attempts (model=" + properties.getModel() + ")");
+                + maxRetries + " attempts (model=" + properties.getModel() + ")");
     }
 
     private String doConvert(String ocrText) {

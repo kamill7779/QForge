@@ -55,6 +55,13 @@ qforge:
     max-image-binary-bytes: 524288   # 每张图片字节上限（512 KB）
     max-reasoning-length: 1024       # AI 推理文本截断长度
     max-error-message-length: 2048   # AI 错误信息截断长度
+    task-state-ttl-minutes: 30       # AI/OCR 任务热状态 TTL（分钟）
+    answer-ocr-guard-ttl-minutes: 10 # 答案 OCR 防重 TTL（分钟）
+    answer-ocr-asset-ttl-hours: 6    # 答案 OCR 资产缓存 TTL（小时）
+    asset-cache-ttl-seconds: 30      # OCR 结果图片缓存 TTL（秒）
+    max-exam-upload-files: 10        # 试卷上传最大文件数
+    allowed-exam-extensions: pdf,jpg,jpeg,png  # 允许的文件扩展名
+    ws-allowed-origins: "*"          # WebSocket 允许的 Origin 模式
 
 springdoc:
   api-docs:

@@ -72,7 +72,11 @@ export interface QuestionEntry {
   inlineImages: Record<string, string>
   answerImages: Record<string, string>
   assetsLoaded: boolean
+  /** Monotonic counter — incremented every time image assets are loaded or changed.
+   *  Used as LatexPreview renderKey for reliable re-rendering. */
+  assetVersion: number
   // meta
+  createdAt: number
   updatedAt: number
 }
 
@@ -121,6 +125,8 @@ function normalizeEntry(q: QuestionOverviewResponse): QuestionEntry {
     inlineImages: {},
     answerImages: {},
     assetsLoaded: false,
+    assetVersion: 0,
+    createdAt: q.createdAt ? new Date(q.createdAt).getTime() : new Date(q.updatedAt).getTime(),
     updatedAt: new Date(q.updatedAt).getTime()
   }
 }
@@ -143,6 +149,7 @@ function mergeEntry(
       latexText: a.latexText
     })),
     answersLocal: (server.answers ?? []).map((a) => a.latexText),
+    createdAt: server.createdAt ? new Date(server.createdAt).getTime() : existing.createdAt,
     updatedAt: new Date(server.updatedAt).getTime()
   }
 }
@@ -265,6 +272,7 @@ export const useQuestionStore = defineStore('question', () => {
       difficulty: null,
       answerCount: 0,
       answers: [],
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }))
     selectedQuestionUuid.value = uuid
@@ -295,7 +303,12 @@ export const useQuestionStore = defineStore('question', () => {
       entry.stemText = body.stemXml
       entry.stemDraft = body.stemXml
       entry.stemConfirmed = true
-      entry.status = res.status
+      // Preserve READY status — don't downgrade to DRAFT after stem update
+      if (res.status === 'READY' || entry.status === 'READY') {
+        entry.status = 'READY'
+      } else {
+        entry.status = res.status
+      }
     }
     markDirty()
     notif.log(`确认题干 ${uuid.slice(0, 8)}`)
@@ -480,6 +493,7 @@ export const useQuestionStore = defineStore('question', () => {
       entry.inlineImages[a.refKey] = a.imageData
     }
     entry.assetsLoaded = true
+    entry.assetVersion = (entry.assetVersion ?? 0) + 1
   }
 
   // ── Actions — Tags & Difficulty ──
@@ -682,7 +696,8 @@ export const useQuestionStore = defineStore('question', () => {
         stemImageBase64: '',
         inlineImages: {},
         answerImages: {},
-        assetsLoaded: false
+        assetsLoaded: false,
+        assetVersion: 0
       }
     ])
     const data = {
@@ -705,7 +720,21 @@ export const useQuestionStore = defineStore('question', () => {
     try {
       const data = JSON.parse(raw)
       if (data.entries) {
-        entries.value = new Map(data.entries)
+        // Defensive: ensure all entries have required fields
+        const restored = new Map<string, QuestionEntry>(data.entries)
+        for (const [key, entry] of restored) {
+          if (!entry.stemText) entry.stemText = ''
+          if (!entry.stemDraft) entry.stemDraft = ''
+          if (!entry.inlineImages) entry.inlineImages = {}
+          if (!entry.answerImages) entry.answerImages = {}
+          if (!entry.mainTags) entry.mainTags = []
+          if (!entry.secondaryTags) entry.secondaryTags = []
+          if (!entry.answersLocal) entry.answersLocal = []
+          if (!entry.answersServerData) entry.answersServerData = []
+          if (!entry.createdAt) entry.createdAt = entry.updatedAt || 0
+          if (entry.assetVersion == null) entry.assetVersion = 0
+        }
+        entries.value = restored
       }
       if (data.ocrTasks) {
         ocrTasks.value = new Map(data.ocrTasks)

@@ -5,14 +5,14 @@
       class="slider-input"
       type="range"
       min="0"
-      max="100"
-      step="1"
+      max="1"
+      step="0.01"
       :value="diff.pValue.value"
       :disabled="readonly"
       @input="handleInput"
     />
     <span class="slider-value" :class="diff.cssClass.value">
-      {{ diff.pValue.value }}
+      {{ Math.round(diff.pValue.value * 100) }}
     </span>
     <span class="slider-level-label" :class="diff.cssClass.value">
       {{ diff.label.value }}
@@ -30,7 +30,7 @@ const props = withDefaults(
     readonly?: boolean
   }>(),
   {
-    modelValue: 50,
+    modelValue: 0.5,
     readonly: false
   }
 )
@@ -40,7 +40,7 @@ const emit = defineEmits<{
 }>()
 
 const diff = useDifficulty({
-  initialValue: props.modelValue ?? 50,
+  initialValue: props.modelValue ?? 0.5,
   onChange: (val) => emit('update:modelValue', val)
 })
 

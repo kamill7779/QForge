@@ -37,7 +37,7 @@ security:
   jwt:
     # 64+ chars to satisfy HMAC-SHA requirements.
     secret: ${JWT_SECRET:qforge-super-secret-key-please-change-in-production-1234567890}
-    expires-in-seconds: 7200
+    expires-in-seconds: ${JWT_EXPIRES_IN_SECONDS:7200}
 
 springdoc:
   api-docs:

@@ -87,3 +87,13 @@ examparse:
     model: ${EXAMPARSE_AI_MODEL:glm-4-plus}
     temperature: 0.1
     max-tokens: 32768
+
+# OCR 业务参数热配置 — 可在 Nacos 的 ocr-service.yml 中覆盖，无需重启
+qforge:
+  ocr:
+    pdf-render-dpi: 300                # PDF 渲染 DPI
+    llm-empty-retries: 2              # LLM 空内容重试次数
+    ai-default-max-tokens: 65536      # AI 分析默认 max tokens
+    ai-max-stem-chars: 8000           # 题干截断长度
+    ai-max-single-answer-chars: 2000  # 单答案截断长度
+    ai-max-answers: 6                 # 最多参考答案数

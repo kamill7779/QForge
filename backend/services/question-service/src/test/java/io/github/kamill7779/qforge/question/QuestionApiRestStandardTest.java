@@ -70,6 +70,7 @@ class QuestionApiRestStandardTest {
                         BigDecimal.ZERO,
                         0L,
                         List.of(),
+                        LocalDateTime.of(2026, 3, 1, 0, 0, 0),
                         LocalDateTime.of(2026, 3, 1, 0, 30, 0)
                 ),
                 new QuestionOverviewResponse(
@@ -84,6 +85,7 @@ class QuestionApiRestStandardTest {
                         new BigDecimal("2"),
                         1L,
                         List.of(new AnswerOverviewResponse("a-1", "LATEX_TEXT", "$x=1$", 1, false)),
+                        LocalDateTime.of(2026, 3, 1, 0, 0, 0),
                         LocalDateTime.of(2026, 3, 1, 0, 29, 0)
                 )
         ));

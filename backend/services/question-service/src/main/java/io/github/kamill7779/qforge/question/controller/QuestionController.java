@@ -6,6 +6,7 @@ import io.github.kamill7779.qforge.question.dto.CreateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.AiTaskResponse;
 import io.github.kamill7779.qforge.question.dto.ApplyAiRecommendationRequest;
+import io.github.kamill7779.qforge.question.dto.ExportWordRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
@@ -15,9 +16,12 @@ import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
+import io.github.kamill7779.qforge.question.service.ExportService;
 import io.github.kamill7779.qforge.question.service.QuestionCommandService;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,9 +39,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class QuestionController {
 
     private final QuestionCommandService questionCommandService;
+    private final ExportService exportService;
 
-    public QuestionController(QuestionCommandService questionCommandService) {
+    public QuestionController(QuestionCommandService questionCommandService, ExportService exportService) {
         this.questionCommandService = questionCommandService;
+        this.exportService = exportService;
     }
 
     @GetMapping
@@ -53,6 +59,20 @@ public class QuestionController {
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         return ResponseEntity.ok(questionCommandService.listAssets(questionUuid, requestUser));
+    }
+
+    @PostMapping("/export/word")
+    public ResponseEntity<byte[]> exportWord(
+            @RequestBody ExportWordRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        byte[] docx = exportService.exportQuestionsWord(request, requestUser);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE,
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + request.safeTitle() + ".docx\"")
+                .body(docx);
     }
 
     @PostMapping

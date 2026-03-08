@@ -43,6 +43,19 @@ public interface AnswerAssetRepository extends BaseMapper<AnswerAsset> {
         return entity;
     }
 
+    /**
+     * 批量查询多个题目的所有答案图片资产。
+     */
+    default List<AnswerAsset> findByQuestionIds(List<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return List.of();
+        }
+        return this.selectList(
+                Wrappers.<AnswerAsset>lambdaQuery()
+                        .in(AnswerAsset::getQuestionId, questionIds)
+        );
+    }
+
     default void deleteByAnswerId(Long answerId) {
         List<AnswerAsset> assets = findByAnswerId(answerId);
         for (AnswerAsset asset : assets) {

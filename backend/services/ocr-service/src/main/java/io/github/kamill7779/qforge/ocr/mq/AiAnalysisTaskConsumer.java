@@ -11,6 +11,7 @@ import io.github.kamill7779.qforge.common.contract.AiAnalysisResultEvent;
 import io.github.kamill7779.qforge.common.contract.AiAnalysisTaskCreatedEvent;
 import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
 import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
+import io.github.kamill7779.qforge.ocr.config.QForgeOcrProperties;
 import io.github.kamill7779.qforge.ocr.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.ocr.config.ZhipuAiProperties;
 import java.math.BigDecimal;
@@ -47,10 +48,6 @@ public class AiAnalysisTaskConsumer {
             "示例：立体几何综合→0.35, 二次函数求值→0.60, 基础填空→0.75, 竞赛组合→0.10。\n" +
             "reasoning必须是结论句（如\"立体几何综合，空间想象要求高\"），禁止包含解题步骤或答案，禁止使用\"任务一\"\"**标签**\"等标题或Markdown。\n" +
             "注意：##RESULT_START## 和 ##RESULT_END## 是必须输出的定界符，JSON放在两者之间。";
-        private static final int DEFAULT_MAX_TOKENS = 65536;
-        private static final int MAX_STEM_CHARS = 8000;
-        private static final int MAX_SINGLE_ANSWER_CHARS = 2000;
-        private static final int MAX_ANSWERS = 6;
         private static final Pattern DIFFICULTY_PATTERN = Pattern.compile("(?:\\bP\\b|difficulty)\\s*[:=]\\s*([01](?:\\.\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
         private static final Pattern DIFFICULTY_PATTERN_FALLBACK = Pattern.compile("\\bP\\b[^\\d]{0,40}([01](?:\\.\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
         private static final Pattern QUOTED_TAG_PATTERN = Pattern.compile("[\"“](.{1,20}?)[\"”]");
@@ -59,17 +56,20 @@ public class AiAnalysisTaskConsumer {
     private final ZhipuAiProperties zhipuAiProperties;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final QForgeOcrProperties ocrProps;
 
     public AiAnalysisTaskConsumer(
             ZhipuAiClient zhipuAiClient,
             ZhipuAiProperties zhipuAiProperties,
             RabbitTemplate rabbitTemplate,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            QForgeOcrProperties ocrProps
     ) {
         this.zhipuAiClient = zhipuAiClient;
         this.zhipuAiProperties = zhipuAiProperties;
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
+        this.ocrProps = ocrProps;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.AI_ANALYSIS_TASK_QUEUE)
@@ -88,7 +88,7 @@ public class AiAnalysisTaskConsumer {
 
             int outputMaxTokens = zhipuAiProperties.getMaxTokens() != null
                 ? Math.max(256, zhipuAiProperties.getMaxTokens())
-                : DEFAULT_MAX_TOKENS;
+                : ocrProps.getAiDefaultMaxTokens();
             float temperature = zhipuAiProperties.getTemperature() != null
                 ? Math.max(0f, Math.min(1f, zhipuAiProperties.getTemperature()))
                 : 0.2f;
@@ -316,13 +316,13 @@ public class AiAnalysisTaskConsumer {
         String rawStem = event.stemXml() == null ? "" : event.stemXml();
         // Strip <image .../> tags so the AI doesn't hallucinate image-based tags
         String cleanedStem = rawStem.replaceAll("<image[^>]*/?>", "");
-        String stem = truncate(cleanedStem, MAX_STEM_CHARS);
+        String stem = truncate(cleanedStem, ocrProps.getAiMaxStemChars());
         int totalAnswers = event.answerTexts() == null ? 0 : event.answerTexts().size();
         List<String> answers = new ArrayList<>();
         if (event.answerTexts() != null) {
-            int limit = Math.min(MAX_ANSWERS, event.answerTexts().size());
+            int limit = Math.min(ocrProps.getAiMaxAnswers(), event.answerTexts().size());
             for (int i = 0; i < limit; i++) {
-                answers.add(truncate(event.answerTexts().get(i), MAX_SINGLE_ANSWER_CHARS));
+                answers.add(truncate(event.answerTexts().get(i), ocrProps.getAiMaxSingleAnswerChars()));
             }
         }
 

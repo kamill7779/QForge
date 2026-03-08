@@ -420,6 +420,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                             question.getDifficulty(),
                             answerCountMap.getOrDefault(question.getId(), 0L),
                             answersByQuestionId.getOrDefault(question.getId(), List.of()),
+                            question.getCreatedAt(),
                             question.getUpdatedAt()
                     );
                 })

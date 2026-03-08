@@ -24,6 +24,7 @@
         <LatexPreview
           :xml="entry.stemText"
           :image-resolver="imageResolver"
+          :render-key="renderKey"
           compact
           class="qc-stem-preview"
         />
@@ -77,6 +78,8 @@ const props = defineProps<{
   isExpanded?: boolean
   isSelected?: boolean
   imageResolver?: (ref: string) => string
+  /** Bump to force LatexPreview re-render (e.g. after image assets load). */
+  renderKey?: number
 }>()
 
 const emit = defineEmits<{
@@ -231,7 +234,7 @@ const formattedTime = computed(() => {
 }
 
 .qc-stem-preview {
-  max-height: 200px;
+  max-height: 360px;
   overflow: hidden;
   position: relative;
 }

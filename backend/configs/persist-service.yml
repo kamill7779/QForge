@@ -1,0 +1,15 @@
+# ============================================================
+# persist-service.yml — Nacos 配置（Data ID: persist-service.yml）
+# ============================================================
+
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          initial-interval: 2000ms     # 首次重试间隔
+          max-attempts: 3              # 最大重试次数
+          multiplier: 2.0              # 重试间隔乘数
+          max-interval: 10000ms        # 最大重试间隔

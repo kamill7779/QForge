@@ -13,6 +13,7 @@ public record QuestionOverviewResponse(
         BigDecimal difficulty,
         long answerCount,
         List<AnswerOverviewResponse> answers,
+        LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
 }

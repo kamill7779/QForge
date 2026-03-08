@@ -110,6 +110,7 @@ export interface QuestionOverviewResponse {
   difficulty: number | null
   answerCount: number
   answers: AnswerOverviewResponse[]
+  createdAt: string
   updatedAt: string
 }
 

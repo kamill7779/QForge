@@ -1,0 +1,14 @@
+# ============================================================
+# auth-service.yml — Nacos 配置（Data ID: auth-service.yml）
+# ============================================================
+# 在 Nacos 中发布此配置后，auth-service 将自动加载。
+# 注意：JWT secret 变更需要重启服务（@Value 注入）。
+
+security:
+  swagger-public: false          # 是否公开 Swagger UI（生产环境务必 false）
+  jwt:
+    # 64+ 字符的 HMAC-SHA 密钥。
+    # ⚠️ 生产环境必须替换默认值！
+    secret: ${JWT_SECRET:qforge-super-secret-key-please-change-in-production-1234567890}
+    # JWT 过期时间（秒），默认 2 小时
+    expires-in-seconds: ${JWT_EXPIRES_IN_SECONDS:7200}

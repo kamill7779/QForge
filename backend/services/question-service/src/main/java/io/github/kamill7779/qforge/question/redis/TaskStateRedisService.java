@@ -3,6 +3,7 @@ package io.github.kamill7779.qforge.question.redis;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.ExtractedImage;
+import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
@@ -22,7 +23,7 @@ import org.springframework.stereotype.Service;
  *     <li>AI:  key = {@code ai:task:{taskUuid}}</li>
  *     <li>OCR: key = {@code ocr:task:{taskUuid}}</li>
  * </ul>
- * 默认 TTL 30 分钟，到期后自动淘汰（DB 中仍保留持久数据）。
+ * TTL 可通过 Nacos 的 {@code qforge.business.*} 配置热调整。
  */
 @Service
 public class TaskStateRedisService {
@@ -33,16 +34,16 @@ public class TaskStateRedisService {
     private static final String OCR_PREFIX = "ocr:task:";
     private static final String ANSWER_OCR_GUARD_PREFIX = "ocr:answer:guard:";
     private static final String ANSWER_OCR_ASSET_PREFIX = "ocr:answer:assets:";
-    private static final Duration DEFAULT_TTL = Duration.ofMinutes(30);
-    private static final Duration ANSWER_OCR_GUARD_TTL = Duration.ofMinutes(10);
-    private static final Duration ANSWER_OCR_ASSET_TTL = Duration.ofHours(6);
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
+    private final QForgeBusinessProperties bizProps;
 
-    public TaskStateRedisService(StringRedisTemplate redis, ObjectMapper objectMapper) {
+    public TaskStateRedisService(StringRedisTemplate redis, ObjectMapper objectMapper,
+                                  QForgeBusinessProperties bizProps) {
         this.redis = redis;
         this.objectMapper = objectMapper;
+        this.bizProps = bizProps;
     }
 
     // ======================== AI task ========================
@@ -147,7 +148,7 @@ public class TaskStateRedisService {
     public boolean tryAcquireAnswerOcrGuard(String questionUuid, String holder) {
         String key = ANSWER_OCR_GUARD_PREFIX + questionUuid;
         String value = (holder == null || holder.isBlank() ? "unknown" : holder) + ":" + System.currentTimeMillis();
-        Boolean acquired = redis.opsForValue().setIfAbsent(key, value, ANSWER_OCR_GUARD_TTL);
+        Boolean acquired = redis.opsForValue().setIfAbsent(key, value, Duration.ofMinutes(bizProps.getAnswerOcrGuardTtlMinutes()));
         return Boolean.TRUE.equals(acquired);
     }
 
@@ -176,7 +177,7 @@ public class TaskStateRedisService {
             }
         }
         try {
-            redis.opsForValue().set(key, objectMapper.writeValueAsString(merged), ANSWER_OCR_ASSET_TTL);
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(merged), Duration.ofHours(bizProps.getAnswerOcrAssetTtlHours()));
         } catch (JsonProcessingException e) {
             log.warn("Failed to cache answer OCR assets for question {}: {}", questionUuid, e.getMessage());
         }
@@ -232,7 +233,7 @@ public class TaskStateRedisService {
             return;
         }
         try {
-            redis.opsForValue().set(key, objectMapper.writeValueAsString(existing), ANSWER_OCR_ASSET_TTL);
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(existing), Duration.ofHours(bizProps.getAnswerOcrAssetTtlHours()));
         } catch (JsonProcessingException e) {
             log.warn("Failed to update answer OCR assets cache for question {}: {}", questionUuid, e.getMessage());
         }
@@ -254,7 +255,7 @@ public class TaskStateRedisService {
 
     private void set(String key, Map<String, Object> value) {
         try {
-            redis.opsForValue().set(key, objectMapper.writeValueAsString(value), DEFAULT_TTL);
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(value), Duration.ofMinutes(bizProps.getTaskStateTtlMinutes()));
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize Redis value for key={}: {}", key, e.getMessage());
         }
@@ -275,7 +276,7 @@ public class TaskStateRedisService {
         }
         merged.putAll(patch);
         try {
-            redis.opsForValue().set(key, objectMapper.writeValueAsString(merged), DEFAULT_TTL);
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(merged), Duration.ofMinutes(bizProps.getTaskStateTtlMinutes()));
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize merged Redis value for key={}: {}", key, e.getMessage());
         }

@@ -1,5 +1,8 @@
 package io.github.kamill7779.qforge.question.config;
 
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -14,17 +17,50 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "qforge.business")
 public class QForgeBusinessProperties {
 
+    // ── 内联图片限制 ──
+
     /** 每道题最多内联图片张数（默认 10）。 */
     private int maxInlineImages = 10;
 
     /** 每张内联图片二进制字节上限（默认 512 KB = 524288 B）。 */
     private int maxImageBinaryBytes = 524_288;
 
+    // ── AI 文本截断 ──
+
     /** AI 推理文本存入 DB 前的截断长度（默认 1024）。 */
     private int maxReasoningLength = 1024;
 
     /** AI 错误信息存入 DB 前的截断长度（默认 2048）。 */
     private int maxErrorMessageLength = 2048;
+
+    // ── Redis TTL（热状态缓存） ──
+
+    /** AI/OCR 任务热状态 TTL（分钟），默认 30。 */
+    private int taskStateTtlMinutes = 30;
+
+    /** 答案 OCR 防重 TTL（分钟），默认 10。 */
+    private int answerOcrGuardTtlMinutes = 10;
+
+    /** 答案 OCR 资产缓存 TTL（小时），默认 6。 */
+    private int answerOcrAssetTtlHours = 6;
+
+    /** OCR 结果图片缓存 TTL（秒），默认 30。 */
+    private int assetCacheTtlSeconds = 30;
+
+    // ── 试卷上传限制 ──
+
+    /** 试卷上传最大文件数，默认 10。 */
+    private int maxExamUploadFiles = 10;
+
+    /** 允许的文件扩展名（逗号分隔），默认 pdf,jpg,jpeg,png。 */
+    private String allowedExamExtensions = "pdf,jpg,jpeg,png";
+
+    // ── WebSocket ──
+
+    /** WebSocket 允许的 Origin 模式，默认 "*"（生产环境应限制）。 */
+    private String wsAllowedOrigins = "*";
+
+    // ── Getters & Setters ──
 
     public int getMaxInlineImages() {
         return maxInlineImages;
@@ -56,5 +92,71 @@ public class QForgeBusinessProperties {
 
     public void setMaxErrorMessageLength(int maxErrorMessageLength) {
         this.maxErrorMessageLength = maxErrorMessageLength;
+    }
+
+    public int getTaskStateTtlMinutes() {
+        return taskStateTtlMinutes;
+    }
+
+    public void setTaskStateTtlMinutes(int taskStateTtlMinutes) {
+        this.taskStateTtlMinutes = taskStateTtlMinutes;
+    }
+
+    public int getAnswerOcrGuardTtlMinutes() {
+        return answerOcrGuardTtlMinutes;
+    }
+
+    public void setAnswerOcrGuardTtlMinutes(int answerOcrGuardTtlMinutes) {
+        this.answerOcrGuardTtlMinutes = answerOcrGuardTtlMinutes;
+    }
+
+    public int getAnswerOcrAssetTtlHours() {
+        return answerOcrAssetTtlHours;
+    }
+
+    public void setAnswerOcrAssetTtlHours(int answerOcrAssetTtlHours) {
+        this.answerOcrAssetTtlHours = answerOcrAssetTtlHours;
+    }
+
+    public int getAssetCacheTtlSeconds() {
+        return assetCacheTtlSeconds;
+    }
+
+    public void setAssetCacheTtlSeconds(int assetCacheTtlSeconds) {
+        this.assetCacheTtlSeconds = assetCacheTtlSeconds;
+    }
+
+    public int getMaxExamUploadFiles() {
+        return maxExamUploadFiles;
+    }
+
+    public void setMaxExamUploadFiles(int maxExamUploadFiles) {
+        this.maxExamUploadFiles = maxExamUploadFiles;
+    }
+
+    public String getAllowedExamExtensions() {
+        return allowedExamExtensions;
+    }
+
+    public void setAllowedExamExtensions(String allowedExamExtensions) {
+        this.allowedExamExtensions = allowedExamExtensions;
+    }
+
+    /**
+     * 将逗号分隔的扩展名字符串解析为 Set。
+     */
+    public Set<String> getAllowedExamExtensionSet() {
+        return Arrays.stream(allowedExamExtensions.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+    }
+
+    public String getWsAllowedOrigins() {
+        return wsAllowedOrigins;
+    }
+
+    public void setWsAllowedOrigins(String wsAllowedOrigins) {
+        this.wsAllowedOrigins = wsAllowedOrigins;
     }
 }

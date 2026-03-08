@@ -49,6 +49,20 @@
           已选 <strong>{{ selectedSet.size }}</strong> 题
         </span>
       </div>
+
+      <!-- Sort controls -->
+      <div class="sort-section">
+        <div class="sort-row">
+          <label class="sort-label">排序</label>
+          <select v-model="sortField" class="sort-select">
+            <option value="updatedAt">最近修改</option>
+            <option value="createdAt">入库日期</option>
+          </select>
+          <button class="sort-dir-btn" @click="toggleSortDir" :title="sortDir === 'desc' ? '降序（最新在前）' : '升序（最旧在前）'">
+            {{ sortDir === 'desc' ? '↓ 新→旧' : '↑ 旧→新' }}
+          </button>
+        </div>
+      </div>
     </aside>
 
     <!-- ───── Main: Card List ───── -->
@@ -58,14 +72,15 @@
       </div>
 
       <div v-else class="card-list">
-        <template v-for="(entry, idx) in bankList" :key="entry.questionUuid">
+        <template v-for="(entry, idx) in paginatedList" :key="entry.questionUuid">
           <!-- Question Card -->
           <QuestionCard
             :entry="entry"
-            :seq="idx + 1"
+            :seq="(currentPage - 1) * pageSize + idx + 1"
             :is-expanded="expandedUuid === entry.questionUuid"
             :is-selected="selectedSet.has(entry.questionUuid)"
             :image-resolver="(ref) => resolveImage(entry, ref)"
+            :render-key="entry.assetVersion"
             @toggle-detail="toggleDetail(entry.questionUuid)"
             @edit="openEdit(entry.questionUuid)"
             @toggle-select="toggleSelect(entry.questionUuid)"
@@ -222,12 +237,28 @@
           </Transition>
         </template>
       </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--">◀</button>
+        <template v-for="p in paginationRange" :key="p">
+          <button v-if="p === '...'" class="page-btn page-ellipsis" disabled>…</button>
+          <button
+            v-else
+            class="page-btn"
+            :class="{ active: p === currentPage }"
+            @click="currentPage = p as number"
+          >{{ p }}</button>
+        </template>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++">▶</button>
+        <span class="page-info">{{ bankList.length }} 题 · 每页 {{ pageSize }}</span>
+      </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import StemEditor from '@/components/StemEditor.vue'
 import LatexPreview from '@/components/LatexPreview.vue'
@@ -259,6 +290,15 @@ const search = ref('')
 const gradeFilter = ref('')
 const knowledgeFilter = ref('')
 const difficultyFilter = ref('')
+const sortField = ref<'updatedAt' | 'createdAt'>('updatedAt')
+const sortDir = ref<'asc' | 'desc'>('desc')
+const pageSize = ref(20)
+const currentPage = ref(1)
+
+function toggleSortDir() {
+  sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
+  currentPage.value = 1
+}
 
 const gradeOptions = computed(() => {
   const cat = tagStore.mainCategories.find((c) => c.categoryCode === 'MAIN_GRADE')
@@ -271,12 +311,12 @@ const knowledgeOptions = computed(() => {
 })
 
 const bankList = computed(() => {
-  return questionStore.sortedEntries.filter((entry) => {
+  const filtered = questionStore.sortedEntries.filter((entry) => {
     if (stageOf(entry) !== 'COMPLETED') return false
 
     if (search.value) {
       const q = search.value.toLowerCase()
-      const inStem = entry.stemText.toLowerCase().includes(q)
+      const inStem = (entry.stemText || '').toLowerCase().includes(q)
       const inTags = entry.secondaryTags.some((t) => t.toLowerCase().includes(q))
       if (!inStem && !inTags) return false
     }
@@ -300,7 +340,60 @@ const bankList = computed(() => {
 
     return true
   })
+
+  // Apply custom sort
+  const field = sortField.value
+  const dir = sortDir.value === 'desc' ? -1 : 1
+  return filtered.sort((a, b) => dir * ((a[field] || 0) - (b[field] || 0)))
 })
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(bankList.value.length / pageSize.value))
+)
+
+/** Generate page numbers with ellipsis for large ranges. */
+const paginationRange = computed((): (number | '...')[] => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | '...')[] = [1]
+  if (cur > 3) pages.push('...')
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) {
+    pages.push(i)
+  }
+  if (cur < total - 2) pages.push('...')
+  pages.push(total)
+  return pages
+})
+
+const paginatedList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return bankList.value.slice(start, start + pageSize.value)
+})
+
+// Reset page when filters change
+function resetPage() { currentPage.value = 1 }
+
+watch([search, gradeFilter, knowledgeFilter, difficultyFilter, sortField], resetPage)
+
+// ── Pre-fetch image assets for visible cards ──
+// When the paginated list changes (page nav, filter, new data), kick off
+// asset loading for any entries whose images haven't been fetched yet.
+// This ensures QuestionCard can resolve inline images before the user expands.
+watch(
+  paginatedList,
+  (entries) => {
+    if (!auth.token) return
+    for (const entry of entries) {
+      if (!entry.assetsLoaded && entry.stemText.includes('<image')) {
+        questionStore.fetchAssets(auth.token, entry.questionUuid).catch(() => {
+          // Non-critical: assets will load on expand
+        })
+      }
+    }
+  },
+  { immediate: true }
+)
 
 // ══════════════════════════════════════════════
 // Selection (for future exam compose)
@@ -356,28 +449,48 @@ function openEdit(uuid: string) {
 // Image Resolvers
 // ══════════════════════════════════════════════
 
-function resolveImage(entry: QuestionEntry, refKey: string): string {
-  const data = entry.inlineImages[refKey]
+/**
+ * Resolve image ref key → data URL.
+ * Tries exact match first, then fallback formats (fig-N ↔ img-N)
+ * because the LLM sometimes outputs different ref prefixes than the asset pipeline.
+ */
+function resolveImageData(images: Record<string, string>, refKey: string): string {
+  let data = images[refKey]
+  if (!data) {
+    // Fallback: fig-N ↔ img-N
+    if (refKey.startsWith('fig-')) {
+      data = images['img-' + refKey.slice(4)]
+    } else if (refKey.startsWith('img-')) {
+      data = images['fig-' + refKey.slice(4)]
+    }
+  }
+  if (!data) {
+    // Fallback: strip page prefix (fig-0-3 → fig-3, img-0-3 → img-3)
+    const m = refKey.match(/^(fig|img)-\d+-(\d+)$/)
+    if (m) {
+      data = images[`${m[1]}-${m[2]}`] || images[`${m[1] === 'fig' ? 'img' : 'fig'}-${m[2]}`]
+    }
+  }
   if (!data) return ''
   return data.startsWith('data:') ? data : `data:image/png;base64,${data}`
 }
 
+function resolveImage(entry: QuestionEntry, refKey: string): string {
+  return resolveImageData(entry.inlineImages, refKey)
+}
+
 function resolveAnswerImage(entry: QuestionEntry, refKey: string): string {
-  const data = entry.answerImages[refKey] ?? entry.inlineImages[refKey]
-  if (!data) return ''
-  return data.startsWith('data:') ? data : `data:image/png;base64,${data}`
+  return resolveImageData(entry.answerImages, refKey)
+    || resolveImageData(entry.inlineImages, refKey)
 }
 
 const bankStemImageVersion = computed(() => {
   const entry = questionStore.bankSelectedEntry
-  return Object.keys(entry?.inlineImages ?? {}).length
+  return entry?.assetVersion ?? 0
 })
 const bankAnswerImageVersion = computed(() => {
   const entry = questionStore.bankSelectedEntry
-  return (
-    Object.keys(entry?.answerImages ?? {}).length +
-    Object.keys(entry?.inlineImages ?? {}).length
-  )
+  return entry?.assetVersion ?? 0
 })
 
 // ══════════════════════════════════════════════
@@ -425,6 +538,7 @@ async function saveStemEdit() {
     stemEditing.value = false
     notif.log(`更新题干 ${entry.questionUuid.slice(0, 8)}`)
   } catch (e: any) {
+    stemEditing.value = false
     notif.log(`更新题干失败: ${e?.message || e}`)
   }
 }
@@ -700,6 +814,64 @@ async function bankApplyAi() {
   font-weight: 500;
 }
 
+/* ── Sort Controls ── */
+
+.sort-section {
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.sort-select {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.sort-select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-muted);
+}
+
+.sort-dir-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.sort-dir-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+
 /* ══════════════════════════════════════
    Main — Card List
    ══════════════════════════════════════ */
@@ -858,4 +1030,60 @@ async function bankApplyAi() {
 .btn-sm:hover { border-color: var(--color-accent); color: var(--color-accent); }
 .btn-sm.danger { color: var(--color-danger); border-color: var(--color-danger-bg); background: var(--color-danger-bg); }
 .btn-sm.danger:hover { background: #fde3e3; }
+
+/* ══════════════════════════════════════
+   Pagination
+   ══════════════════════════════════════ */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 0;
+  margin-top: 8px;
+}
+
+.page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-muted);
+}
+
+.page-btn.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-ellipsis {
+  border: none;
+  background: transparent;
+}
+
+.page-info {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
 </style>

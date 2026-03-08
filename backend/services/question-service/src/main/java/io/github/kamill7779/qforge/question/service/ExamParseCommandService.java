@@ -1,6 +1,7 @@
 package io.github.kamill7779.qforge.question.service;
 
 import io.github.kamill7779.qforge.common.contract.ExamParseTaskCreatedEvent;
+import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.entity.ExamParseQuestion;
 import io.github.kamill7779.qforge.question.entity.ExamParseSourceFile;
@@ -31,23 +32,22 @@ public class ExamParseCommandService {
 
     private static final Logger log = LoggerFactory.getLogger(ExamParseCommandService.class);
 
-    private static final int MAX_FILES = 10;
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
-            "pdf", "jpg", "jpeg", "png");
-
     private final ExamParseTaskRepository taskRepository;
     private final ExamParseSourceFileRepository sourceFileRepository;
     private final ExamParseQuestionRepository questionRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final QForgeBusinessProperties bizProps;
 
     public ExamParseCommandService(ExamParseTaskRepository taskRepository,
                                     ExamParseSourceFileRepository sourceFileRepository,
                                     ExamParseQuestionRepository questionRepository,
-                                    RabbitTemplate rabbitTemplate) {
+                                    RabbitTemplate rabbitTemplate,
+                                    QForgeBusinessProperties bizProps) {
         this.taskRepository = taskRepository;
         this.sourceFileRepository = sourceFileRepository;
         this.questionRepository = questionRepository;
         this.rabbitTemplate = rabbitTemplate;
+        this.bizProps = bizProps;
     }
 
     /**
@@ -59,8 +59,9 @@ public class ExamParseCommandService {
         if (files == null || files.length == 0) {
             throw new IllegalArgumentException("至少上传 1 个文件");
         }
-        if (files.length > MAX_FILES) {
-            throw new IllegalArgumentException("最多上传 " + MAX_FILES + " 个文件");
+        int maxFiles = bizProps.getMaxExamUploadFiles();
+        if (files.length > maxFiles) {
+            throw new IllegalArgumentException("最多上传 " + maxFiles + " 个文件");
         }
 
         String taskUuid = UUID.randomUUID().toString();
@@ -85,9 +86,10 @@ public class ExamParseCommandService {
             String originalName = file.getOriginalFilename();
             String ext = extractExtension(originalName);
 
-            if (!ALLOWED_EXTENSIONS.contains(ext.toLowerCase())) {
+            Set<String> allowedExtensions = bizProps.getAllowedExamExtensionSet();
+            if (!allowedExtensions.contains(ext.toLowerCase())) {
                 throw new IllegalArgumentException("不支持的文件类型: " + ext
-                        + " (允许: " + ALLOWED_EXTENSIONS + ")");
+                        + " (允许: " + allowedExtensions + ")");
             }
 
             String fileType = "pdf".equalsIgnoreCase(ext) ? "PDF" : "IMAGE";

@@ -105,6 +105,17 @@ onBeforeUnmount(() => {
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
+.latex-preview :deep(.image-placeholder) {
+  display: inline-block;
+  background: var(--color-background-soft);
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
 .latex-preview :deep(.choices-container) {
   margin: 10px 0 10px 4px;
   display: flex;

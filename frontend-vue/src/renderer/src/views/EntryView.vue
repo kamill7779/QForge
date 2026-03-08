@@ -292,12 +292,9 @@ const selected = computed(() => questionStore.selectedEntry)
 const currentStage = computed(() => (selected.value ? stageOf(selected.value) : null))
 
 // Lightweight image-version signals — bump when image data availability changes.
-// Used as LatexPreview :render-key to trigger re-render without deep reactive tracking.
-const stemImageVersion = computed(() => Object.keys(selected.value?.inlineImages ?? {}).length)
-const answerImageVersion = computed(() =>
-  Object.keys(selected.value?.answerImages ?? {}).length +
-  Object.keys(selected.value?.inlineImages ?? {}).length
-)
+// Uses explicit assetVersion counter from store for reliable reactive rendering.
+const stemImageVersion = computed(() => selected.value?.assetVersion ?? 0)
+const answerImageVersion = computed(() => selected.value?.assetVersion ?? 0)
 
 const stages: Array<{ key: QuestionStage; label: string }> = [
   { key: 'PENDING_STEM', label: '待题干' },
@@ -362,20 +359,34 @@ function onDeleteClick() {
 
 // ── Image Resolvers ──
 
+/**
+ * Resolve image ref key → data URL with fallback for different ref prefixes.
+ * Handles fig-N ↔ img-N and fig-P-N → fig-N format mismatches.
+ */
+function resolveFromMap(images: Record<string, string>, refKey: string): string {
+  let data = images[refKey]
+  if (!data) {
+    if (refKey.startsWith('fig-')) data = images['img-' + refKey.slice(4)]
+    else if (refKey.startsWith('img-')) data = images['fig-' + refKey.slice(4)]
+  }
+  if (!data) {
+    const m = refKey.match(/^(fig|img)-\d+-(\d+)$/)
+    if (m) data = images[`${m[1]}-${m[2]}`] || images[`${m[1] === 'fig' ? 'img' : 'fig'}-${m[2]}`]
+  }
+  if (!data) return ''
+  return data.startsWith('data:') ? data : `data:image/png;base64,${data}`
+}
+
 function resolveStemImage(refKey: string): string {
   const entry = selected.value
   if (!entry) return ''
-  const data = entry.inlineImages[refKey]
-  if (!data) return ''
-  return data.startsWith('data:') ? data : `data:image/png;base64,${data}`
+  return resolveFromMap(entry.inlineImages, refKey)
 }
 
 function resolveAnswerImage(refKey: string): string {
   const entry = selected.value
   if (!entry) return ''
-  const data = entry.answerImages[refKey] ?? entry.inlineImages[refKey]
-  if (!data) return ''
-  return data.startsWith('data:') ? data : `data:image/png;base64,${data}`
+  return resolveFromMap(entry.answerImages, refKey) || resolveFromMap(entry.inlineImages, refKey)
 }
 
 // ── Create / Delete ──

@@ -28,6 +28,17 @@ public interface QuestionRepository extends BaseMapper<Question> {
         );
     }
 
+    default List<Question> findByQuestionUuidsAndOwnerUser(List<String> questionUuids, String ownerUser) {
+        if (questionUuids == null || questionUuids.isEmpty()) {
+            return List.of();
+        }
+        return this.selectList(
+                Wrappers.<Question>lambdaQuery()
+                        .in(Question::getQuestionUuid, questionUuids)
+                        .eq(Question::getOwnerUser, ownerUser)
+        );
+    }
+
     default Question save(Question entity) {
         if (entity.getId() == null) {
             this.insert(entity);

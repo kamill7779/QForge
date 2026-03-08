@@ -94,11 +94,15 @@ function processNode(
         img.className = 'stem-image'
         img.src = imageDataUrl(src)
         img.alt = ref
+        img.loading = 'lazy'
         parentEl.appendChild(img)
       } else {
+        // Render a compact placeholder — will be replaced on next re-render
+        // when assets finish loading and renderKey bumps.
         const span = document.createElement('span')
-        span.className = 'empty-note'
-        span.textContent = `⚠ 图片未识别: ${ref}`
+        span.className = 'image-placeholder'
+        span.title = `图片加载中或未识别: ${ref}`
+        span.textContent = `[图 ${ref}]`
         parentEl.appendChild(span)
       }
       break

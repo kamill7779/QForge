@@ -291,7 +291,6 @@ services:
     environment:
       NACOS_SERVER_ADDR: nacos:8848
       SERVICE_PORT: 8092
-      QUESTION_SERVICE_URL: http://question-service:8089
     depends_on:
       nacos:
         condition: service_started

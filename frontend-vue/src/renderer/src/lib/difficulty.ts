@@ -4,8 +4,9 @@
  * Resolves the inconsistency between renderer.js (5-level) and exam-parse-runtime (3-level)
  * by establishing a single source of truth for P-value → difficulty mapping.
  *
- * P-value is on a 0–100 scale (percentage). Thresholds:
- *   ≥70: easy, ≥50: medium-easy, ≥30: medium, ≥15: hard, <15: very-hard
+ * P-value is on a 0–1 scale (decimal). Lower value = harder.
+ * Thresholds:
+ *   ≥0.70: easy, ≥0.50: medium-easy, ≥0.30: medium, ≥0.15: hard, <0.15: very-hard
  */
 
 export interface DifficultyLevel {
@@ -22,13 +23,12 @@ const LEVELS: DifficultyLevel[] = [
   { key: 'very-hard', label: '极难', cssClass: 'd-very-hard' }
 ]
 
-/** Map a P-value (0–100) to its difficulty level. */
+/** Map a P-value (0–1) to its difficulty level. */
 export function difficultyLevel(pValue: number): DifficultyLevel {
-  const p = pValue / 100
-  if (p >= 0.7) return LEVELS[0]
-  if (p >= 0.5) return LEVELS[1]
-  if (p >= 0.3) return LEVELS[2]
-  if (p >= 0.15) return LEVELS[3]
+  if (pValue >= 0.7) return LEVELS[0]
+  if (pValue >= 0.5) return LEVELS[1]
+  if (pValue >= 0.3) return LEVELS[2]
+  if (pValue >= 0.15) return LEVELS[3]
   return LEVELS[4]
 }
 

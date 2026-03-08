@@ -6,6 +6,7 @@ import io.github.kamill7779.qforge.common.contract.DbPersistConstants;
 import io.github.kamill7779.qforge.common.contract.DbWriteBackEvent;
 import io.github.kamill7779.qforge.common.contract.ExtractedImage;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
+import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import io.github.kamill7779.qforge.question.config.RabbitTopologyConfig;
 import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
 import io.github.kamill7779.qforge.question.entity.Question;
@@ -33,8 +34,6 @@ public class OcrResultConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(OcrResultConsumer.class);
 
-    /** Redis 图片缓存 TTL（30 秒） */
-    private static final Duration ASSET_CACHE_TTL = Duration.ofSeconds(30);
     private static final String ASSET_CACHE_PREFIX = "question:assets:";
 
     private final OcrWsPushService ocrWsPushService;
@@ -44,6 +43,7 @@ public class OcrResultConsumer {
     private final QuestionAssetRepository questionAssetRepository;
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
+    private final QForgeBusinessProperties bizProps;
 
     public OcrResultConsumer(
             OcrWsPushService ocrWsPushService,
@@ -52,7 +52,8 @@ public class OcrResultConsumer {
             QuestionRepository questionRepository,
             QuestionAssetRepository questionAssetRepository,
             StringRedisTemplate redis,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            QForgeBusinessProperties bizProps
     ) {
         this.ocrWsPushService = ocrWsPushService;
         this.taskStateRedisService = taskStateRedisService;
@@ -61,6 +62,7 @@ public class OcrResultConsumer {
         this.questionAssetRepository = questionAssetRepository;
         this.redis = redis;
         this.objectMapper = objectMapper;
+        this.bizProps = bizProps;
     }
 
     @RabbitListener(queues = RabbitTopologyConfig.OCR_RESULT_QUESTION_QUEUE)
@@ -231,14 +233,15 @@ public class OcrResultConsumer {
             }
         }
 
-        // Redis 缓存（30s TTL）—— 供前端 GET /assets 快速读取
+        // Redis 缓存 —— 供前端 GET /assets 快速读取
         if (!cachedAssets.isEmpty()) {
             try {
                 String cacheKey = ASSET_CACHE_PREFIX + event.bizId();
                 String cacheValue = objectMapper.writeValueAsString(cachedAssets);
-                redis.opsForValue().set(cacheKey, cacheValue, ASSET_CACHE_TTL);
+                Duration assetTtl = Duration.ofSeconds(bizProps.getAssetCacheTtlSeconds());
+                redis.opsForValue().set(cacheKey, cacheValue, assetTtl);
                 log.info("Cached {} image assets in Redis for question {} (TTL={}s)",
-                        cachedAssets.size(), event.bizId(), ASSET_CACHE_TTL.getSeconds());
+                        cachedAssets.size(), event.bizId(), assetTtl.getSeconds());
             } catch (Exception ex) {
                 log.warn("Failed to cache image assets in Redis for question {}: {}",
                         event.bizId(), ex.getMessage());

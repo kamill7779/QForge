@@ -6,6 +6,7 @@ import ai.z.openapi.service.model.ChatCompletionResponse;
 import ai.z.openapi.service.model.ChatMessage;
 import ai.z.openapi.service.model.ChatMessageRole;
 import io.github.kamill7779.qforge.ocr.config.ExamParseAiProperties;
+import io.github.kamill7779.qforge.ocr.config.QForgeOcrProperties;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Component;
 public class ExamSplitLlmClient {
 
     private static final Logger log = LoggerFactory.getLogger(ExamSplitLlmClient.class);
-    private static final int MAX_RETRIES = 2;
 
     private static final String SYSTEM_PROMPT = String.join("\n",
             "你是一名专业的中国高中数学试卷解析助手。",
@@ -82,10 +82,13 @@ public class ExamSplitLlmClient {
 
     private final ZhipuAiClient zhipuAiClient;
     private final ExamParseAiProperties properties;
+    private final QForgeOcrProperties ocrProps;
 
-    public ExamSplitLlmClient(ZhipuAiClient zhipuAiClient, ExamParseAiProperties properties) {
+    public ExamSplitLlmClient(ZhipuAiClient zhipuAiClient, ExamParseAiProperties properties,
+                                QForgeOcrProperties ocrProps) {
         this.zhipuAiClient = zhipuAiClient;
         this.properties = properties;
+        this.ocrProps = ocrProps;
     }
 
     /**
@@ -105,20 +108,21 @@ public class ExamSplitLlmClient {
                 + "\n以下是试卷的 OCR 文本，请按照系统指令格式进行解析：\n\n"
                 + aggregatedOcrText;
 
+        int maxRetries = ocrProps.getLlmEmptyRetries();
         log.info("Calling GLM-Z-Plus for exam splitting (model={}, userPrompt_len={}, hasAnswerHint={})",
                 properties.getModel(), userPrompt.length(), hasAnswerHint);
 
-        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
             String result = doSplit(userPrompt);
             if (result != null && !result.isBlank()) {
                 log.info("Exam split LLM returned (len={}, attempt={})", result.length(), attempt);
                 return result;
             }
-            log.warn("GLM returned empty content for exam split (attempt={}/{})", attempt, MAX_RETRIES);
+            log.warn("GLM returned empty content for exam split (attempt={}/{})", attempt, maxRetries);
         }
 
         throw new RuntimeException("GLM exam split returned empty content after "
-                + MAX_RETRIES + " attempts (model=" + properties.getModel() + ")");
+                + maxRetries + " attempts (model=" + properties.getModel() + ")");
     }
 
     private String doSplit(String userPrompt) {

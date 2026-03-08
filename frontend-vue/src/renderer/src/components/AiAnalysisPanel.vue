@@ -98,7 +98,7 @@ const tagStore = useTagStore()
 const diffLevel = computed(() => {
   const d = props.result?.suggestedDifficulty
   if (d === null || d === undefined) return { label: '', cssClass: '' }
-  return difficultyLevel(Math.round(d * 100))
+  return difficultyLevel(d)
 })
 </script>
 

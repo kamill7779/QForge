@@ -499,7 +499,23 @@ async function confirmAllAction() {
 
 async function deleteTaskAction() {
   if (!confirm('确定删除该任务及所有解析结果？')) return
-  await epStore.deleteTask(auth.token, epStore.activeTaskUuid)
+  try {
+    await epStore.deleteTask(auth.token, epStore.activeTaskUuid)
+  } catch (err: any) {
+    // API failed — offer to remove from local state anyway
+    const msg = err?.message || err
+    notif.log(`删除任务失败: ${msg}`)
+    if (confirm(`服务端删除失败（${msg}），是否从本地列表中移除？`)) {
+      const uuid = epStore.activeTaskUuid
+      epStore.tasks.delete(uuid)
+      epStore.questions.delete(uuid)
+      if (epStore.activeTaskUuid === uuid) {
+        epStore.activeTaskUuid = ''
+        epStore.activeSeqNo = 0
+      }
+      epStore.epLog(`本地移除任务 ${uuid.slice(0, 8)}`)
+    }
+  }
 }
 
 async function confirmSingleAction() {
@@ -602,9 +618,28 @@ function resolveEpImage(refKey: string): string {
   const q = epStore.activeQuestion
   if (!q) return ''
   const stemImages = buildImageMap(q.stemImagesJson ?? null)
-  if (stemImages[refKey]) return stemImages[refKey]
   const ansImages = buildImageMap(q.answerImagesJson ?? null)
+  // Direct match
+  if (stemImages[refKey]) return stemImages[refKey]
   if (ansImages[refKey]) return ansImages[refKey]
+  // Fallback: fig-N ↔ img-N prefix swap
+  let alt = ''
+  if (refKey.startsWith('fig-')) alt = 'img-' + refKey.slice(4)
+  else if (refKey.startsWith('img-')) alt = 'fig-' + refKey.slice(4)
+  if (alt) {
+    if (stemImages[alt]) return stemImages[alt]
+    if (ansImages[alt]) return ansImages[alt]
+  }
+  // Fallback: strip page prefix (fig-0-3 → fig-3)
+  const m = refKey.match(/^(fig|img)-\d+-(\d+)$/)
+  if (m) {
+    const short1 = `${m[1]}-${m[2]}`
+    const short2 = `${m[1] === 'fig' ? 'img' : 'fig'}-${m[2]}`
+    if (stemImages[short1]) return stemImages[short1]
+    if (ansImages[short1]) return ansImages[short1]
+    if (stemImages[short2]) return stemImages[short2]
+    if (ansImages[short2]) return ansImages[short2]
+  }
   return ''
 }
 
@@ -629,7 +664,20 @@ function onKeyDown(ev: KeyboardEvent) {
   }
 }
 
-onMounted(() => document.addEventListener('keydown', onKeyDown))
+onMounted(async () => {
+  document.addEventListener('keydown', onKeyDown)
+
+  // Auto-refresh task list from backend on first mount
+  try {
+    await epStore.refreshTaskList(auth.token)
+    // If there's an active task from localStorage, also reload its questions
+    if (epStore.activeTaskUuid) {
+      await epStore.refreshQuestions(auth.token, epStore.activeTaskUuid)
+    }
+  } catch {
+    // Non-critical: localStorage data will be shown instead
+  }
+})
 onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown))
 
 // ── Helpers ──

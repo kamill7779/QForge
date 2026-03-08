@@ -8,7 +8,7 @@ import { ref, computed, watch, type Ref } from 'vue'
 import { difficultyLevel, type DifficultyLevel } from '@/lib/difficulty'
 
 export interface UseDifficultyOptions {
-  /** Initial P-value (0-100). */
+  /** Initial P-value (0-1). */
   initialValue?: number
   /** Called when the value changes. */
   onChange?: (value: number) => void
@@ -16,10 +16,10 @@ export interface UseDifficultyOptions {
 
 /**
  * Composable for reactive difficulty management.
- * Provides a ref for the P-value and computed level/label/cssClass.
+ * Provides a ref for the P-value (0-1) and computed level/label/cssClass.
  */
 export function useDifficulty(options: UseDifficultyOptions = {}) {
-  const pValue = ref(options.initialValue ?? 50)
+  const pValue = ref(options.initialValue ?? 0.5)
   const level = computed<DifficultyLevel>(() => difficultyLevel(pValue.value))
   const label = computed(() => level.value.label)
   const cssClass = computed(() => level.value.cssClass)
@@ -28,9 +28,9 @@ export function useDifficulty(options: UseDifficultyOptions = {}) {
     options.onChange?.(val)
   })
 
-  /** Set the P-value directly. */
+  /** Set the P-value directly (0-1). */
   function setValue(val: number): void {
-    pValue.value = Math.max(0, Math.min(100, Math.round(val)))
+    pValue.value = Math.max(0, Math.min(1, Math.round(val * 100) / 100))
   }
 
   return { pValue, level, label, cssClass, setValue }

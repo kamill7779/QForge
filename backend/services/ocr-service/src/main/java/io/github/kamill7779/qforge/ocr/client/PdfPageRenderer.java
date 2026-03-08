@@ -1,5 +1,6 @@
 package io.github.kamill7779.qforge.ocr.client;
 
+import io.github.kamill7779.qforge.ocr.config.QForgeOcrProperties;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -23,7 +24,8 @@ import org.springframework.stereotype.Component;
 public class PdfPageRenderer {
 
     private static final Logger log = LoggerFactory.getLogger(PdfPageRenderer.class);
-    private static final int RENDER_DPI = 300;
+
+    private final QForgeOcrProperties ocrProps;
 
     /**
      * 单页渲染结果。
@@ -33,6 +35,10 @@ public class PdfPageRenderer {
             String imageBase64,
             String mimeType
     ) {
+    }
+
+    public PdfPageRenderer(QForgeOcrProperties ocrProps) {
+        this.ocrProps = ocrProps;
     }
 
     /**
@@ -47,15 +53,16 @@ public class PdfPageRenderer {
         }
 
         byte[] pdfBytes = Base64.getDecoder().decode(stripDataUrlPrefix(pdfBase64));
+        int dpi = ocrProps.getPdfRenderDpi();
         try (PDDocument doc = Loader.loadPDF(pdfBytes)) {
             int pageCount = doc.getNumberOfPages();
-            log.info("PDF loaded: {} pages, rendering at {} DPI", pageCount, RENDER_DPI);
+            log.info("PDF loaded: {} pages, rendering at {} DPI", pageCount, dpi);
 
             PDFRenderer renderer = new PDFRenderer(doc);
             List<PageImage> pages = new ArrayList<>(pageCount);
 
             for (int i = 0; i < pageCount; i++) {
-                BufferedImage img = renderer.renderImageWithDPI(i, RENDER_DPI, ImageType.RGB);
+                BufferedImage img = renderer.renderImageWithDPI(i, dpi, ImageType.RGB);
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 ImageIO.write(img, "png", baos);
                 String base64 = Base64.getEncoder().encodeToString(baos.toByteArray());

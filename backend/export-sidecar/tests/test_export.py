@@ -525,15 +525,44 @@ class TestEndpoints:
         assert data["service"] == "export-sidecar"
         assert "standalone_mode" not in data
 
-    def test_export_questions_empty_body(self):
-        """空 UUID 列表且无 sections 应报错。"""
+    def test_internal_export_empty_questions(self):
+        """空 questions 列表应报 400。"""
         client = self._client()
         resp = client.post(
-            "/api/export/questions/word",
-            json={"questionUuids": []},
+            "/internal/export/questions/word",
+            json={"questions": []},
         )
-        # 400 from our validation (both empty)
         assert resp.status_code == 400
+
+    def test_internal_export_with_full_data(self):
+        """传入完整题目数据应成功生成 Word。"""
+        client = self._client()
+        resp = client.post(
+            "/internal/export/questions/word",
+            json={
+                "questions": [{
+                    "questionUuid": "test-uuid-001",
+                    "stemText": "<stem><p>已知函数 $f(x) = x^2$</p></stem>",
+                    "difficulty": 0.5,
+                    "answers": [{
+                        "answerUuid": "ans-001",
+                        "latexText": "<answer>$f(x) = x^2$</answer>",
+                        "sortOrder": 1,
+                        "assets": []
+                    }],
+                    "stemAssets": [],
+                    "mainTags": [],
+                    "secondaryTags": []
+                }],
+                "title": "测试导出",
+                "includeAnswers": True,
+                "answerPosition": "AFTER_ALL"
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
 
 
 # ══════════════════════════════════════════════════

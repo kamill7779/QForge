@@ -1,0 +1,14 @@
+# ============================================================
+# gateway-service.yml — Nacos 配置（Data ID: gateway-service.yml）
+# ============================================================
+
+spring:
+  http:
+    codec:
+      # WebFlux 请求体内存上限（大文件上传场景）
+      max-in-memory-size: ${GATEWAY_MAX_MEMORY_SIZE:100MB}
+
+security:
+  swagger-public: false          # 是否公开 Swagger UI（生产环境务必 false）
+  jwt:
+    secret: ${JWT_SECRET:qforge-super-secret-key-please-change-in-production-1234567890}
