@@ -10,6 +10,7 @@ import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
+import io.github.kamill7779.qforge.question.dto.UpdateSourceRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
 import io.github.kamill7779.qforge.question.dto.AiTaskAcceptedResponse;
@@ -52,6 +53,12 @@ public interface QuestionCommandService {
 
     /** Updates the difficulty P-value for a question. */
     QuestionStatusResponse updateDifficulty(String questionUuid, UpdateDifficultyRequest request, String requestUser);
+
+    /** Updates the source label for a question. */
+    QuestionStatusResponse updateSource(String questionUuid, UpdateSourceRequest request, String requestUser);
+
+    /** Returns distinct source labels owned by the user (for autocomplete). */
+    List<String> listDistinctSources(String requestUser);
 
     /** Triggers async AI analysis for tags + difficulty. */
     AiTaskAcceptedResponse requestAiAnalysis(String questionUuid, String requestUser);

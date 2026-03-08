@@ -18,6 +18,7 @@ import type {
   QuestionAssetResponse,
   UpdateTagsRequest,
   UpdateDifficultyRequest,
+  UpdateSourceRequest,
   AiTaskAcceptedResponse,
   AiTaskResponse,
   ApplyAiRecommendationRequest
@@ -97,6 +98,19 @@ export const questionApi = {
       token,
       body
     ),
+
+  /** Update source. */
+  updateSource: (token: string, uuid: string, body: UpdateSourceRequest) =>
+    apiRequest<QuestionStatusResponse>(
+      `/api/questions/${uuid}/source`,
+      'PUT',
+      token,
+      body
+    ),
+
+  /** List distinct sources for current user. */
+  listSources: (token: string) =>
+    apiRequest<string[]>('/api/questions/sources', 'GET', token),
 
   /** Trigger AI analysis. */
   aiAnalysis: (token: string, uuid: string) =>

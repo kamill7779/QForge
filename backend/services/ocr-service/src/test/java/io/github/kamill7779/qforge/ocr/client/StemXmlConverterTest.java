@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import ai.z.openapi.ZhipuAiClient;
 import ai.z.openapi.service.model.ChatCompletionCreateParams;
 import ai.z.openapi.service.model.ChatCompletionResponse;
+import io.github.kamill7779.qforge.ocr.config.QForgeOcrProperties;
 import io.github.kamill7779.qforge.ocr.config.StemXmlProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ class StemXmlConverterTest {
 
     private ZhipuAiClient zhipuAiClient;
     private StemXmlProperties properties;
+    private QForgeOcrProperties ocrProperties;
     private StemXmlConverter converter;
 
     @BeforeEach
@@ -30,7 +32,9 @@ class StemXmlConverterTest {
         properties.setTemperature(0.1f);
         properties.setMaxTokens(65536);
 
-        converter = new StemXmlConverter(zhipuAiClient, properties);
+        ocrProperties = new QForgeOcrProperties();
+
+        converter = new StemXmlConverter(zhipuAiClient, properties, ocrProperties);
     }
 
     @Test

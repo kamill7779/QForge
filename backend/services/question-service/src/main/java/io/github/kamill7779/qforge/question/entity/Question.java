@@ -32,6 +32,8 @@ public class Question {
 
     private BigDecimal difficulty;
 
+    private String source;
+
     @TableLogic
     private Boolean deleted;
 
@@ -103,6 +105,14 @@ public class Question {
 
     public void setDifficulty(BigDecimal difficulty) {
         this.difficulty = difficulty;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
     }
 
     public Boolean getDeleted() {

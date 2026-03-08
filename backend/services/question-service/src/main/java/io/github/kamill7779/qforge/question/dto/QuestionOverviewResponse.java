@@ -11,6 +11,7 @@ public record QuestionOverviewResponse(
         List<QuestionMainTagResponse> mainTags,
         List<String> secondaryTags,
         BigDecimal difficulty,
+        String source,
         long answerCount,
         List<AnswerOverviewResponse> answers,
         LocalDateTime createdAt,

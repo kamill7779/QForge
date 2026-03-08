@@ -12,6 +12,7 @@ import type {
   QuestionAssetResponse,
   UpdateTagsRequest,
   UpdateDifficultyRequest,
+  UpdateSourceRequest,
   AiTaskResponse,
   ApplyAiRecommendationRequest,
   AddAnswerResponse,
@@ -64,5 +65,11 @@ export const questionApi = {
   },
   applyAi(token: string, uuid: string, req: ApplyAiRecommendationRequest) {
     return apiRequest<void>('POST', `/api/questions/${uuid}/ai-apply`, req, token)
+  },
+  updateSource(token: string, uuid: string, req: UpdateSourceRequest) {
+    return apiRequest<void>('PUT', `/api/questions/${uuid}/source`, req, token)
+  },
+  listSources(token: string) {
+    return apiRequest<string[]>('GET', '/api/questions/sources', undefined, token)
   }
 }

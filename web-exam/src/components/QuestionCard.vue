@@ -28,6 +28,7 @@
     <div class="qc-footer">
       <div class="qc-actions-left">
         <span class="qc-uuid-label">{{ entry.questionUuid.slice(0, 8) }}</span>
+        <span v-if="entry.source && entry.source !== '未分类'" class="qc-source-badge">{{ entry.source }}</span>
       </div>
       <div class="qc-actions-right">
         <button class="qc-action-btn" @click="emit('toggleDetail')">详情</button>
@@ -198,6 +199,7 @@ const formattedTime = computed(() => {
 }
 .qc-actions-left { display: flex; align-items: center; gap: 8px; }
 .qc-uuid-label { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
+.qc-source-badge { display: inline-block; padding: 1px 8px; border-radius: var(--radius-pill); font-size: 10px; font-weight: 500; background: var(--color-warning-bg, #fef3cd); color: var(--color-warning, #856404); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .qc-actions-right { display: flex; align-items: center; gap: 6px; }
 .qc-action-btn {
   padding: 4px 14px;

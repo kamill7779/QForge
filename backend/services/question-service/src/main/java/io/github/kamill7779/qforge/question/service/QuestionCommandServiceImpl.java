@@ -21,6 +21,7 @@ import io.github.kamill7779.qforge.question.dto.QuestionMainTagResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
+import io.github.kamill7779.qforge.question.dto.UpdateSourceRequest;
 import io.github.kamill7779.qforge.question.dto.InlineImageEntry;
 import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
@@ -136,6 +137,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             stemXmlValidator.validate(request.getStemText());
         }
         question.setStemText(request.getStemText());
+        question.setSource(request.getSource() != null && !request.getSource().isBlank() ? request.getSource() : "未分类");
         question.setStatus("DRAFT");
         question.setVisibility("PRIVATE");
         questionRepository.save(question);
@@ -456,6 +458,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
                             tagSnapshot.mainTags(),
                             tagSnapshot.secondaryTags(),
                             question.getDifficulty(),
+                            question.getSource() != null ? question.getSource() : "未分类",
                             answerCountMap.getOrDefault(question.getId(), 0L),
                             answersByQuestionId.getOrDefault(question.getId(), List.of()),
                             question.getCreatedAt(),
@@ -882,6 +885,25 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         question.setDifficulty(request.getDifficulty());
         questionRepository.save(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public QuestionStatusResponse updateSource(String questionUuid, UpdateSourceRequest request, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        question.setSource(request.getSource());
+        questionRepository.save(question);
+        return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
+    }
+
+    @Override
+    public List<String> listDistinctSources(String requestUser) {
+        List<Question> questions = questionRepository.findAllByOwnerUser(requestUser);
+        return questions.stream()
+                .map(q -> q.getSource() != null ? q.getSource() : "\u672a\u5206\u7c7b")
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     @Override

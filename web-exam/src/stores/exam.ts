@@ -432,6 +432,7 @@ export const useExamStore = defineStore('exam', () => {
             mainTags: [],
             secondaryTags: [],
             difficulty: null,
+            source: '未分类',
             answerCount: 0,
             createdAt: '',
             updatedAt: ''

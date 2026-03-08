@@ -74,6 +74,10 @@ export interface UpdateDifficultyRequest {
   difficulty: number
 }
 
+export interface UpdateSourceRequest {
+  source: string
+}
+
 export interface ApplyAiRecommendationRequest {
   tags?: string[] | null
   difficulty?: number | null
@@ -108,6 +112,7 @@ export interface QuestionOverviewResponse {
   mainTags: QuestionMainTagResponse[]
   secondaryTags: string[]
   difficulty: number | null
+  source: string
   answerCount: number
   answers: AnswerOverviewResponse[]
   createdAt: string

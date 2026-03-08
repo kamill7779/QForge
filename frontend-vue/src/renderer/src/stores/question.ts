@@ -56,6 +56,8 @@ export interface QuestionEntry {
   secondaryTagsDraft: string
   // difficulty
   difficulty: number | null
+  // source
+  source: string
   // answers
   answerCount: number
   answerDraft: string
@@ -109,6 +111,7 @@ function normalizeEntry(q: QuestionOverviewResponse): QuestionEntry {
     secondaryTags: q.secondaryTags ?? [],
     secondaryTagsDraft: (q.secondaryTags ?? []).join(', '),
     difficulty: q.difficulty,
+    source: q.source || '未分类',
     answerCount: q.answerCount ?? 0,
     answerDraft: '',
     answersLocal: (q.answers ?? []).map((a) => a.latexText),
@@ -143,6 +146,7 @@ function mergeEntry(
     mainTags: server.mainTags ?? existing.mainTags,
     secondaryTags: server.secondaryTags ?? existing.secondaryTags,
     difficulty: server.difficulty ?? existing.difficulty,
+    source: server.source || existing.source || '未分类',
     answerCount: server.answerCount ?? existing.answerCount,
     answersServerData: (server.answers ?? []).map((a) => ({
       answerUuid: a.answerUuid,
@@ -749,6 +753,7 @@ export const useQuestionStore = defineStore('question', () => {
           if (!entry.answersServerData) entry.answersServerData = []
           if (!entry.createdAt) entry.createdAt = entry.updatedAt || 0
           if (entry.assetVersion == null) entry.assetVersion = 0
+          if (!entry.source) entry.source = '未分类'
         }
         entries.value = restored
       }

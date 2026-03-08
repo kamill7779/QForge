@@ -14,6 +14,7 @@ import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
+import io.github.kamill7779.qforge.question.dto.UpdateSourceRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateStemRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateTagsRequest;
 import io.github.kamill7779.qforge.question.service.ExportService;
@@ -182,6 +183,22 @@ public class QuestionController {
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         return ResponseEntity.ok(questionCommandService.updateDifficulty(questionUuid, request, requestUser));
+    }
+
+    @PutMapping("/{questionUuid}/source")
+    public ResponseEntity<QuestionStatusResponse> updateSource(
+            @PathVariable("questionUuid") String questionUuid,
+            @Valid @RequestBody UpdateSourceRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.updateSource(questionUuid, request, requestUser));
+    }
+
+    @GetMapping("/sources")
+    public ResponseEntity<List<String>> listDistinctSources(
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.listDistinctSources(requestUser));
     }
 
     @PostMapping("/{questionUuid}/ai-analysis")

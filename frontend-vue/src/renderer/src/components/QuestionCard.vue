@@ -49,6 +49,7 @@
     <div class="qc-footer">
       <div class="qc-actions-left">
         <span class="qc-uuid-label">{{ entry.questionUuid.slice(0, 8) }}</span>
+        <span v-if="entry.source && entry.source !== '未分类'" class="qc-source-badge">{{ entry.source }}</span>
       </div>
       <div class="qc-actions-right">
         <button class="qc-action-btn" @click="emit('edit')">编辑</button>
@@ -302,6 +303,18 @@ const formattedTime = computed(() => {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--color-text-muted);
+}
+
+.qc-source-badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-warning-bg, #fff8e1);
+  color: var(--color-warning-text, #b58105);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qc-actions-right {
