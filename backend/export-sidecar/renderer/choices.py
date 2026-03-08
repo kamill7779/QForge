@@ -6,6 +6,8 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from lxml import etree
 
+import re
+
 from parser.nodes import ChoicesNode, ChoiceNode, ParagraphNode, ImageNode
 from .context import RenderContext
 from .paragraph import ParagraphRenderer
@@ -13,9 +15,49 @@ from .image import ImageRenderer
 from .helpers import style_run
 
 
+# ── LaTeX 视觉长度估算: 将 LaTeX 命令替换为等效视觉字符后计算长度 ──
+_LATEX_CMD_MAP = [
+    (r'\\left[\\(\\[\\{\\|]', '('),
+    (r'\\right[\\)\\]\\}\\|]', ')'),
+    (r'\\frac\{([^}]*)\}\{([^}]*)\}', r'\1/\2'),
+    (r'\\sqrt\{([^}]*)\}', r'√\1'),
+    (r'\\overrightarrow\{([^}]*)\}', r'\1'),
+    (r'\\vec\{([^}]*)\}', r'\1'),
+    (r'\\pi', 'π'), (r'\\infty', '∞'),
+    (r'\\alpha', 'α'), (r'\\beta', 'β'), (r'\\gamma', 'γ'),
+    (r'\\theta', 'θ'), (r'\\lambda', 'λ'), (r'\\mu', 'μ'),
+    (r'\\triangle', '△'), (r'\\angle', '∠'),
+    (r'\\sin', 'sin'), (r'\\cos', 'cos'), (r'\\tan', 'tan'),
+    (r'\\log', 'log'), (r'\\ln', 'ln'),
+    (r'\\cdot', '·'), (r'\\times', '×'), (r'\\div', '÷'),
+    (r'\\leq', '≤'), (r'\\geq', '≥'), (r'\\neq', '≠'),
+    (r'\\pm', '±'), (r'\\mp', '∓'),
+    (r'\\in', '∈'), (r'\\subset', '⊂'), (r'\\cup', '∪'), (r'\\cap', '∩'),
+    (r'\\forall', '∀'), (r'\\exists', '∃'),
+    (r'\\neg', '¬'),
+]
+_LATEX_STRIP_RE = re.compile(r'\\[a-zA-Z]+|[{}\\]')
+
+
+def _estimate_visual_len(text: str) -> int:
+    """估算含 LaTeX 命令的文本的视觉字符长度。
+
+    将常见 LaTeX 命令替换为等效可见字符，然后剥离剩余命令和花括号。
+    """
+    s = text
+    for pattern, repl in _LATEX_CMD_MAP:
+        s = re.sub(pattern, repl, s)
+    # 剥离剩余 \command 和 { }
+    s = _LATEX_STRIP_RE.sub('', s)
+    # 去除多余空格
+    s = re.sub(r'\s+', ' ', s).strip()
+    return len(s)
+
+
 class ChoicesRenderer:
-    VERY_SHORT = 8
-    SHORT = 20
+    # 视觉字符长度阈值
+    VERY_SHORT = 8   # ≤8 → 4 列
+    SHORT = 20        # ≤20 → 2 列
 
     def __init__(self, ctx: RenderContext):
         self.ctx = ctx
@@ -28,14 +70,14 @@ class ChoicesRenderer:
             self._render_list(node, container, para_r, with_choice_images=True)
             return
 
-        max_len = max(
-            (self._choice_text_len(c) for c in node.choices), default=0
+        max_visual = max(
+            (self._choice_visual_len(c) for c in node.choices), default=0
         )
         n = len(node.choices)
 
-        if max_len <= self.VERY_SHORT and n == 4:
+        if max_visual <= self.VERY_SHORT and n == 4:
             self._render_grid(node, container, para_r, cols=4)
-        elif max_len <= self.SHORT and n in (4, 2):
+        elif max_visual <= self.SHORT and n in (4, 2):
             self._render_grid(node, container, para_r, cols=2)
         else:
             self._render_list(node, container, para_r)
@@ -93,11 +135,12 @@ class ChoicesRenderer:
                     para_r.render(child, container=None, paragraph=p)
 
     @staticmethod
-    def _choice_text_len(c: ChoiceNode) -> int:
+    def _choice_visual_len(c: ChoiceNode) -> int:
+        """估算选项的视觉字符长度（而非 LaTeX 源码长度）。"""
         total = 0
         for ch in c.children:
             if isinstance(ch, ParagraphNode):
-                total += sum(len(s.value) for s in ch.segments)
+                total += sum(_estimate_visual_len(s.value) for s in ch.segments)
         return total
 
     @staticmethod

@@ -1,12 +1,10 @@
 """
 question-service HTTP 客户端 — 获取题目/组卷数据。
 
-正式模式: 调用 question-service 内部 API (HTTP)
-独立测试模式 (STANDALONE_MODE=true): 直连 MySQL 获取数据
+通过 HTTP 调用 question-service 内部 API 获取数据。
 """
 from __future__ import annotations
 
-import base64
 from typing import Dict, List, Optional
 
 import httpx
@@ -17,10 +15,9 @@ from models.compose import ComposeData, ComposeSection, ComposeItem
 
 
 class QuestionClient:
-    """统一数据获取接口。"""
+    """统一数据获取接口 — 仅通过 HTTP 调用 question-service。"""
 
     def __init__(self):
-        self._standalone = config.STANDALONE_MODE
         self._base_url = config.QUESTION_SERVICE_URL
 
     # ══════════════════════════════════════════════════
@@ -31,20 +28,16 @@ class QuestionClient:
         self, uuids: List[str], user: str = ""
     ) -> Dict[str, QuestionData]:
         """按 UUID 列表批量获取题目完整数据。"""
-        if self._standalone:
-            return self._db_fetch_questions(uuids)
         return await self._http_fetch_questions(uuids, user)
 
     async def fetch_compose_for_export(
         self, compose_uuid: str, user: str = ""
     ) -> Optional[ComposeData]:
         """获取组卷完整结构。"""
-        if self._standalone:
-            return self._db_fetch_compose(compose_uuid, user)
         return await self._http_fetch_compose(compose_uuid, user)
 
     # ══════════════════════════════════════════════════
-    # HTTP 模式 — 调用 question-service 内部 API
+    # HTTP — 调用 question-service 内部 API
     # ══════════════════════════════════════════════════
 
     async def _http_fetch_questions(
@@ -144,108 +137,3 @@ class QuestionClient:
             total_questions=data.get("totalQuestions", 0),
             sections=sections,
         )
-
-    # ══════════════════════════════════════════════════
-    # 独立测试模式 — 直连 MySQL (不依赖 question-service)
-    # ══════════════════════════════════════════════════
-
-    def _db_fetch_questions(self, uuids: List[str]) -> Dict[str, QuestionData]:
-        import mysql.connector
-
-        conn = mysql.connector.connect(**config.DB_CONFIG)
-        cur = conn.cursor(dictionary=True)
-        result: Dict[str, QuestionData] = {}
-
-        for uuid in uuids:
-            cur.execute(
-                "SELECT id, question_uuid, stem_text, status, difficulty "
-                "FROM q_question WHERE question_uuid=%s AND deleted=0",
-                (uuid,),
-            )
-            row = cur.fetchone()
-            if not row:
-                continue
-
-            q_id = row["id"]
-            qd = QuestionData(
-                question_uuid=row["question_uuid"],
-                stem_xml=row["stem_text"] or "",
-                difficulty=row.get("difficulty"),
-            )
-
-            # stem assets
-            cur.execute(
-                "SELECT ref_key, image_data, mime_type "
-                "FROM q_question_asset WHERE question_id=%s AND deleted=0",
-                (q_id,),
-            )
-            for ar in cur.fetchall():
-                if ar["ref_key"]:
-                    raw = ar["image_data"] or ""
-                    # 如果是 bytes，base64 编码
-                    if isinstance(raw, (bytes, bytearray)):
-                        raw = base64.b64encode(raw).decode("ascii")
-                    qd.stem_assets[ar["ref_key"]] = AssetData(
-                        ref_key=ar["ref_key"],
-                        image_data=raw,
-                        mime_type=ar["mime_type"] or "image/png",
-                    )
-
-            # answers
-            cur.execute(
-                "SELECT id, answer_uuid, answer_type, latex_text, sort_order "
-                "FROM q_answer WHERE question_id=%s AND deleted=0 ORDER BY sort_order",
-                (q_id,),
-            )
-            for ans_row in cur.fetchall():
-                ad = AnswerData(
-                    answer_uuid=ans_row["answer_uuid"],
-                    latex_text=ans_row["latex_text"] or "",
-                    sort_order=ans_row["sort_order"],
-                )
-                cur.execute(
-                    "SELECT ref_key, image_data, mime_type "
-                    "FROM q_answer_asset WHERE answer_id=%s AND deleted=0",
-                    (ans_row["id"],),
-                )
-                for aa in cur.fetchall():
-                    if aa["ref_key"]:
-                        raw = aa["image_data"] or ""
-                        if isinstance(raw, (bytes, bytearray)):
-                            raw = base64.b64encode(raw).decode("ascii")
-                        ad.assets[aa["ref_key"]] = AssetData(
-                            ref_key=aa["ref_key"],
-                            image_data=raw,
-                            mime_type=aa["mime_type"] or "image/png",
-                        )
-                qd.answers.append(ad)
-            result[uuid] = qd
-
-        cur.close()
-        conn.close()
-        return result
-
-    def _db_fetch_compose(
-        self, compose_uuid: str, user: str
-    ) -> Optional[ComposeData]:
-        """独立模式暂不支持组卷查询 (组卷表可能不存在)，返回 None。"""
-        return None
-
-    def list_all_question_uuids(self, limit: int = 50) -> List[str]:
-        """独立测试专用 — 列出数据库中所有题目 UUID。"""
-        if not self._standalone:
-            return []
-        import mysql.connector
-
-        conn = mysql.connector.connect(**config.DB_CONFIG)
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT question_uuid FROM q_question "
-            "WHERE deleted=0 AND status='READY' "
-            "ORDER BY updated_at DESC LIMIT %s",
-            (limit,),
-        )
-        uuids = [row[0] for row in cur.fetchall()]
-        cur.close()
-        conn.close()
-        return uuids

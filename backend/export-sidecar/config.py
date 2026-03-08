@@ -14,17 +14,6 @@ QUESTION_SERVICE_URL = os.getenv(
     "QUESTION_SERVICE_URL", "http://question-service:8089"
 )
 
-# ── 独立测试模式: 直连 DB（仅在 question-service 内部 API 未就绪时使用）──
-STANDALONE_MODE = os.getenv("STANDALONE_MODE", "false").lower() in ("true", "1", "yes")
-
-DB_CONFIG = dict(
-    host=os.getenv("MYSQL_HOST", "localhost"),
-    port=int(os.getenv("MYSQL_PORT", "3306")),
-    user=os.getenv("MYSQL_USER", "qforge"),
-    password=os.getenv("MYSQL_PASSWORD", "qforge"),
-    database=os.getenv("MYSQL_DB", "qforge"),
-)
-
 # ── 导出限制 ──
 MAX_QUESTIONS_PER_EXPORT = int(os.getenv("MAX_QUESTIONS_PER_EXPORT", "200"))
 MAX_DOCX_SIZE_MB = int(os.getenv("MAX_DOCX_SIZE_MB", "50"))

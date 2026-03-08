@@ -13,7 +13,7 @@ import traceback
 from contextlib import asynccontextmanager
 from typing import Annotated, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query, Header
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,7 +29,7 @@ from parser.stem_parser import parse_stem_xml, parse_answer_xml
 from renderer.context import RenderContext
 from renderer.registry import render_node
 from assembler.document import DocumentAssembler
-from models.compose import AnswerPosition, ExportOptions
+from models.compose import AnswerPosition, ExportOptions, ExportSectionDef
 
 # ─── logging ───────────────────────────────────────
 logging.basicConfig(
@@ -103,15 +103,24 @@ assembler = DocumentAssembler(latex_engine)
 
 # ─── 请求/响应模型 ─────────────────────────────────
 
+class SectionDefRequest(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=_to_camel, populate_by_name=True,
+    )
+    title: str
+    question_uuids: List[str] = Field(min_length=1)
+
+
 class QuestionsExportRequest(BaseModel):
     model_config = ConfigDict(
         alias_generator=_to_camel, populate_by_name=True,
     )
 
-    question_uuids: List[str] = Field(min_length=1)
+    question_uuids: List[str] = Field(default_factory=list)
     title: Optional[str] = "题目导出"
     include_answers: bool = True
     answer_position: str = "AFTER_ALL"
+    sections: Optional[List[SectionDefRequest]] = None
 
 
 class ComposeExportRequest(BaseModel):
@@ -151,7 +160,6 @@ async def health():
     return {
         "status": "UP",
         "service": config.SERVICE_NAME,
-        "standalone_mode": config.STANDALONE_MODE,
     }
 
 
@@ -160,9 +168,29 @@ async def export_questions_word(
     req: QuestionsExportRequest,
     x_auth_user: Optional[str] = Header(None, alias="X-Auth-User"),
 ):
-    """批量导出题目为 Word 文档。"""
-    uuids = req.question_uuids
-    if len(uuids) > config.MAX_QUESTIONS_PER_EXPORT:
+    """批量导出题目为 Word 文档。
+
+    支持两种模式:
+    1. flat: 提供 questionUuids → 平铺编号
+    2. sections: 提供 sections=[{title, questionUuids}] → 分区编号
+    两者不能同时为空。
+    """
+    # 收集全部 UUID
+    section_defs: list[ExportSectionDef] | None = None
+    if req.sections:
+        all_uuids = []
+        section_defs = []
+        for s in req.sections:
+            all_uuids.extend(s.question_uuids)
+            section_defs.append(
+                ExportSectionDef(title=s.title, question_uuids=list(s.question_uuids))
+            )
+    elif req.question_uuids:
+        all_uuids = list(req.question_uuids)
+    else:
+        raise HTTPException(status_code=400, detail="questionUuids 和 sections 不能同时为空")
+
+    if len(all_uuids) > config.MAX_QUESTIONS_PER_EXPORT:
         raise HTTPException(
             status_code=400,
             detail=f"最多支持导出 {config.MAX_QUESTIONS_PER_EXPORT} 题",
@@ -170,7 +198,7 @@ async def export_questions_word(
 
     try:
         questions_map = await question_client.fetch_questions_by_uuids(
-            uuids, user=x_auth_user or ""
+            all_uuids, user=x_auth_user or ""
         )
     except Exception as e:
         logger.error("fetch_questions failed: %s", traceback.format_exc())
@@ -179,13 +207,22 @@ async def export_questions_word(
     if not questions_map:
         raise HTTPException(status_code=404, detail="未找到任何题目")
 
-    # 保持请求顺序
-    ordered = [questions_map[u] for u in uuids if u in questions_map]
-
     options = _make_options(req.include_answers, req.answer_position)
     buf = io.BytesIO()
     try:
-        assembler.build_questions(ordered, buf, options=options, title=req.title or "题目导出")
+        if section_defs:
+            assembler.build_questions(
+                [], buf, options=options,
+                title=req.title or "题目导出",
+                sections=section_defs,
+                questions_map=questions_map,
+            )
+        else:
+            ordered = [questions_map[u] for u in all_uuids if u in questions_map]
+            assembler.build_questions(
+                ordered, buf, options=options,
+                title=req.title or "题目导出",
+            )
     except Exception as e:
         logger.error("build_questions failed: %s", traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"生成文档失败: {e}")
@@ -241,33 +278,6 @@ async def export_compose_word(
 
     filename = f"{compose.title or '试卷'}.docx"
     return _docx_stream_response(buf, filename)
-
-
-# ─── 独立测试专用端点 ──────────────────────────────
-
-@app.get("/api/export/test/list-questions")
-async def test_list_questions(limit: int = Query(20, ge=1, le=200)):
-    """测试端点 — 列出数据库中可用的题目 UUID。"""
-    if not config.STANDALONE_MODE:
-        raise HTTPException(status_code=403, detail="仅在 STANDALONE_MODE 下可用")
-    uuids = question_client.list_all_question_uuids(limit)
-    return {"count": len(uuids), "uuids": uuids}
-
-
-@app.post("/api/export/test/single/{question_uuid}")
-async def test_export_single(question_uuid: str):
-    """测试端点 — 导出单题 (POC 兼容)。"""
-    if not config.STANDALONE_MODE:
-        raise HTTPException(status_code=403, detail="仅在 STANDALONE_MODE 下可用")
-
-    questions = await question_client.fetch_questions_by_uuids([question_uuid])
-    qdata = questions.get(question_uuid)
-    if not qdata:
-        raise HTTPException(status_code=404, detail="题目不存在")
-
-    buf = io.BytesIO()
-    assembler.build_single(qdata, buf)
-    return _docx_stream_response(buf, f"{question_uuid}.docx")
 
 
 # ─── 入口 ─────────────────────────────────────────

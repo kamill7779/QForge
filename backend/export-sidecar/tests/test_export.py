@@ -513,8 +513,6 @@ class TestEndpoints:
 
     def _client(self):
         from fastapi.testclient import TestClient
-        # 需要先设置 STANDALONE_MODE 为 false (避免真连数据库)
-        os.environ["STANDALONE_MODE"] = "false"
         from main import app
         return TestClient(app)
 
@@ -525,20 +523,17 @@ class TestEndpoints:
         data = resp.json()
         assert data["status"] == "UP"
         assert data["service"] == "export-sidecar"
+        assert "standalone_mode" not in data
 
-    def test_test_endpoint_forbidden_in_normal_mode(self):
-        client = self._client()
-        resp = client.get("/api/export/test/list-questions")
-        assert resp.status_code == 403
-
-    def test_export_questions_validation(self):
-        """空 UUID 列表应报错。"""
+    def test_export_questions_empty_body(self):
+        """空 UUID 列表且无 sections 应报错。"""
         client = self._client()
         resp = client.post(
             "/api/export/questions/word",
             json={"questionUuids": []},
         )
-        assert resp.status_code == 422  # pydantic validation error
+        # 400 from our validation (both empty)
+        assert resp.status_code == 400
 
 
 # ══════════════════════════════════════════════════
@@ -568,3 +563,229 @@ class TestModels:
         )
         assert c.description is None
         assert len(c.sections) == 0
+
+
+# ══════════════════════════════════════════════════
+# 答案双重包装修复测试
+# ══════════════════════════════════════════════════
+
+DOUBLE_WRAPPED_ANSWER = (
+    '<answer version="1"><p>&lt;answer version=&quot;1&quot;&gt;\n'
+    '&lt;p&gt;真实答案内容 $x=1$&lt;/p&gt;\n'
+    '&lt;/answer&gt;</p></answer>'
+)
+
+DOUBLE_WRAPPED_ANSWER_2 = (
+    '<answer version="1"><p>&lt;answer version=&quot;1&quot;&gt;'
+    '\\n&lt;p&gt;解析（1）由题意可得 $f(x) = 2x + 1$&lt;/p&gt;'
+    '\\n&lt;/answer&gt;</p></answer>'
+)
+
+NORMAL_ANSWER = '<answer version="1"><p>选 $C$，答案是 8。</p></answer>'
+SIMPLE_ANSWER = '<answer version="1"><p>2</p></answer>'
+
+
+class TestAnswerDoubleWrapping:
+    """测试 parse_answer_xml 正确处理双重包装的答案。"""
+
+    def test_normal_answer_unchanged(self):
+        from parser.stem_parser import parse_answer_xml
+        from parser.nodes import ParagraphNode, SegmentType
+
+        root = parse_answer_xml(NORMAL_ANSWER)
+        assert len(root.children) >= 1
+        assert isinstance(root.children[0], ParagraphNode)
+        # 应含 LaTeX segment
+        latex_segs = [s for s in root.children[0].segments if s.kind == SegmentType.LATEX]
+        assert len(latex_segs) >= 1
+
+    def test_simple_answer_unchanged(self):
+        from parser.stem_parser import parse_answer_xml
+        from parser.nodes import ParagraphNode, SegmentType
+
+        root = parse_answer_xml(SIMPLE_ANSWER)
+        assert len(root.children) == 1
+        p = root.children[0]
+        assert isinstance(p, ParagraphNode)
+        assert any(s.value == "2" for s in p.segments)
+
+    def test_double_wrapped_unwrapped(self):
+        from parser.stem_parser import parse_answer_xml
+        from parser.nodes import ParagraphNode, SegmentType
+
+        root = parse_answer_xml(DOUBLE_WRAPPED_ANSWER)
+        assert len(root.children) >= 1
+        p = root.children[0]
+        assert isinstance(p, ParagraphNode)
+        # 不应含原始 XML 标签文本
+        all_text = " ".join(s.value for s in p.segments)
+        assert "<answer" not in all_text
+        assert "<p>" not in all_text
+        assert "</p>" not in all_text
+        # 应正确识别 LaTeX
+        latex_segs = [s for s in p.segments if s.kind == SegmentType.LATEX]
+        assert len(latex_segs) >= 1
+
+    def test_double_wrapped_with_backslash_n(self):
+        from parser.stem_parser import parse_answer_xml
+        from parser.nodes import ParagraphNode, SegmentType
+
+        root = parse_answer_xml(DOUBLE_WRAPPED_ANSWER_2)
+        assert len(root.children) >= 1
+        p = root.children[0]
+        assert isinstance(p, ParagraphNode)
+        all_text = " ".join(s.value for s in p.segments)
+        assert "<answer" not in all_text
+        # 应含 LaTeX
+        latex_segs = [s for s in p.segments if s.kind == SegmentType.LATEX]
+        assert len(latex_segs) >= 1
+
+    def test_plain_text_answer(self):
+        from parser.stem_parser import parse_answer_xml
+        from parser.nodes import ParagraphNode
+
+        root = parse_answer_xml("这是纯文本答案 $x=2$")
+        assert len(root.children) == 1
+        assert isinstance(root.children[0], ParagraphNode)
+
+    def test_empty_answer(self):
+        from parser.stem_parser import parse_answer_xml
+
+        root = parse_answer_xml("")
+        assert len(root.children) == 0
+
+        root2 = parse_answer_xml("   ")
+        assert len(root2.children) == 0
+
+
+# ══════════════════════════════════════════════════
+# 选项视觉长度估算测试
+# ══════════════════════════════════════════════════
+
+class TestChoicesVisualLength:
+    """测试 _estimate_visual_len 的视觉长度估算。"""
+
+    def test_plain_text(self):
+        from renderer.choices import _estimate_visual_len
+        assert _estimate_visual_len("ABC") == 3
+        assert _estimate_visual_len("hello") == 5
+
+    def test_frac_shorter_than_source(self):
+        from renderer.choices import _estimate_visual_len
+        src = r"\frac{1}{3}"
+        visual = _estimate_visual_len(src)
+        assert visual < len(src), f"visual={visual} should be < source={len(src)}"
+        assert visual <= 5  # approximately "1/3"
+
+    def test_left_right_paren(self):
+        from renderer.choices import _estimate_visual_len
+        src = r"\left( 0, \frac{\pi}{4} \right)"
+        visual = _estimate_visual_len(src)
+        assert visual < len(src)
+        assert visual <= 12  # approximately "(0, π/4)"
+
+    def test_sqrt(self):
+        from renderer.choices import _estimate_visual_len
+        visual = _estimate_visual_len(r"-\sqrt{2}")
+        assert visual <= 5  # approximately "-√2"
+
+    def test_greek_letters(self):
+        from renderer.choices import _estimate_visual_len
+        assert _estimate_visual_len(r"\pi") <= 2
+        assert _estimate_visual_len(r"\alpha + \beta") <= 6
+
+    def test_short_choices_get_grid_layout(self):
+        """短 LaTeX 选项应走 grid 布局而非 list。"""
+        from docx import Document as DocxDocument
+        from parser.latex_engine import LatexEngine
+        from renderer.context import RenderContext
+        from renderer.choices import ChoicesRenderer
+        from parser.nodes import ChoicesNode, ChoiceNode, ParagraphNode, Segment, SegmentType
+
+        doc = DocxDocument()
+        ctx = RenderContext(
+            document=doc,
+            latex_engine=LatexEngine(),
+            image_resolver=lambda ref: None,
+            question_number=1,
+        )
+        # LaTeX 选项: 源码长但视觉短
+        choices = ChoicesNode(mode="single", choices=[
+            ChoiceNode(key="A", children=[
+                ParagraphNode(segments=[Segment(SegmentType.LATEX, r"\frac{1}{3}")])
+            ]),
+            ChoiceNode(key="B", children=[
+                ParagraphNode(segments=[Segment(SegmentType.LATEX, r"\frac{2}{5}")])
+            ]),
+            ChoiceNode(key="C", children=[
+                ParagraphNode(segments=[Segment(SegmentType.LATEX, r"\frac{7}{15}")])
+            ]),
+            ChoiceNode(key="D", children=[
+                ParagraphNode(segments=[Segment(SegmentType.LATEX, r"\frac{3}{4}")])
+            ]),
+        ])
+        ChoicesRenderer(ctx).render(choices, doc)
+        # 应使用 grid (table) 而非 list
+        assert len(doc.tables) >= 1, "短 LaTeX 选项应使用 table 布局"
+
+
+# ══════════════════════════════════════════════════
+# 分区导出测试
+# ══════════════════════════════════════════════════
+
+class TestSectionsExport:
+    """测试 build_questions 的分区功能。"""
+
+    def test_sections_produces_docx(self):
+        from assembler.document import DocumentAssembler
+        from models.compose import ExportOptions, ExportSectionDef
+        from models.question import QuestionData, AnswerData
+
+        asm = DocumentAssembler()
+        q1 = QuestionData(question_uuid="q-001", stem_xml=SIMPLE_STEM,
+                          answers=[AnswerData(answer_uuid="a1", latex_text="C", sort_order=1)])
+        q2 = QuestionData(question_uuid="q-002", stem_xml=BLANK_STEM,
+                          answers=[AnswerData(answer_uuid="a2", latex_text="5", sort_order=1)])
+        q3 = QuestionData(question_uuid="q-003", stem_xml=ANSWER_AREA_STEM,
+                          answers=[AnswerData(answer_uuid="a3", latex_text="略", sort_order=1)])
+
+        sections = [
+            ExportSectionDef(title="一、选择题", question_uuids=["q-001"]),
+            ExportSectionDef(title="二、填空题", question_uuids=["q-002"]),
+            ExportSectionDef(title="三、解答题", question_uuids=["q-003"]),
+        ]
+        qmap = {"q-001": q1, "q-002": q2, "q-003": q3}
+
+        buf = io.BytesIO()
+        asm.build_questions(
+            [], buf,
+            options=ExportOptions(),
+            title="分区测试导出",
+            sections=sections,
+            questions_map=qmap,
+        )
+        buf.seek(0)
+        assert buf.read(2) == b"PK"
+
+    def test_sections_after_each_question(self):
+        from assembler.document import DocumentAssembler
+        from models.compose import ExportOptions, AnswerPosition, ExportSectionDef
+        from models.question import QuestionData, AnswerData
+
+        asm = DocumentAssembler()
+        q1 = QuestionData(question_uuid="q-001", stem_xml=SIMPLE_STEM,
+                          answers=[AnswerData(answer_uuid="a1", latex_text="C", sort_order=1)])
+
+        sections = [
+            ExportSectionDef(title="一、选择题", question_uuids=["q-001"]),
+        ]
+        buf = io.BytesIO()
+        asm.build_questions(
+            [], buf,
+            options=ExportOptions(include_answers=True, answer_position=AnswerPosition.AFTER_EACH_QUESTION),
+            title="分区EACH",
+            sections=sections,
+            questions_map={"q-001": q1},
+        )
+        buf.seek(0)
+        assert buf.read(2) == b"PK"

@@ -172,13 +172,62 @@ def parse_stem_xml(xml_str: str) -> StemNode:
     return root_node
 
 
+def _unwrap_double_encoded(root: ET.Element) -> ET.Element | None:
+    """检测并解包双重编码的 answer XML。
+
+    某些答案在 DB 中以双重包装形式存储:
+      <answer><p>&lt;answer&gt;...&lt;/answer&gt;</p></answer>
+    外层 <p> 的文本内容本身是一段 answer XML。需要提取内层真实内容。
+    """
+    import html
+    children = list(root)
+    if len(children) != 1:
+        return None
+    p = children[0]
+    if (p.tag or "").lower() != "p":
+        return None
+    text = (p.text or "")
+    # 检测内层是否以 <answer 或 <p 开头
+    stripped = text.lstrip()
+    if not (stripped.startswith("<answer") or stripped.startswith("<p")):
+        return None
+    # 替换 literal \n 为真实换行
+    inner = text.replace("\\n", "\n")
+    try:
+        return ET.fromstring(inner)
+    except ET.ParseError:
+        # 尝试 html unescape 后再解析
+        try:
+            return ET.fromstring(html.unescape(inner))
+        except ET.ParseError:
+            return None
+
+
+def _strip_xml_tags(s: str) -> str:
+    """从原始 XML 字符串中剥离标签，保留文本内容。"""
+    import html
+    # 去掉 literal \n
+    s = s.replace("\\n", " ")
+    # 去掉所有标签
+    cleaned = re.sub(r'<[^>]+>', '', html.unescape(s))
+    return cleaned.strip()
+
+
 def parse_answer_xml(xml_str: str) -> AnswerRootNode:
-    """解析 answer XML 字符串 → AnswerRootNode AST。"""
+    """解析 answer XML 字符串 → AnswerRootNode AST。
+
+    处理多种格式:
+    1. 标准 <answer><p>文本</p></answer>
+    2. 双重包装 <answer><p>&lt;answer&gt;...&lt;/answer&gt;</p></answer>
+    3. 纯文本（无 XML 包装）
+    4. XML 解析失败时的 fallback
+    """
     root_node = AnswerRootNode()
     if not xml_str or not xml_str.strip():
         return root_node
     s = xml_str.strip()
     if not s.startswith("<answer"):
+        # 纯文本，直接用 LaTeX 解析
         root_node.children.append(
             ParagraphNode(segments=_parse_text_segments(s))
         )
@@ -186,10 +235,18 @@ def parse_answer_xml(xml_str: str) -> AnswerRootNode:
     try:
         root = ET.fromstring(s)
     except ET.ParseError:
+        # XML 解析失败 → 剥离标签后做 LaTeX 解析
+        cleaned = _strip_xml_tags(s)
         root_node.children.append(
-            ParagraphNode(segments=[Segment(SegmentType.TEXT, s)])
+            ParagraphNode(segments=_parse_text_segments(cleaned))
         )
         return root_node
+
+    # 检查是否双重包装
+    unwrapped = _unwrap_double_encoded(root)
+    if unwrapped is not None:
+        root = unwrapped
+
     for child in root:
         n = _parse_element(child)
         if n:

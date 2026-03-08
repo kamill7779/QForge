@@ -20,7 +20,7 @@ from renderer.context import RenderContext
 from renderer.registry import render_node
 from renderer.helpers import ensure_rpr, ensure_rpr_style, style_run
 from models.question import QuestionData
-from models.compose import ComposeData, ExportOptions, AnswerPosition
+from models.compose import ComposeData, ExportOptions, AnswerPosition, ExportSectionDef
 
 
 class DocumentAssembler:
@@ -116,7 +116,14 @@ class DocumentAssembler:
         output: BinaryIO,
         options: ExportOptions | None = None,
         title: str = "题目导出",
+        sections: List[ExportSectionDef] | None = None,
+        questions_map: Dict[str, QuestionData] | None = None,
     ) -> None:
+        """散题导出 — 支持 flat 和 sections 两种模式。
+
+        flat:     传入 questions 列表，按顺序编号
+        sections: 传入 sections + questions_map，按分区编号
+        """
         opts = options or ExportOptions()
         doc = Document()
         self._setup(doc)
@@ -133,20 +140,56 @@ class DocumentAssembler:
 
         doc.add_paragraph()
 
-        for i, qdata in enumerate(questions, 1):
-            self._render_question(doc, qdata, i)
-            if opts.answer_position == AnswerPosition.AFTER_EACH_QUESTION:
-                if opts.include_answers and qdata.answers:
-                    self._render_inline_answer(doc, qdata, i)
-            doc.add_paragraph()
+        if sections and questions_map:
+            # ── 分区模式 ──
+            global_seq = 0
+            answer_items: list[tuple[int, QuestionData]] = []  # (seq, qdata)
 
-        # 答案页 (AFTER_ALL)
-        if opts.include_answers and opts.answer_position == AnswerPosition.AFTER_ALL:
-            doc.add_page_break()
-            self._section_title(doc, "参考答案")
+            for sec_def in sections:
+                # 区块标题
+                sec_para = doc.add_paragraph()
+                run = sec_para.add_run(sec_def.title)
+                run.font.bold = True
+                run.font.size = Pt(14)
+                run.font.name = "Times New Roman"
+                rf = ensure_rpr(run)
+                rf.set(qn("w:eastAsia"), "黑体")
+
+                for uuid in sec_def.question_uuids:
+                    qdata = questions_map.get(uuid)
+                    if not qdata:
+                        continue
+                    global_seq += 1
+                    self._render_question(doc, qdata, global_seq)
+                    if opts.answer_position == AnswerPosition.AFTER_EACH_QUESTION:
+                        if opts.include_answers and qdata.answers:
+                            self._render_inline_answer(doc, qdata, global_seq)
+                    answer_items.append((global_seq, qdata))
+                doc.add_paragraph()
+
+            # 答案页 (AFTER_ALL)
+            if opts.include_answers and opts.answer_position == AnswerPosition.AFTER_ALL:
+                doc.add_page_break()
+                self._section_title(doc, "参考答案")
+                for seq, qdata in answer_items:
+                    if qdata.answers:
+                        self._render_answer(doc, qdata, seq)
+        else:
+            # ── flat 模式 ──
             for i, qdata in enumerate(questions, 1):
-                if qdata.answers:
-                    self._render_answer(doc, qdata, i)
+                self._render_question(doc, qdata, i)
+                if opts.answer_position == AnswerPosition.AFTER_EACH_QUESTION:
+                    if opts.include_answers and qdata.answers:
+                        self._render_inline_answer(doc, qdata, i)
+                doc.add_paragraph()
+
+            # 答案页 (AFTER_ALL)
+            if opts.include_answers and opts.answer_position == AnswerPosition.AFTER_ALL:
+                doc.add_page_break()
+                self._section_title(doc, "参考答案")
+                for i, qdata in enumerate(questions, 1):
+                    if qdata.answers:
+                        self._render_answer(doc, qdata, i)
 
         doc.save(output)
 

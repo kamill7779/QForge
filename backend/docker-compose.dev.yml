@@ -242,15 +242,7 @@ services:
       NACOS_SERVER_ADDR: nacos:8848
       SERVICE_PORT: 8092
       QUESTION_SERVICE_URL: http://question-service:8089
-      STANDALONE_MODE: "true"
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DB: qforge
-      MYSQL_USER: qforge
-      MYSQL_PASSWORD: qforge
     depends_on:
-      mysql:
-        condition: service_healthy
       nacos:
         condition: service_started
 

@@ -38,3 +38,10 @@ class ComposeData:
     description: Optional[str] = None
     total_questions: int = 0
     sections: List[ComposeSection] = field(default_factory=list)
+
+
+@dataclass
+class ExportSectionDef:
+    """用户在散题导出时自定义的分区定义。"""
+    title: str                          # e.g. "一、单选题"
+    question_uuids: List[str] = field(default_factory=list)
