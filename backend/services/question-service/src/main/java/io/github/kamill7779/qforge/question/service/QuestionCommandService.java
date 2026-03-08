@@ -37,7 +37,10 @@ public interface QuestionCommandService {
 
     QuestionStatusResponse completeQuestion(String questionUuid, String requestUser);
 
-    void deleteDraftQuestion(String questionUuid, String requestUser);
+    void deleteQuestion(String questionUuid, String requestUser);
+
+    /** Batch-delete multiple questions owned by requestUser. Returns number of deleted questions. */
+    int batchDeleteQuestions(List<String> questionUuids, String requestUser);
 
     List<QuestionOverviewResponse> listUserQuestions(String requestUser);
 

@@ -36,4 +36,11 @@ public interface QuestionAiTaskRepository extends BaseMapper<QuestionAiTask> {
         );
         return Optional.ofNullable(task);
     }
+
+    default int deleteByQuestionUuid(String questionUuid) {
+        return this.delete(
+                Wrappers.<QuestionAiTask>lambdaQuery()
+                        .eq(QuestionAiTask::getQuestionUuid, questionUuid)
+        );
+    }
 }

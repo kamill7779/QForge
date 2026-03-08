@@ -126,18 +126,4 @@ class QuestionApiRestStandardTest {
                         .header("X-Auth-User", "admin"))
                 .andExpect(status().isNoContent());
     }
-
-    @Test
-    void shouldReturn422WhenDeleteNotAllowed() throws Exception {
-        doThrow(new BusinessValidationException(
-                "QUESTION_DELETE_NOT_ALLOWED",
-                "Only draft question without answers can be deleted",
-                Map.of("questionUuid", "q-uuid-2")
-        )).when(questionCommandService).deleteDraftQuestion("q-uuid-2", "admin");
-
-        mockMvc.perform(delete("/api/questions/q-uuid-2")
-                        .header("X-Auth-User", "admin"))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("QUESTION_DELETE_NOT_ALLOWED"));
-    }
 }

@@ -1,0 +1,119 @@
+[INFO] Scanning for projects...
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] qforge-backend                                                     [pom]
+[INFO] common-contract                                                    [jar]
+[INFO] question-service                                                   [jar]
+[INFO] 
+[INFO] ----------------< io.github.kamill7779:qforge-backend >-----------------
+[INFO] Building qforge-backend 0.0.1-SNAPSHOT                             [1/3]
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] ----------------< io.github.kamill7779:common-contract >----------------
+[INFO] Building common-contract 0.0.1-SNAPSHOT                            [2/3]
+[INFO]   from libs\common-contract\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ common-contract ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ common-contract ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ common-contract ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ common-contract ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ common-contract ---
+[INFO] skip non existing resourceDirectory E:\Project\QForge\backend\libs\common-contract\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ common-contract ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] ---------------< io.github.kamill7779:question-service >----------------
+[INFO] Building question-service 0.0.1-SNAPSHOT                           [3/3]
+[INFO]   from services\question-service\pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ question-service ---
+[INFO] Copying 7 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ question-service ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ question-service ---
+[INFO] Copying 7 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ question-service ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ question-service ---
+[INFO] skip non existing resourceDirectory E:\Project\QForge\backend\services\question-service\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ question-service ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 6 source files with javac [debug target 17] to target\test-classes
+[INFO] -------------------------------------------------------------
+[WARNING] COMPILATION WARNING : 
+[INFO] -------------------------------------------------------------
+[WARNING] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/QuestionApiRestStandardTest.java:[40,6] org.springframework.boot.test.mock.mockito 中的 org.springframework.boot.test.mock.mockito.MockBean 已过时, 且标记为待删除
+[WARNING] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/QuestionApiRestStandardTest.java:[40,6] org.springframework.boot.test.mock.mockito 中的 org.springframework.boot.test.mock.mockito.MockBean 已过时, 且标记为待删除
+[WARNING] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/QuestionApiRestStandardTest.java:[40,6] org.springframework.boot.test.mock.mockito 中的 org.springframework.boot.test.mock.mockito.MockBean 已过时, 且标记为待删除
+[WARNING] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/QuestionApiRestStandardTest.java:[40,6] org.springframework.boot.test.mock.mockito 中的 org.springframework.boot.test.mock.mockito.MockBean 已过时, 且标记为待删除
+[WARNING] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/QuestionApiRestStandardTest.java:[40,6] org.springframework.boot.test.mock.mockito 中的 org.springframework.boot.test.mock.mockito.MockBean 已过时, 且标记为待删除
+[INFO] 5 warnings 
+[INFO] -------------------------------------------------------------
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/OcrResultConsumerAnswerAssetsTest.java:[46,20] 无法将类 io.github.kamill7779.qforge.question.mq.OcrResultConsumer中的构造器 OcrResultConsumer应用到给定类型;
+  需要: io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper,io.github.kamill7779.qforge.question.config.QForgeBusinessProperties
+  找到:    io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper
+  原因: 实际参数列表和形式参数列表长度不同
+[ERROR] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/OcrResultConsumerAnswerGuardTest.java:[44,20] 无法将类 io.github.kamill7779.qforge.question.mq.OcrResultConsumer中的构造器 OcrResultConsumer应用到给定类型;
+  需要: io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper,io.github.kamill7779.qforge.question.config.QForgeBusinessProperties
+  找到:    io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper
+  原因: 实际参数列表和形式参数列表长度不同
+[ERROR] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/QuestionApiRestStandardTest.java:[106,9] 找不到符号
+  符号:   方法 doThrow(io.github.kamill7779.qforge.question.exception.BusinessValidationException)
+  位置: 类 io.github.kamill7779.qforge.question.QuestionApiRestStandardTest
+[INFO] 3 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for qforge-backend 0.0.1-SNAPSHOT:
+[INFO] 
+[INFO] qforge-backend ..................................... SUCCESS [  0.005 s]
+[INFO] common-contract .................................... SUCCESS [  0.630 s]
+[INFO] question-service ................................... FAILURE [  3.183 s]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  4.120 s
+[INFO] Finished at: 2026-03-08T23:52:59+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:testCompile (default-testCompile) on project question-service: Compilation failure: Compilation failure: 
+[ERROR] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/OcrResultConsumerAnswerAssetsTest.java:[46,20] 无法将类 io.github.kamill7779.qforge.question.mq.OcrResultConsumer中的构造器 OcrResultConsumer应用到给定类型;
+[ERROR]   需要: io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper,io.github.kamill7779.qforge.question.config.QForgeBusinessProperties
+[ERROR]   找到:    io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper
+[ERROR]   原因: 实际参数列表和形式参数列表长度不同
+[ERROR] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/OcrResultConsumerAnswerGuardTest.java:[44,20] 无法将类 io.github.kamill7779.qforge.question.mq.OcrResultConsumer中的构造器 OcrResultConsumer应用到给定类型;
+[ERROR]   需要: io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper,io.github.kamill7779.qforge.question.config.QForgeBusinessProperties
+[ERROR]   找到:    io.github.kamill7779.qforge.question.ws.OcrWsPushService,io.github.kamill7779.qforge.question.redis.TaskStateRedisService,org.springframework.amqp.rabbit.core.RabbitTemplate,io.github.kamill7779.qforge.question.repository.QuestionRepository,io.github.kamill7779.qforge.question.repository.QuestionAssetRepository,org.springframework.data.redis.core.StringRedisTemplate,com.fasterxml.jackson.databind.ObjectMapper
+[ERROR]   原因: 实际参数列表和形式参数列表长度不同
+[ERROR] /E:/Project/QForge/backend/services/question-service/src/test/java/io/github/kamill7779/qforge/question/QuestionApiRestStandardTest.java:[106,9] 找不到符号
+[ERROR]   符号:   方法 doThrow(io.github.kamill7779.qforge.question.exception.BusinessValidationException)
+[ERROR]   位置: 类 io.github.kamill7779.qforge.question.QuestionApiRestStandardTest
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
+[ERROR] 
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :question-service

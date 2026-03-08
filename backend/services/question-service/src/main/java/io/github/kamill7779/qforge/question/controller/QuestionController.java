@@ -148,12 +148,22 @@ public class QuestionController {
     }
 
     @DeleteMapping("/{questionUuid}")
-    public ResponseEntity<Void> deleteDraftQuestion(
+    public ResponseEntity<Void> deleteQuestion(
             @PathVariable("questionUuid") String questionUuid,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
-        questionCommandService.deleteDraftQuestion(questionUuid, requestUser);
+        questionCommandService.deleteQuestion(questionUuid, requestUser);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/batch-delete")
+    public ResponseEntity<java.util.Map<String, Object>> batchDeleteQuestions(
+            @RequestBody java.util.Map<String, java.util.List<String>> body,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        java.util.List<String> uuids = body.getOrDefault("questionUuids", java.util.List.of());
+        int deleted = questionCommandService.batchDeleteQuestions(uuids, requestUser);
+        return ResponseEntity.ok(java.util.Map.of("deleted", deleted));
     }
 
     @PutMapping("/{questionUuid}/tags")

@@ -62,5 +62,12 @@ public interface AnswerAssetRepository extends BaseMapper<AnswerAsset> {
             this.deleteById(asset.getId());
         }
     }
+
+    default void deleteByQuestionId(Long questionId) {
+        List<AnswerAsset> assets = findByQuestionId(questionId);
+        for (AnswerAsset asset : assets) {
+            this.deleteById(asset.getId());
+        }
+    }
 }
 

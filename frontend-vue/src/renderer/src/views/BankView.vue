@@ -48,6 +48,13 @@
         <span v-if="selectedSet.size" class="selected-count">
           已选 <strong>{{ selectedSet.size }}</strong> 题
         </span>
+        <button
+          v-if="selectedSet.size"
+          class="btn-sm danger batch-delete-btn"
+          @click="requestDeleteBatch"
+        >
+          批量删除
+        </button>
       </div>
 
       <!-- Sort controls -->
@@ -230,6 +237,7 @@
 
                 <!-- Close detail -->
                 <div class="detail-close-row">
+                  <button class="btn-sm danger" @click="requestDeleteSingle">删除此题</button>
                   <button class="btn-secondary btn-sm" @click="expandedUuid = ''">收起面板</button>
                 </div>
               </div>
@@ -254,6 +262,26 @@
         <span class="page-info">{{ bankList.length }} 题 · 每页 {{ pageSize }}</span>
       </div>
     </main>
+
+    <!-- Delete Confirmation Dialog -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="deleteConfirmVisible" class="modal-overlay" @click.self="cancelDelete">
+          <div class="modal-dialog">
+            <p class="modal-msg">
+              {{ deleteConfirmTarget === 'batch'
+                ? `确认删除已选的 ${selectedSet.size} 道题目？此操作不可恢复。`
+                : '确认删除该题目？此操作不可恢复。'
+              }}
+            </p>
+            <div class="modal-actions">
+              <button class="btn-sm danger" @click="confirmDelete">确认删除</button>
+              <button class="btn-secondary btn-sm" @click="cancelDelete">取消</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -442,6 +470,55 @@ async function toggleDetail(uuid: string) {
 function openEdit(uuid: string) {
   if (expandedUuid.value !== uuid) {
     toggleDetail(uuid)
+  }
+}
+
+// ══════════════════════════════════════════════
+// Delete
+// ══════════════════════════════════════════════
+
+const deleteConfirmTarget = ref<'single' | 'batch' | ''>('')
+const deleteConfirmVisible = ref(false)
+
+function requestDeleteSingle() {
+  if (!expandedUuid.value) return
+  deleteConfirmTarget.value = 'single'
+  deleteConfirmVisible.value = true
+}
+
+function requestDeleteBatch() {
+  if (!selectedSet.size) return
+  deleteConfirmTarget.value = 'batch'
+  deleteConfirmVisible.value = true
+}
+
+function cancelDelete() {
+  deleteConfirmVisible.value = false
+  deleteConfirmTarget.value = ''
+}
+
+async function confirmDelete() {
+  try {
+    if (deleteConfirmTarget.value === 'single' && expandedUuid.value) {
+      const uuid = expandedUuid.value
+      expandedUuid.value = ''
+      cancelAllEditing()
+      await questionStore.deleteQuestion(auth.token, uuid)
+      selectedSet.delete(uuid)
+    } else if (deleteConfirmTarget.value === 'batch') {
+      const uuids = [...selectedSet]
+      if (expandedUuid.value && selectedSet.has(expandedUuid.value)) {
+        expandedUuid.value = ''
+        cancelAllEditing()
+      }
+      await questionStore.batchDeleteQuestions(auth.token, uuids)
+      selectedSet.clear()
+    }
+  } catch (e: any) {
+    notif.error(`删除失败: ${e?.message ?? '未知错误'}`)
+  } finally {
+    deleteConfirmVisible.value = false
+    deleteConfirmTarget.value = ''
   }
 }
 
@@ -1085,5 +1162,56 @@ async function bankApplyAi() {
   margin-left: 12px;
   font-size: 12px;
   color: var(--color-text-muted);
+}
+
+/* ── Delete / Modal ── */
+.batch-delete-btn {
+  margin-left: auto;
+}
+
+.btn-sm.danger {
+  background: #e74c3c;
+  color: #fff;
+  border-color: #e74c3c;
+}
+.btn-sm.danger:hover {
+  background: #c0392b;
+  border-color: #c0392b;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.modal-dialog {
+  background: var(--color-bg-primary, #fff);
+  border-radius: 10px;
+  padding: 28px 32px;
+  max-width: 400px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+.modal-msg {
+  font-size: 15px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

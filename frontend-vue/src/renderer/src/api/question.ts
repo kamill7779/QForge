@@ -36,6 +36,12 @@ export const questionApi = {
   delete: (token: string, uuid: string) =>
     apiRequest<void>(`/api/questions/${uuid}`, 'DELETE', token),
 
+  /** Batch delete questions. */
+  batchDelete: (token: string, uuids: string[]) =>
+    apiRequest<{ deleted: number }>('/api/questions/batch-delete', 'POST', token, {
+      questionUuids: uuids
+    }),
+
   /** Update stem XML + optional inline images. */
   updateStem: (token: string, uuid: string, body: UpdateStemRequest) =>
     apiRequest<QuestionStatusResponse>(`/api/questions/${uuid}/stem`, 'PUT', token, body),

@@ -291,6 +291,22 @@ export const useQuestionStore = defineStore('question', () => {
     notif.log(`删除题目 ${uuid.slice(0, 8)}`)
   }
 
+  /** Batch delete questions. */
+  async function batchDeleteQuestions(
+    token: string,
+    uuids: string[]
+  ): Promise<number> {
+    const { deleted } = await questionApi.batchDelete(token, uuids)
+    for (const uuid of uuids) {
+      entries.value.delete(uuid)
+      if (selectedQuestionUuid.value === uuid) selectedQuestionUuid.value = ''
+      if (bankSelectedUuid.value === uuid) bankSelectedUuid.value = ''
+    }
+    markDirty()
+    notif.log(`批量删除 ${deleted} 道题目`)
+    return deleted
+  }
+
   /** Confirm stem (save stem XML to backend). */
   async function confirmStem(
     token: string,
@@ -787,6 +803,7 @@ export const useQuestionStore = defineStore('question', () => {
     // actions — CRUD
     createQuestion,
     deleteQuestion,
+    batchDeleteQuestions,
     confirmStem,
     addAnswer,
     updateAnswer,

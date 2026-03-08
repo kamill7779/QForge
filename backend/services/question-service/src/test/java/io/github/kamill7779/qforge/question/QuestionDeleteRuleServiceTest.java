@@ -1,14 +1,12 @@
 package io.github.kamill7779.qforge.question;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.kamill7779.qforge.question.client.OcrServiceClient;
 import io.github.kamill7779.qforge.question.entity.Question;
-import io.github.kamill7779.qforge.question.exception.BusinessValidationException;
+import io.github.kamill7779.qforge.question.repository.AnswerAssetRepository;
+import io.github.kamill7779.qforge.question.repository.QuestionAiTaskRepository;
 import io.github.kamill7779.qforge.question.repository.AnswerRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionOcrTaskRepository;
@@ -41,6 +39,12 @@ class QuestionDeleteRuleServiceTest {
     private QuestionOcrTaskRepository questionOcrTaskRepository;
 
     @Mock
+    private QuestionAiTaskRepository questionAiTaskRepository;
+
+    @Mock
+    private AnswerAssetRepository answerAssetRepository;
+
+    @Mock
     private TagRepository tagRepository;
 
     @Mock
@@ -63,56 +67,29 @@ class QuestionDeleteRuleServiceTest {
         Question question = draftQuestion(10L, "q-uuid-10", null);
         when(questionRepository.findByQuestionUuidAndOwnerUser("q-uuid-10", "admin"))
                 .thenReturn(Optional.of(question));
-        when(answerRepository.countByQuestionId(10L)).thenReturn(0L);
 
-        questionCommandService.deleteDraftQuestion("q-uuid-10", "admin");
+        questionCommandService.deleteQuestion("q-uuid-10", "admin");
 
         verify(questionOcrTaskRepository).deleteByQuestionUuid("q-uuid-10");
         verify(questionRepository).deleteById(10L);
     }
 
     @Test
-    void shouldDeletePendingAnswerQuestionWhenNoAnswerYet() {
+    void shouldDeleteReadyQuestionWithAnswers() {
         Question question = draftQuestion(13L, "q-uuid-13", "already confirmed stem");
+        question.setStatus("READY");
         when(questionRepository.findByQuestionUuidAndOwnerUser("q-uuid-13", "admin"))
                 .thenReturn(Optional.of(question));
-        when(answerRepository.countByQuestionId(13L)).thenReturn(0L);
 
-        questionCommandService.deleteDraftQuestion("q-uuid-13", "admin");
+        questionCommandService.deleteQuestion("q-uuid-13", "admin");
 
+        verify(answerAssetRepository).deleteByQuestionId(13L);
+        verify(answerRepository).deleteByQuestionId(13L);
+        verify(questionAssetRepository).softDeleteByQuestionId(13L);
+        verify(questionTagRelRepository).deleteByQuestionId(13L);
         verify(questionOcrTaskRepository).deleteByQuestionUuid("q-uuid-13");
+        verify(questionAiTaskRepository).deleteByQuestionUuid("q-uuid-13");
         verify(questionRepository).deleteById(13L);
-    }
-
-    @Test
-    void shouldRejectDeleteWhenQuestionAlreadyReady() {
-        Question question = draftQuestion(11L, "q-uuid-11", "confirmed stem");
-        question.setStatus("READY");
-        when(questionRepository.findByQuestionUuidAndOwnerUser("q-uuid-11", "admin"))
-                .thenReturn(Optional.of(question));
-        when(answerRepository.countByQuestionId(11L)).thenReturn(0L);
-
-        BusinessValidationException ex = assertThrows(
-                BusinessValidationException.class,
-                () -> questionCommandService.deleteDraftQuestion("q-uuid-11", "admin")
-        );
-        assertEquals("QUESTION_DELETE_NOT_ALLOWED", ex.getCode());
-        verify(questionRepository, never()).deleteById(11L);
-    }
-
-    @Test
-    void shouldRejectDeleteWhenQuestionAlreadyHasAnswer() {
-        Question question = draftQuestion(12L, "q-uuid-12", null);
-        when(questionRepository.findByQuestionUuidAndOwnerUser("q-uuid-12", "admin"))
-                .thenReturn(Optional.of(question));
-        when(answerRepository.countByQuestionId(12L)).thenReturn(1L);
-
-        BusinessValidationException ex = assertThrows(
-                BusinessValidationException.class,
-                () -> questionCommandService.deleteDraftQuestion("q-uuid-12", "admin")
-        );
-        assertEquals("QUESTION_DELETE_NOT_ALLOWED", ex.getCode());
-        verify(questionRepository, never()).deleteById(12L);
     }
 
     private Question draftQuestion(Long id, String questionUuid, String stemText) {

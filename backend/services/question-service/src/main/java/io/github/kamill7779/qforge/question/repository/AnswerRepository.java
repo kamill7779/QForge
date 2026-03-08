@@ -73,4 +73,11 @@ public interface AnswerRepository extends BaseMapper<Answer> {
                         .orderByAsc(Answer::getQuestionId, Answer::getSortOrder)
         );
     }
+
+    default int deleteByQuestionId(Long questionId) {
+        return this.delete(
+                Wrappers.<Answer>lambdaQuery()
+                        .eq(Answer::getQuestionId, questionId)
+        );
+    }
 }

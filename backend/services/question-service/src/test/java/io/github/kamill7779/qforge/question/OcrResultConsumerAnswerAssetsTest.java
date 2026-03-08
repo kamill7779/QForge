@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.kamill7779.qforge.common.contract.OcrTaskResultEvent;
+import io.github.kamill7779.qforge.question.config.QForgeBusinessProperties;
 import io.github.kamill7779.qforge.question.mq.OcrResultConsumer;
 import io.github.kamill7779.qforge.question.redis.TaskStateRedisService;
 import io.github.kamill7779.qforge.question.repository.QuestionAssetRepository;
@@ -38,6 +39,8 @@ class OcrResultConsumerAnswerAssetsTest {
     private QuestionAssetRepository questionAssetRepository;
     @Mock
     private StringRedisTemplate redis;
+    @Mock
+    private QForgeBusinessProperties bizProps;
 
     private OcrResultConsumer consumer;
 
@@ -50,7 +53,8 @@ class OcrResultConsumerAnswerAssetsTest {
                 questionRepository,
                 questionAssetRepository,
                 redis,
-                new ObjectMapper()
+                new ObjectMapper(),
+                bizProps
         );
     }
 

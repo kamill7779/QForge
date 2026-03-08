@@ -361,26 +361,64 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
     @Override
     @Transactional
-    public void deleteDraftQuestion(String questionUuid, String requestUser) {
+    public void deleteQuestion(String questionUuid, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-        long answerCount = answerRepository.countByQuestionId(question.getId());
-        boolean draftStatus = "DRAFT".equals(question.getStatus());
-        if (!draftStatus || answerCount > 0) {
-            throw new BusinessValidationException(
-                    "QUESTION_DELETE_NOT_ALLOWED",
-                    "Only draft question without answers can be deleted",
-                    Map.of(
-                            "questionUuid", questionUuid,
-                            "status", question.getStatus(),
-                            "answerCount", answerCount
-                    )
-            );
+        cascadeDeleteQuestion(question);
+    }
+
+    @Override
+    @Transactional
+    public int batchDeleteQuestions(List<String> questionUuids, String requestUser) {
+        int deleted = 0;
+        for (String uuid : questionUuids) {
+            Question question = questionRepository
+                    .findByQuestionUuidAndOwnerUser(uuid, requestUser)
+                    .orElse(null);
+            if (question == null) continue;
+            cascadeDeleteQuestion(question);
+            deleted++;
+        }
+        return deleted;
+    }
+
+    /**
+     * Cascade-delete a question and all related entities.
+     * Order: nullify stem_image_id → answer_assets → answers → question_assets →
+     *        tag_rels → ocr_tasks → ai_tasks → question
+     */
+    private void cascadeDeleteQuestion(Question question) {
+        Long questionId = question.getId();
+        String questionUuid = question.getQuestionUuid();
+
+        // 1. Nullify stem_image_id FK before deleting assets
+        if (question.getStemImageId() != null) {
+            question.setStemImageId(null);
+            questionRepository.save(question);
         }
 
-        questionOcrTaskRepository.deleteByQuestionUuid(question.getQuestionUuid());
-        questionAssetRepository.softDeleteByQuestionId(question.getId());
-        answerRepository.deleteById(question.getId());
-        questionRepository.deleteById(question.getId());
+        // 2. Delete answer assets
+        answerAssetRepository.deleteByQuestionId(questionId);
+
+        // 3. Delete answers
+        answerRepository.deleteByQuestionId(questionId);
+
+        // 4. Delete question assets
+        questionAssetRepository.softDeleteByQuestionId(questionId);
+
+        // 5. Delete tag relations
+        questionTagRelRepository.deleteByQuestionId(questionId);
+
+        // 6. Delete OCR tasks
+        questionOcrTaskRepository.deleteByQuestionUuid(questionUuid);
+
+        // 7. Delete AI tasks
+        questionAiTaskRepository.deleteByQuestionUuid(questionUuid);
+
+        // 8. Evict asset cache from Redis
+        redis.delete(ASSET_CACHE_PREFIX + questionUuid);
+
+        // 9. Delete the question itself
+        questionRepository.deleteById(questionId);
     }
 
     @Override
