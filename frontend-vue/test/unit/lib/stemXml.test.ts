@@ -127,6 +127,37 @@ describe('stemXml — parameterized core', () => {
     expect(isValidStemXml(result)).toBe(true)
   })
 
+  it('toXmlPayload handles LaTeX < without spaces in choices (regression)', () => {
+    // OCR produces $x<z<y$ without spaces — the old TAG_RE /<\/?[a-zA-Z][^>]*\/?>/g
+    // incorrectly matched <z<y$</p> as a "tag", consuming the real </p>.
+    const ocrXml = [
+      '<stem version="1">',
+      '<p>已知正数 x,y,z满足 $x^3=y^4=z^5$</p>',
+      '<choices mode="single">',
+      '<choice key="A"><p>$x<z<y$</p></choice>',
+      '<choice key="B"><p>$x<y<z$</p></choice>',
+      '</choices>',
+      '</stem>'
+    ].join('')
+    const result = toStemXmlPayload(ocrXml)
+    expect(result).not.toContain('&lt;stem')
+    expect(result).not.toContain('&lt;choice')
+    expect(isValidStemXml(result)).toBe(true)
+    // The bare < inside LaTeX should be escaped
+    expect(result).toContain('&lt;z&lt;y')
+  })
+
+  it('toXmlPayload keeps table tags intact while escaping LaTeX', () => {
+    const xml = '<stem version="1"><table><thead><tr><th>$x<y$</th></tr></thead></table></stem>'
+    const result = toStemXmlPayload(xml)
+    expect(result).not.toContain('&lt;stem')
+    expect(isValidStemXml(result)).toBe(true)
+    // table/thead/tr/th must survive as tags; LaTeX < must be escaped
+    expect(result).toContain('<table>')
+    expect(result).toContain('<th>')
+    expect(result).toContain('&lt;y')
+  })
+
   it('isEmptyXmlContent detects empty XML wrappers', () => {
     expect(isEmptyXmlContent('<answer version="1"><p></p></answer>', 'answer')).toBe(true)
     expect(isEmptyXmlContent('<answer version="1"><p>  </p></answer>', 'answer')).toBe(true)

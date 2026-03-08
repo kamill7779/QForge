@@ -34,6 +34,10 @@
         @remove-choice="(ci) => editor.removeChoiceItem(idx, ci)"
         @choice-screenshot="(ci) => emit('choiceScreenshot', idx, ci)"
         @add-blank="editor.addBlankItem(idx)"
+        @add-table-row="editor.addTableRow(idx)"
+        @remove-table-row="(ri) => editor.removeTableRow(idx, ri)"
+        @add-table-column="editor.addTableColumn(idx)"
+        @remove-table-column="editor.removeTableColumn(idx)"
       />
     </div>
   </div>
@@ -86,7 +90,8 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   choices: '选项',
   image: '配图',
   blanks: '填空',
-  'answer-area': '答题区'
+  'answer-area': '答题区',
+  table: '表格'
 }
 
 function blockTypeLabel(type: BlockType): string {

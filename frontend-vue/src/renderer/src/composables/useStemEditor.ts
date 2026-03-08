@@ -23,6 +23,7 @@ export type Block =
   | { type: 'image'; ref: string }
   | { type: 'blanks'; items: Array<{ id: string }> }
   | { type: 'answer-area'; lines: number }
+  | { type: 'table'; headers: string[]; rows: string[][] }
 
 export type BlockType = Block['type']
 
@@ -131,6 +132,57 @@ export function xmlToBlocks(xmlStr: string, rootTag: RootTag = 'stem'): Block[] 
         type: 'answer-area',
         lines: Number((node as Element).getAttribute('lines') || 4)
       })
+    } else if (tag === 'table') {
+      const headers: string[] = []
+      const bodyRows: string[][] = []
+
+      const thead = (node as Element).querySelector('thead')
+      if (thead) {
+        const headerRow = thead.querySelector('tr')
+        if (headerRow) {
+          for (const th of Array.from(headerRow.children)) {
+            headers.push(th.textContent || '')
+          }
+        }
+      }
+
+      const tbody = (node as Element).querySelector('tbody')
+      if (tbody) {
+        for (const tr of Array.from(tbody.children)) {
+          if (tr.tagName?.toLowerCase() === 'tr') {
+            const cells: string[] = []
+            for (const td of Array.from(tr.children)) {
+              cells.push(td.textContent || '')
+            }
+            bodyRows.push(cells)
+          }
+        }
+      }
+
+      // Fallback: if no thead/tbody, parse <tr> children directly
+      if (!thead && !tbody) {
+        let isFirstRow = true
+        for (const tr of Array.from((node as Element).children)) {
+          if (tr.tagName?.toLowerCase() === 'tr') {
+            const cells: string[] = []
+            let hasHeader = false
+            for (const cell of Array.from(tr.children)) {
+              if (cell.tagName?.toLowerCase() === 'th') hasHeader = true
+              cells.push(cell.textContent || '')
+            }
+            if (hasHeader && headers.length === 0) {
+              headers.push(...cells)
+            } else if (isFirstRow && headers.length === 0) {
+              headers.push(...cells)
+            } else {
+              bodyRows.push(cells)
+            }
+            isFirstRow = false
+          }
+        }
+      }
+
+      blocks.push({ type: 'table', headers, rows: bodyRows })
     }
   }
 
@@ -175,6 +227,25 @@ export function blocksToXml(blocks: Block[], rootTag: RootTag = 'stem'): string 
       case 'answer-area':
         x += `<answer-area lines="${Number(b.lines) || 4}" />`
         break
+      case 'table': {
+        x += '<table>'
+        if (b.headers.length) {
+          x += '<thead><tr>'
+          for (const h of b.headers) x += `<th>${escapeXml(h)}</th>`
+          x += '</tr></thead>'
+        }
+        if (b.rows.length) {
+          x += '<tbody>'
+          for (const row of b.rows) {
+            x += '<tr>'
+            for (const cell of row) x += `<td>${escapeXml(cell)}</td>`
+            x += '</tr>'
+          }
+          x += '</tbody>'
+        }
+        x += '</table>'
+        break
+      }
     }
   }
   x += `</${rootTag}>`
@@ -207,7 +278,7 @@ export function useStemEditor(options: UseStemEditorOptions = {}) {
   const allowedTypes: BlockType[] =
     rootTag === 'answer'
       ? ['p', 'image']
-      : ['p', 'choices', 'image', 'blanks', 'answer-area']
+      : ['p', 'choices', 'image', 'blanks', 'answer-area', 'table']
 
   /** Initialize blocks from XML string. */
   function initFromXml(xml: string): void {
@@ -249,6 +320,13 @@ export function useStemEditor(options: UseStemEditorOptions = {}) {
         break
       case 'answer-area':
         newBlock = { type: 'answer-area', lines: 4 }
+        break
+      case 'table':
+        newBlock = {
+          type: 'table',
+          headers: ['列1', '列2', '列3'],
+          rows: [['', '', ''], ['', '', '']]
+        }
         break
       default:
         return
@@ -304,6 +382,43 @@ export function useStemEditor(options: UseStemEditorOptions = {}) {
     block.items.push({ id: String(block.items.length + 1) })
   }
 
+  /** Add a row to a table block. */
+  function addTableRow(blockIndex: number): void {
+    const block = blocks.value[blockIndex]
+    if (block?.type !== 'table') return
+    const colCount = block.headers.length || (block.rows[0]?.length ?? 3)
+    block.rows.push(Array(colCount).fill(''))
+  }
+
+  /** Remove a row from a table block. */
+  function removeTableRow(blockIndex: number, rowIndex: number): void {
+    const block = blocks.value[blockIndex]
+    if (block?.type !== 'table') return
+    if (block.rows.length <= 1) return // Keep at least one data row
+    block.rows.splice(rowIndex, 1)
+  }
+
+  /** Add a column to a table block. */
+  function addTableColumn(blockIndex: number): void {
+    const block = blocks.value[blockIndex]
+    if (block?.type !== 'table') return
+    block.headers.push(`列${block.headers.length + 1}`)
+    for (const row of block.rows) {
+      row.push('')
+    }
+  }
+
+  /** Remove the last column from a table block. */
+  function removeTableColumn(blockIndex: number): void {
+    const block = blocks.value[blockIndex]
+    if (block?.type !== 'table') return
+    if (block.headers.length <= 1) return // Keep at least one column
+    block.headers.pop()
+    for (const row of block.rows) {
+      row.pop()
+    }
+  }
+
   // Emit XML when blocks change
   watch(
     blocks,
@@ -333,6 +448,10 @@ export function useStemEditor(options: UseStemEditorOptions = {}) {
     updateBlock,
     addChoiceItem,
     removeChoiceItem,
-    addBlankItem
+    addBlankItem,
+    addTableRow,
+    removeTableRow,
+    addTableColumn,
+    removeTableColumn
   }
 }

@@ -1,43 +1,37 @@
 <template>
   <div class="bank-view">
-    <!-- ───── Sidebar ───── -->
+    <!-- ───── Sidebar (Filters) ───── -->
     <aside class="bank-sidebar">
-      <!-- Search + Filters Card -->
       <div class="filter-section">
         <input
           v-model="search"
           class="search-input"
           type="text"
           placeholder="搜索题干 / 标签..."
-          @input="applyFilter"
         />
 
         <label class="filter-label">年级</label>
-        <select v-model="gradeFilter" class="filter-select" @change="applyFilter">
+        <select v-model="gradeFilter" class="filter-select">
           <option value="">全部年级</option>
           <option
             v-for="opt in gradeOptions"
             :key="opt.tagCode"
             :value="opt.tagCode"
-          >
-            {{ opt.tagName }}
-          </option>
+          >{{ opt.tagName }}</option>
         </select>
 
         <label class="filter-label">知识点</label>
-        <select v-model="knowledgeFilter" class="filter-select" @change="applyFilter">
+        <select v-model="knowledgeFilter" class="filter-select">
           <option value="">全部知识点</option>
           <option
             v-for="opt in knowledgeOptions"
             :key="opt.tagCode"
             :value="opt.tagCode"
-          >
-            {{ opt.tagName }}
-          </option>
+          >{{ opt.tagName }}</option>
         </select>
 
         <label class="filter-label">难度</label>
-        <select v-model="difficultyFilter" class="filter-select" @change="applyFilter">
+        <select v-model="difficultyFilter" class="filter-select">
           <option value="">全部难度</option>
           <option value="easy">简单</option>
           <option value="medium-easy">中等偏易</option>
@@ -48,212 +42,193 @@
         </select>
       </div>
 
-      <!-- List Card -->
-      <div class="bank-list-card">
-        <div class="bank-count">共 {{ bankList.length }} 题</div>
-        <div class="bank-list">
-        <div
-          v-for="entry in bankList"
-          :key="entry.questionUuid"
-          class="bank-card"
-          :class="{ selected: entry.questionUuid === questionStore.bankSelectedUuid }"
-          @click="onSelectBank(entry.questionUuid)"
-        >
-          <div class="card-header">
-            <span class="card-uuid">{{ entry.questionUuid.slice(0, 8) }}</span>
-            <span v-if="entry.difficulty !== null" class="diff-badge" :class="diffClass(entry.difficulty)">
-              {{ diffLabel(entry.difficulty) }}
-            </span>
-          </div>
-          <div class="card-info">
-            <span>{{ entry.answerCount }} 个解法</span>
-            <span v-if="entry.mainTags.length" class="card-tags">
-              {{ entry.mainTags.map(t => t.tagName).join(' · ') }}
-            </span>
-          </div>
-        </div>
-        <div v-if="bankList.length === 0" class="empty-list">暂无题目</div>
+      <!-- Stats -->
+      <div class="filter-stats">
+        <span>共 <strong>{{ bankList.length }}</strong> 题</span>
+        <span v-if="selectedSet.size" class="selected-count">
+          已选 <strong>{{ selectedSet.size }}</strong> 题
+        </span>
       </div>
-      </div><!-- end bank-list-card -->
     </aside>
 
-    <!-- ───── Detail Panel ───── -->
-    <main class="bank-main">
-      <div v-if="!bankEntry" class="empty-state">
-        <p>从左侧选择一道题目查看详情</p>
+    <!-- ───── Main: Card List ───── -->
+    <main class="bank-main" ref="mainScrollRef">
+      <div v-if="bankList.length === 0" class="empty-state">
+        <p>暂无符合条件的题目</p>
       </div>
 
-      <div v-else class="bank-detail">
-        <h3 class="detail-title">{{ bankEntry.questionUuid.slice(0, 8) }}</h3>
-
-        <!-- ── Stem Section ── -->
-        <div class="detail-section">
-          <div class="section-header">
-            <h4>题干</h4>
-            <button
-              v-if="!stemEditing"
-              class="btn-sm"
-              @click="startEditStem"
-            >
-              编辑
-            </button>
-          </div>
-
-          <!-- Stem display -->
-          <LatexPreview
-            v-if="!stemEditing"
-            :xml="bankEntry.stemText"
-            :image-resolver="resolveStemImage"
-            :render-key="bankStemImageVersion"
+      <div v-else class="card-list">
+        <template v-for="(entry, idx) in bankList" :key="entry.questionUuid">
+          <!-- Question Card -->
+          <QuestionCard
+            :entry="entry"
+            :seq="idx + 1"
+            :is-expanded="expandedUuid === entry.questionUuid"
+            :is-selected="selectedSet.has(entry.questionUuid)"
+            :image-resolver="(ref) => resolveImage(entry, ref)"
+            @toggle-detail="toggleDetail(entry.questionUuid)"
+            @edit="openEdit(entry.questionUuid)"
+            @toggle-select="toggleSelect(entry.questionUuid)"
           />
 
-          <!-- Stem editor -->
-          <div v-else class="edit-panel">
-            <StemEditor
-              ref="bankStemEditorRef"
-              :model-value="stemEditDraft"
-              root-tag="stem"
-              :image-resolver="resolveStemImage"
-              @update:model-value="stemEditDraft = $event"
-            />
-            <LatexPreview
-              :xml="stemEditDraft"
-              compact
-              :image-resolver="resolveStemImage"
-              :render-key="bankStemImageVersion"
-            />
-            <div class="edit-actions">
-              <button class="btn-primary btn-sm" @click="saveStemEdit">保存</button>
-              <button class="btn-secondary btn-sm" @click="cancelStemEdit">取消</button>
+          <!-- Inline Detail Panel (expanded below the card) -->
+          <Transition name="detail-slide">
+            <div
+              v-if="expandedUuid === entry.questionUuid"
+              class="inline-detail"
+            >
+              <div class="detail-inner">
+                <!-- ── Stem ── -->
+                <div class="detail-section">
+                  <div class="section-header">
+                    <h4>题干</h4>
+                    <button v-if="!stemEditing" class="btn-sm" @click="startEditStem">编辑</button>
+                  </div>
+                  <LatexPreview
+                    v-if="!stemEditing"
+                    :xml="entry.stemText"
+                    :image-resolver="(ref) => resolveImage(entry, ref)"
+                    :render-key="bankStemImageVersion"
+                  />
+                  <div v-else class="edit-panel">
+                    <StemEditor
+                      ref="bankStemEditorRef"
+                      :model-value="stemEditDraft"
+                      root-tag="stem"
+                      :image-resolver="(ref) => resolveImage(entry, ref)"
+                      @update:model-value="stemEditDraft = $event"
+                    />
+                    <LatexPreview
+                      :xml="stemEditDraft"
+                      compact
+                      :image-resolver="(ref) => resolveImage(entry, ref)"
+                      :render-key="bankStemImageVersion"
+                    />
+                    <div class="edit-actions">
+                      <button class="btn-primary btn-sm" @click="saveStemEdit">保存</button>
+                      <button class="btn-secondary btn-sm" @click="cancelStemEdit">取消</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── Answer ── -->
+                <div class="detail-section">
+                  <div class="section-header">
+                    <h4>答案</h4>
+                    <button v-if="!answerEditing" class="btn-sm" @click="startEditAnswer">编辑</button>
+                    <button v-if="!answerEditing && !answerAdding" class="btn-sm" @click="startAddAnswer">+ 新增</button>
+                    <button
+                      v-if="!answerEditing && !answerAdding && entry.answersServerData.length > 1"
+                      class="btn-sm danger"
+                      @click="deleteBankAnswer"
+                    >删除</button>
+                  </div>
+
+                  <AnswerTabNav
+                    v-if="entry.answersLocal.length > 0 && !answerEditing && !answerAdding"
+                    :answers="entry.answersLocal"
+                    :model-value="questionStore.bankAnswerIdx"
+                    @update:model-value="questionStore.bankAnswerIdx = $event"
+                  />
+                  <LatexPreview
+                    v-if="!answerEditing && !answerAdding"
+                    :xml="entry.answersLocal[questionStore.bankAnswerIdx] ?? ''"
+                    placeholder="暂无答案"
+                    mode="answer"
+                    :image-resolver="(ref) => resolveAnswerImage(entry, ref)"
+                    :render-key="bankAnswerImageVersion"
+                  />
+
+                  <div v-if="answerEditing" class="edit-panel">
+                    <StemEditor
+                      ref="bankAnswerEditorRef"
+                      :model-value="answerEditDraft"
+                      root-tag="answer"
+                      :image-resolver="(ref) => resolveAnswerImage(entry, ref)"
+                      @update:model-value="answerEditDraft = $event"
+                    />
+                    <LatexPreview
+                      :xml="answerEditDraft"
+                      compact
+                      mode="answer"
+                      :image-resolver="(ref) => resolveAnswerImage(entry, ref)"
+                      :render-key="bankAnswerImageVersion"
+                    />
+                    <div class="edit-actions">
+                      <button class="btn-primary btn-sm" @click="saveAnswerEdit">保存</button>
+                      <button class="btn-secondary btn-sm" @click="cancelAnswerEdit">取消</button>
+                    </div>
+                  </div>
+
+                  <div v-if="answerAdding" class="edit-panel">
+                    <StemEditor
+                      ref="bankAnswerAddRef"
+                      :model-value="answerAddDraft"
+                      root-tag="answer"
+                      :image-resolver="(ref) => resolveAnswerImage(entry, ref)"
+                      @update:model-value="answerAddDraft = $event"
+                    />
+                    <LatexPreview
+                      :xml="answerAddDraft"
+                      compact
+                      mode="answer"
+                      :image-resolver="(ref) => resolveAnswerImage(entry, ref)"
+                      :render-key="bankAnswerImageVersion"
+                    />
+                    <div class="edit-actions">
+                      <button class="btn-primary btn-sm" @click="saveNewAnswer">保存</button>
+                      <button class="btn-secondary btn-sm" @click="cancelAddAnswer">取消</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── Tags ── -->
+                <div class="detail-section">
+                  <TagSection
+                    ref="bankTagRef"
+                    :main-tags="entry.mainTags"
+                    :secondary-tags="entry.secondaryTags"
+                    @change="onBankTagsChange"
+                  />
+                </div>
+
+                <!-- ── Difficulty ── -->
+                <div class="detail-section">
+                  <DifficultySlider
+                    :model-value="entry.difficulty"
+                    @update:model-value="onBankDifficultyChange"
+                  />
+                </div>
+
+                <!-- ── AI Analysis ── -->
+                <div class="detail-section">
+                  <AiAnalysisPanel
+                    :pending="questionStore.bankAi.pending.has(entry.questionUuid)"
+                    :result="questionStore.bankAi.lastResult?.questionUuid === entry.questionUuid ? questionStore.bankAi.lastResult : null"
+                    :disabled="entry.answersServerData.length === 0"
+                    disabled-tip="该题目尚无答案，无法进行AI分析"
+                    @request-analysis="bankRequestAi"
+                    @apply-recommendation="bankApplyAi"
+                    @cancel-analysis="bankCancelAi"
+                  />
+                </div>
+
+                <!-- Close detail -->
+                <div class="detail-close-row">
+                  <button class="btn-secondary btn-sm" @click="expandedUuid = ''">收起面板</button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-
-        <!-- ── Answer Section ── -->
-        <div class="detail-section">
-          <div class="section-header">
-            <h4>答案</h4>
-            <button
-              v-if="!answerEditing"
-              class="btn-sm"
-              @click="startEditAnswer"
-            >
-              编辑
-            </button>
-            <button
-              v-if="!answerEditing && !answerAdding"
-              class="btn-sm"
-              @click="startAddAnswer"
-            >
-              + 新增
-            </button>
-            <button
-              v-if="!answerEditing && !answerAdding && bankEntry.answersServerData.length > 1"
-              class="btn-sm danger"
-              @click="deleteBankAnswer"
-            >
-              删除
-            </button>
-          </div>
-
-          <!-- Answer tabs + display -->
-          <AnswerTabNav
-            v-if="bankEntry.answersLocal.length > 0 && !answerEditing && !answerAdding"
-            :answers="bankEntry.answersLocal"
-            :model-value="questionStore.bankAnswerIdx"
-            @update:model-value="questionStore.bankAnswerIdx = $event"
-          />
-          <LatexPreview
-            v-if="!answerEditing && !answerAdding"
-            :xml="bankEntry.answersLocal[questionStore.bankAnswerIdx] ?? ''"
-            placeholder="暂无答案"
-            mode="answer"
-            :image-resolver="resolveAnswerImage"
-            :render-key="bankAnswerImageVersion"
-          />
-
-          <!-- Answer editor -->
-          <div v-if="answerEditing" class="edit-panel">
-            <StemEditor
-              ref="bankAnswerEditorRef"
-              :model-value="answerEditDraft"
-              root-tag="answer"
-              :image-resolver="resolveAnswerImage"
-              @update:model-value="answerEditDraft = $event"
-            />
-            <LatexPreview
-              :xml="answerEditDraft"
-              compact
-              mode="answer"
-              :image-resolver="resolveAnswerImage"
-              :render-key="bankAnswerImageVersion"
-            />
-            <div class="edit-actions">
-              <button class="btn-primary btn-sm" @click="saveAnswerEdit">保存</button>
-              <button class="btn-secondary btn-sm" @click="cancelAnswerEdit">取消</button>
-            </div>
-          </div>
-
-          <!-- Answer add -->
-          <div v-if="answerAdding" class="edit-panel">
-            <StemEditor
-              ref="bankAnswerAddRef"
-              :model-value="answerAddDraft"
-              root-tag="answer"
-              :image-resolver="resolveAnswerImage"
-              @update:model-value="answerAddDraft = $event"
-            />
-            <LatexPreview
-              :xml="answerAddDraft"
-              compact
-              mode="answer"
-              :image-resolver="resolveAnswerImage"
-              :render-key="bankAnswerImageVersion"
-            />
-            <div class="edit-actions">
-              <button class="btn-primary btn-sm" @click="saveNewAnswer">保存</button>
-              <button class="btn-secondary btn-sm" @click="cancelAddAnswer">取消</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Tags ── -->
-        <div class="detail-section">
-          <TagSection
-            ref="bankTagRef"
-            :main-tags="bankEntry.mainTags"
-            :secondary-tags="bankEntry.secondaryTags"
-            @change="onBankTagsChange"
-          />
-        </div>
-
-        <!-- ── Difficulty ── -->
-        <div class="detail-section">
-          <DifficultySlider
-            :model-value="bankEntry.difficulty"
-            @update:model-value="onBankDifficultyChange"
-          />
-        </div>
-
-        <!-- ── AI Analysis ── -->
-        <div class="detail-section">
-          <AiAnalysisPanel
-            :pending="questionStore.bankAi.pending.has(bankEntry.questionUuid)"
-            :result="questionStore.bankAi.lastResult?.questionUuid === bankEntry.questionUuid ? questionStore.bankAi.lastResult : null"
-            :disabled="bankEntry.answersServerData.length === 0"
-            disabled-tip="该题目尚无答案，无法进行AI分析"
-            @request-analysis="bankRequestAi"
-            @apply-recommendation="bankApplyAi"
-            @cancel-analysis="bankCancelAi"
-          />
-        </div>
+          </Transition>
+        </template>
       </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, reactive } from 'vue'
+import QuestionCard from '@/components/QuestionCard.vue'
 import StemEditor from '@/components/StemEditor.vue'
 import LatexPreview from '@/components/LatexPreview.vue'
 import TagSection from '@/components/TagSection.vue'
@@ -262,6 +237,7 @@ import AiAnalysisPanel from '@/components/AiAnalysisPanel.vue'
 import AnswerTabNav from '@/components/AnswerTabNav.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useQuestionStore, stageOf } from '@/stores/question'
+import type { QuestionEntry } from '@/stores/question'
 import { useTagStore } from '@/stores/tag'
 import { useNotificationStore } from '@/stores/notification'
 import { toStemXmlPayload, toAnswerXmlPayload, isEmptyXmlContent } from '@/lib/stemXml'
@@ -273,7 +249,11 @@ const questionStore = useQuestionStore()
 const tagStore = useTagStore()
 const notif = useNotificationStore()
 
-// ── Filters ──
+const mainScrollRef = ref<HTMLElement>()
+
+// ══════════════════════════════════════════════
+// Filters
+// ══════════════════════════════════════════════
 
 const search = ref('')
 const gradeFilter = ref('')
@@ -290,12 +270,10 @@ const knowledgeOptions = computed(() => {
   return cat?.options ?? []
 })
 
-/** Filtered bank list — only READY entries matching filters. */
 const bankList = computed(() => {
   return questionStore.sortedEntries.filter((entry) => {
     if (stageOf(entry) !== 'COMPLETED') return false
 
-    // Search
     if (search.value) {
       const q = search.value.toLowerCase()
       const inStem = entry.stemText.toLowerCase().includes(q)
@@ -303,26 +281,20 @@ const bankList = computed(() => {
       if (!inStem && !inTags) return false
     }
 
-    // Grade
     if (gradeFilter.value) {
-      const match = entry.mainTags.some((t) => t.tagCode === gradeFilter.value)
-      if (!match) return false
+      if (!entry.mainTags.some((t) => t.tagCode === gradeFilter.value)) return false
     }
 
-    // Knowledge
     if (knowledgeFilter.value) {
-      const match = entry.mainTags.some((t) => t.tagCode === knowledgeFilter.value)
-      if (!match) return false
+      if (!entry.mainTags.some((t) => t.tagCode === knowledgeFilter.value)) return false
     }
 
-    // Difficulty
     if (difficultyFilter.value) {
       if (difficultyFilter.value === 'unset') {
         if (entry.difficulty !== null) return false
       } else {
         if (entry.difficulty === null) return false
-        const level = difficultyLevel(entry.difficulty)
-        if (level.key !== difficultyFilter.value) return false
+        if (difficultyLevel(entry.difficulty).key !== difficultyFilter.value) return false
       }
     }
 
@@ -330,63 +302,96 @@ const bankList = computed(() => {
   })
 })
 
-function applyFilter() {
-  // Filters are reactive, no action needed
+// ══════════════════════════════════════════════
+// Selection (for future exam compose)
+// ══════════════════════════════════════════════
+
+const selectedSet = reactive(new Set<string>())
+
+function toggleSelect(uuid: string) {
+  if (selectedSet.has(uuid)) {
+    selectedSet.delete(uuid)
+  } else {
+    selectedSet.add(uuid)
+  }
 }
 
-// ── Selection ──
+// ══════════════════════════════════════════════
+// Detail Expansion
+// ══════════════════════════════════════════════
 
-const bankEntry = computed(() => questionStore.bankSelectedEntry)
+const expandedUuid = ref('')
 
-// Lightweight image-version signals for LatexPreview :render-key
-const bankStemImageVersion = computed(() => Object.keys(bankEntry.value?.inlineImages ?? {}).length)
-const bankAnswerImageVersion = computed(() =>
-  Object.keys(bankEntry.value?.answerImages ?? {}).length +
-  Object.keys(bankEntry.value?.inlineImages ?? {}).length
-)
-
-async function onSelectBank(uuid: string) {
-  questionStore.selectBankQuestion(uuid)
+function cancelAllEditing() {
   cancelStemEdit()
   cancelAnswerEdit()
   cancelAddAnswer()
+}
+
+async function toggleDetail(uuid: string) {
+  if (expandedUuid.value === uuid) {
+    expandedUuid.value = ''
+    cancelAllEditing()
+    return
+  }
+  cancelAllEditing()
+  expandedUuid.value = uuid
+  questionStore.selectBankQuestion(uuid)
+
   const entry = questionStore.entries.get(uuid)
   if (entry && !entry.assetsLoaded) {
     try {
       await questionStore.fetchAssets(auth.token, uuid)
-    } catch {
-      // may not have assets
-    }
+    } catch { /* may not have assets */ }
   }
 }
 
-// ── Image Resolvers ──
+function openEdit(uuid: string) {
+  if (expandedUuid.value !== uuid) {
+    toggleDetail(uuid)
+  }
+}
 
-function resolveStemImage(refKey: string): string {
-  const entry = bankEntry.value
-  if (!entry) return ''
+// ══════════════════════════════════════════════
+// Image Resolvers
+// ══════════════════════════════════════════════
+
+function resolveImage(entry: QuestionEntry, refKey: string): string {
   const data = entry.inlineImages[refKey]
   if (!data) return ''
   return data.startsWith('data:') ? data : `data:image/png;base64,${data}`
 }
 
-function resolveAnswerImage(refKey: string): string {
-  const entry = bankEntry.value
-  if (!entry) return ''
+function resolveAnswerImage(entry: QuestionEntry, refKey: string): string {
   const data = entry.answerImages[refKey] ?? entry.inlineImages[refKey]
   if (!data) return ''
   return data.startsWith('data:') ? data : `data:image/png;base64,${data}`
 }
 
-// ── Stem Editing ──
+const bankStemImageVersion = computed(() => {
+  const entry = questionStore.bankSelectedEntry
+  return Object.keys(entry?.inlineImages ?? {}).length
+})
+const bankAnswerImageVersion = computed(() => {
+  const entry = questionStore.bankSelectedEntry
+  return (
+    Object.keys(entry?.answerImages ?? {}).length +
+    Object.keys(entry?.inlineImages ?? {}).length
+  )
+})
+
+// ══════════════════════════════════════════════
+// Stem Editing
+// ══════════════════════════════════════════════
 
 const stemEditing = ref(false)
 const stemEditDraft = ref('')
 const bankStemEditorRef = ref<InstanceType<typeof StemEditor> | null>(null)
 
 function startEditStem() {
-  if (!bankEntry.value) return
-  stemEditDraft.value = bankEntry.value.stemText
+  const entry = questionStore.bankSelectedEntry
+  if (!entry) return
+  stemEditDraft.value = entry.stemText
   stemEditing.value = true
 }
 
@@ -396,7 +401,7 @@ function cancelStemEdit() {
 }
 
 async function saveStemEdit() {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   if (!entry) return
 
   const stemXml = toStemXmlPayload(stemEditDraft.value)
@@ -413,7 +418,6 @@ async function saveStemEdit() {
   }
 
   try {
-    console.log('[bank/saveStem] 提交', entry.questionUuid.slice(0, 8))
     await questionStore.confirmStem(auth.token, entry.questionUuid, {
       stemXml,
       inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
@@ -421,22 +425,22 @@ async function saveStemEdit() {
     stemEditing.value = false
     notif.log(`更新题干 ${entry.questionUuid.slice(0, 8)}`)
   } catch (e: any) {
-    console.error('[bank/saveStem] 失败', e)
     notif.log(`更新题干失败: ${e?.message || e}`)
   }
 }
 
-// ── Answer Editing ──
+// ══════════════════════════════════════════════
+// Answer Editing
+// ══════════════════════════════════════════════
 
 const answerEditing = ref(false)
 const answerEditDraft = ref('')
 const bankAnswerEditorRef = ref<InstanceType<typeof StemEditor> | null>(null)
 
 function startEditAnswer() {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   if (!entry) return
-  const idx = questionStore.bankAnswerIdx
-  answerEditDraft.value = entry.answersLocal[idx] ?? ''
+  answerEditDraft.value = entry.answersLocal[questionStore.bankAnswerIdx] ?? ''
   answerEditing.value = true
 }
 
@@ -446,7 +450,7 @@ function cancelAnswerEdit() {
 }
 
 async function saveAnswerEdit() {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   if (!entry) return
 
   const answerXml = toAnswerXmlPayload(answerEditDraft.value)
@@ -467,7 +471,6 @@ async function saveAnswerEdit() {
   }
 
   try {
-    console.log('[bank/saveAnswer] 提交', entry.questionUuid.slice(0, 8))
     await questionStore.updateAnswer(auth.token, entry.questionUuid, serverData.answerUuid, {
       latexText: answerXml,
       inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : undefined
@@ -475,12 +478,13 @@ async function saveAnswerEdit() {
     answerEditing.value = false
     notif.log(`更新答案 ${entry.questionUuid.slice(0, 8)}`)
   } catch (e: any) {
-    console.error('[bank/saveAnswer] 失败', e)
     notif.log(`更新答案失败: ${e?.message || e}`)
   }
 }
 
-// ── Answer Add ──
+// ══════════════════════════════════════════════
+// Answer Add
+// ══════════════════════════════════════════════
 
 const answerAdding = ref(false)
 const answerAddDraft = ref('')
@@ -497,40 +501,32 @@ function cancelAddAnswer() {
 }
 
 async function saveNewAnswer() {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   if (!entry) return
-  if (!answerAddDraft.value || !answerAddDraft.value.trim()) {
+  if (!answerAddDraft.value?.trim()) {
     notif.log('请先输入答案内容')
     return
   }
 
   const answerXml = toAnswerXmlPayload(answerAddDraft.value)
-  if (!answerXml) {
-    notif.log('答案内容无效')
-    return
-  }
-  if (isEmptyXmlContent(answerXml, 'answer')) {
+  if (!answerXml || isEmptyXmlContent(answerXml, 'answer')) {
     notif.log('答案内容不能为空')
     return
   }
 
   try {
-    console.log('[bank/addAnswer] 提交', entry.questionUuid.slice(0, 8))
-    await questionStore.addAnswer(auth.token, entry.questionUuid, {
-      latexText: answerXml
-    })
+    await questionStore.addAnswer(auth.token, entry.questionUuid, { latexText: answerXml })
     answerAdding.value = false
     answerAddDraft.value = ''
     questionStore.bankAnswerIdx = entry.answersLocal.length - 1
     notif.log(`新增答案 ${entry.questionUuid.slice(0, 8)}`)
   } catch (e: any) {
-    console.error('[bank/addAnswer] 失败', e)
     notif.log(`新增答案失败: ${e?.message || e}`)
   }
 }
 
 async function deleteBankAnswer() {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   if (!entry || entry.answersServerData.length <= 1) return
 
   const idx = questionStore.bankAnswerIdx
@@ -541,32 +537,34 @@ async function deleteBankAnswer() {
     await questionStore.deleteAnswer(auth.token, entry.questionUuid, serverData.answerUuid)
     questionStore.bankAnswerIdx = Math.max(0, idx - 1)
   } catch (e: any) {
-    console.error('[bank/deleteAnswer] 失败', e)
     notif.log(`删除答案失败: ${e?.message || e}`)
   }
 }
 
-// ── Tags ──
+// ══════════════════════════════════════════════
+// Tags
+// ══════════════════════════════════════════════
 
 const bankTagRef = ref<InstanceType<typeof TagSection> | null>(null)
 
 async function onBankTagsChange(payload: { tags: string[] }) {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   if (!entry || !payload.tags.length) return
   try {
     await questionStore.updateTags(auth.token, entry.questionUuid, payload.tags)
   } catch (e: any) {
-    console.error('[bank/tags] 失败', e)
     notif.log(`更新标签失败: ${e?.message || e}`)
   }
 }
 
-// ── Difficulty ──
+// ══════════════════════════════════════════════
+// Difficulty
+// ══════════════════════════════════════════════
 
 let bankDiffTimer: ReturnType<typeof setTimeout> | null = null
 
 function onBankDifficultyChange(val: number | null) {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   if (!entry || val === null) return
   entry.difficulty = val
 
@@ -576,54 +574,45 @@ function onBankDifficultyChange(val: number | null) {
   }, 500)
 }
 
-// ── AI ──
+// ══════════════════════════════════════════════
+// AI
+// ══════════════════════════════════════════════
 
 async function bankRequestAi() {
-  if (!bankEntry.value) return
-  if (bankEntry.value.answersServerData.length === 0) {
+  const entry = questionStore.bankSelectedEntry
+  if (!entry) return
+  if (entry.answersServerData.length === 0) {
     notif.log('该题目尚无答案，无法进行AI分析')
     return
   }
   try {
-    await questionStore.requestAiAnalysis(auth.token, bankEntry.value.questionUuid, 'bank')
+    await questionStore.requestAiAnalysis(auth.token, entry.questionUuid, 'bank')
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'AI分析请求失败'
-    notif.log(msg)
+    notif.log(e instanceof Error ? e.message : 'AI分析请求失败')
   }
 }
 
 function bankCancelAi() {
-  if (!bankEntry.value) return
-  questionStore.cancelAiAnalysis(bankEntry.value.questionUuid, 'bank')
+  const entry = questionStore.bankSelectedEntry
+  if (!entry) return
+  questionStore.cancelAiAnalysis(entry.questionUuid, 'bank')
 }
 
 async function bankApplyAi() {
-  const entry = bankEntry.value
+  const entry = questionStore.bankSelectedEntry
   const ai = questionStore.bankAi
   if (!entry || !ai.lastResult) return
-  const taskUuid = ai.lastResult.taskUuid  // use the actual result's taskUuid, not ai.taskUuid
   try {
     await questionStore.applyAiRecommendation(
       auth.token,
       entry.questionUuid,
-      taskUuid,
+      ai.lastResult.taskUuid,
       ai.lastResult.suggestedTags ?? undefined,
       ai.lastResult.suggestedDifficulty ?? undefined
     )
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : '采纳AI推荐失败'
-    notif.log(msg)
+    notif.log(e instanceof Error ? e.message : '采纳AI推荐失败')
   }
-}
-
-// ── Helpers ──
-
-function diffLabel(d: number): string {
-  return difficultyLevel(d).label
-}
-
-function diffClass(d: number): string {
-  return difficultyLevel(d).cssClass
 }
 </script>
 
@@ -632,19 +621,20 @@ function diffClass(d: number): string {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 260px 1fr;
   gap: 0;
   overflow: hidden;
 }
 
-/* ── Sidebar (light warm) ── */
+/* ══════════════════════════════════════
+   Sidebar
+   ══════════════════════════════════════ */
 
 .bank-sidebar {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  overflow: hidden;
+  overflow-y: auto;
   background: var(--color-bg-sidebar);
   border-right: 1px solid var(--color-border);
 }
@@ -654,7 +644,6 @@ function diffClass(d: number): string {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-bottom: 1px solid var(--color-border-light);
 }
 
 .filter-label {
@@ -691,103 +680,35 @@ function diffClass(d: number): string {
   color: var(--color-text-primary);
 }
 
-.bank-list-card {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-}
-
-.bank-count {
-  font-size: 12px;
-  color: var(--color-text-muted);
+.filter-stats {
   padding: 10px 16px;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.bank-list {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px;
-}
-
-.bank-card {
-  border: 1px solid var(--color-border-light);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--color-bg-card);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.bank-card:hover {
-  border-color: var(--color-border-strong);
-  box-shadow: var(--shadow-sm);
-}
-
-.bank-card.selected {
-  border-color: var(--color-accent);
-  background: var(--color-accent-muted);
-  box-shadow: inset 3px 0 0 var(--color-accent);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.card-uuid {
-  font-weight: 600;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--color-text-primary);
-  word-break: break-all;
-}
-
-.diff-badge {
-  display: inline-block;
-  min-width: 48px;
-  text-align: center;
-  border-radius: var(--radius-pill);
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.d-easy { background: var(--color-d-easy-bg); color: var(--color-d-easy); }
-.d-medium-easy { background: var(--color-d-medium-easy-bg); color: var(--color-d-medium-easy); }
-.d-medium { background: var(--color-d-medium-bg); color: var(--color-d-medium); }
-.d-hard { background: var(--color-d-hard-bg); color: var(--color-d-hard); }
-.d-very-hard { background: var(--color-d-very-hard-bg); color: var(--color-d-very-hard); }
-
-.card-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: var(--color-text-muted);
-  font-size: 11px;
-}
-
-.empty-list {
-  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border-light);
   font-size: 13px;
-  padding: 20px 12px;
-  text-align: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* ── Main (right pane) ── */
+.filter-stats strong {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.selected-count {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════════
+   Main — Card List
+   ══════════════════════════════════════ */
 
 .bank-main {
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   background: var(--color-bg-primary);
+  padding: 16px 20px;
 }
 
 .empty-state {
@@ -801,27 +722,28 @@ function diffClass(d: number): string {
   padding: 80px 20px;
 }
 
-.bank-detail {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  padding: 20px;
-  height: calc(100% - 32px);
-  margin: 16px;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  animation: fadeInUp 0.3s ease;
+.card-list {
+  max-width: 900px;
+  margin: 0 auto;
 }
 
-.detail-title {
-  font-size: 18px;
-  font-weight: 700;
-  font-family: var(--font-display);
-  letter-spacing: 0.3px;
-  margin: 0 0 16px;
-  color: var(--color-text-primary);
+/* ══════════════════════════════════════
+   Inline Detail Panel
+   ══════════════════════════════════════ */
+
+.inline-detail {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-accent);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  margin-top: -12px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px var(--color-accent-glow);
+  overflow: hidden;
+}
+
+.detail-inner {
+  padding: 16px 20px;
 }
 
 .detail-section {
@@ -840,7 +762,8 @@ function diffClass(d: number): string {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  gap: 8px;
 }
 
 .section-header h4 {
@@ -865,7 +788,27 @@ function diffClass(d: number): string {
   margin-top: 6px;
 }
 
-/* ── Buttons ── */
+.detail-close-row {
+  text-align: center;
+  padding-top: 8px;
+}
+
+/* ── Transition ── */
+.detail-slide-enter-active,
+.detail-slide-leave-active {
+  transition: all 0.25s ease;
+  max-height: 2000px;
+}
+
+.detail-slide-enter-from,
+.detail-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+/* ══════════════════════════════════════
+   Buttons
+   ══════════════════════════════════════ */
 
 .btn-primary {
   border: none;

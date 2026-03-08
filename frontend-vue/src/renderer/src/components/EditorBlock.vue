@@ -133,6 +133,63 @@
         @input="handleLinesInput"
       />
     </div>
+
+    <!-- Table block -->
+    <div v-else-if="block.type === 'table'" class="table-editor">
+      <table class="table-edit-grid">
+        <thead>
+          <tr>
+            <th
+              v-for="(h, ci) in block.headers"
+              :key="'h-' + ci"
+              class="table-header-cell"
+            >
+              <input
+                class="table-cell-input table-header-input"
+                type="text"
+                :value="h"
+                :readonly="readonly"
+                placeholder="表头"
+                @input="(e) => handleHeaderInput(ci, e)"
+              />
+            </th>
+            <th v-if="!readonly" class="table-action-col">
+              <button class="table-col-add-btn" title="添加列" @click="emit('addTableColumn')">+</button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(row, ri) in block.rows" :key="'r-' + ri">
+            <td v-for="(cell, ci) in row" :key="'c-' + ci">
+              <input
+                class="table-cell-input"
+                type="text"
+                :value="cell"
+                :readonly="readonly"
+                placeholder=""
+                @input="(e) => handleCellInput(ri, ci, e)"
+              />
+            </td>
+            <td v-if="!readonly" class="table-action-col">
+              <button
+                class="table-row-del-btn"
+                title="删除行"
+                :disabled="block.rows.length <= 1"
+                @click="emit('removeTableRow', ri)"
+              >×</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="!readonly" class="table-actions">
+        <button class="table-add-row-btn" @click="emit('addTableRow')">+ 添加行</button>
+        <button
+          v-if="block.headers.length > 1"
+          class="table-del-col-btn"
+          @click="emit('removeTableColumn')"
+        >- 删除最后列</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -165,6 +222,10 @@ const emit = defineEmits<{
   removeChoice: [index: number]
   choiceScreenshot: [choiceIndex: number]
   addBlank: []
+  addTableRow: []
+  removeTableRow: [rowIndex: number]
+  addTableColumn: []
+  removeTableColumn: []
 }>()
 
 const TYPE_LABELS: Record<string, string> = {
@@ -172,7 +233,8 @@ const TYPE_LABELS: Record<string, string> = {
   choices: '选项组',
   image: '配图',
   blanks: '填空',
-  'answer-area': '答题区'
+  'answer-area': '答题区',
+  table: '表格'
 }
 
 const typeLabel = computed(() => {
@@ -222,6 +284,20 @@ function handleLinesInput(e: Event) {
     type: 'answer-area',
     lines: Number((e.target as HTMLInputElement).value) || 4
   })
+}
+
+function handleHeaderInput(colIndex: number, e: Event) {
+  if (props.block.type !== 'table') return
+  const headers = [...props.block.headers]
+  headers[colIndex] = (e.target as HTMLInputElement).value
+  emit('update', { type: 'table', headers, rows: props.block.rows })
+}
+
+function handleCellInput(rowIndex: number, colIndex: number, e: Event) {
+  if (props.block.type !== 'table') return
+  const rows = props.block.rows.map((r) => [...r])
+  rows[rowIndex][colIndex] = (e.target as HTMLInputElement).value
+  emit('update', { type: 'table', headers: props.block.headers, rows })
 }
 </script>
 
@@ -463,5 +539,101 @@ function handleLinesInput(e: Event) {
 .answer-area-lines-input:focus {
   border-color: var(--color-accent);
   outline: none;
+}
+
+/* Table */
+.table-editor {
+  padding: 8px;
+}
+
+.table-edit-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table-edit-grid th,
+.table-edit-grid td {
+  border: 1px solid var(--color-border);
+  padding: 0;
+}
+
+.table-action-col {
+  width: 28px;
+  border: none !important;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.table-cell-input {
+  width: 100%;
+  border: none;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+.table-cell-input:focus {
+  outline: none;
+  background: var(--color-bg-card);
+  box-shadow: inset 0 0 0 2px var(--color-accent-glow);
+}
+
+.table-header-input {
+  font-weight: 600;
+  background: var(--color-bg-panel);
+  color: var(--color-accent);
+}
+
+.table-col-add-btn,
+.table-row-del-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+}
+.table-col-add-btn:hover {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+.table-row-del-btn:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.table-row-del-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.table-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.table-add-row-btn,
+.table-del-col-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+.table-add-row-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.table-del-col-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 </style>

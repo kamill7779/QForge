@@ -50,7 +50,12 @@ function escapeLatexInXml(xml: string): string {
   // Escape & and < > that are not part of XML tags or existing entities.
   // We walk through the string preserving XML tags (<tag>, </tag>, <tag />)
   // and XML entities (&amp; etc.) while escaping anything else.
-  const TAG_RE = /<\/?[a-zA-Z][^>]*\/?>/g
+  //
+  // IMPORTANT: Only match *known* stem-xml tag names. A permissive regex like
+  // /<\/?[a-zA-Z][^>]*\/?>/g would incorrectly match LaTeX expressions such
+  // as $x<z<y$ — the <z would start a "tag" match that greedily consumes
+  // everything (including real closing tags like </p>) up to the next >.
+  const TAG_RE = /<\/?(?:stem|answer|p|choices|choice|image|blanks|blank|answer-area|table|thead|tbody|tr|th|td)(?:\s[^>]*)?\/?>/gi
   const parts: string[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null

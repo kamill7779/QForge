@@ -252,7 +252,7 @@ function processChoiceNode(
  */
 function stripXmlTags(text: string): string {
   return text
-    .replace(/<\/?(?:stem|answer|p|choices|choice|image|blanks|blank|answer-area)[^>]*>/gi, ' ')
+    .replace(/<\/?(?:stem|answer|p|choices|choice|image|blanks|blank|answer-area|table|thead|tbody|tr|th|td)[^>]*>/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
