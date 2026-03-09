@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: exam-parse-service
+  config:
+    import:
+      - optional:nacos:${spring.application.name}.yml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        file-extension: yml
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:qforge}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&useUnicode=true
+    username: ${MYSQL_USER:qforge}
+    password: ${MYSQL_PASSWORD:qforge}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: 8094
+
+security:
+  swagger-public: false
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+qforge:
+  business:
+    max-exam-upload-files: 10
+    allowed-exam-extensions: pdf,jpg,jpeg,png

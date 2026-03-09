@@ -1,6 +1,6 @@
 spring:
   application:
-    name: question-service
+    name: question-core-service
   servlet:
     multipart:
       max-file-size: 50MB
@@ -48,7 +48,7 @@ clients:
   ocr:
     base-url: ${OCR_SERVICE_BASE_URL:http://localhost:8090}  # 保留供直连降级使用，Feign 已切换为 Nacos LB
 
-# 业务参数热配置 — 可在 Nacos 的 question-service.yml 中覆盖，无需重启
+# 业务参数热配置 — 可在 Nacos 的 question-core-service.yml 中覆盖，无需重启
 qforge:
   business:
     max-inline-images: 10            # 每题最多内联图片数
@@ -59,8 +59,6 @@ qforge:
     answer-ocr-guard-ttl-minutes: 10 # 答案 OCR 防重 TTL（分钟）
     answer-ocr-asset-ttl-hours: 6    # 答案 OCR 资产缓存 TTL（小时）
     asset-cache-ttl-seconds: 30      # OCR 结果图片缓存 TTL（秒）
-    max-exam-upload-files: 10        # 试卷上传最大文件数
-    allowed-exam-extensions: pdf,jpg,jpeg,png  # 允许的文件扩展名
     ws-allowed-origins: "*"          # WebSocket 允许的 Origin 模式
 
 springdoc:

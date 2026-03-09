@@ -12,8 +12,8 @@
     </parent>
 
     <artifactId>question-service</artifactId>
-    <name>question-service</name>
-    <description>QForge question bank service</description>
+    <name>question-core-service</name>
+    <description>QForge question core service — 题库核心微服务</description>
 
     <dependencies>
         <dependency>
@@ -73,6 +73,11 @@
         <dependency>
             <groupId>io.github.kamill7779</groupId>
             <artifactId>common-contract</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.kamill7779</groupId>
+            <artifactId>internal-api-contract</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

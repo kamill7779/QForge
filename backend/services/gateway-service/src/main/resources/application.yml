@@ -25,15 +25,19 @@ spring:
               filters:
                 - StripPrefix=1
             - id: exam-parse-route
-              uri: lb://question-service
+              uri: lb://exam-parse-service
               predicates:
                 - Path=/api/exam-parse/**
-            - id: question-service-route
-              uri: lb://question-service
+            - id: exam-service-route
+              uri: lb://exam-service
               predicates:
-                - Path=/api/questions/**,/api/ocr-tasks/**,/api/tags/**,/api/exam-papers/**,/api/question-types/**,/api/question-basket/**
-            - id: question-service-ws-route
-              uri: lb:ws://question-service
+                - Path=/api/exam-papers/**,/api/question-types/**,/api/question-basket/**
+            - id: question-core-route
+              uri: lb://question-core-service
+              predicates:
+                - Path=/api/questions/**,/api/ocr-tasks/**,/api/tags/**
+            - id: question-core-ws-route
+              uri: lb:ws://question-core-service
               predicates:
                 - Path=/ws/questions/**
   data:

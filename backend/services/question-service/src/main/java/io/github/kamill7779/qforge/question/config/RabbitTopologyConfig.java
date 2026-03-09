@@ -26,15 +26,6 @@ public class RabbitTopologyConfig {
     public static final String ROUTING_AI_ANALYSIS_CREATED = "ai.analysis.created";
     public static final String ROUTING_AI_ANALYSIS_RESULT = "ai.analysis.result";
 
-    // --- Exam parse topology ---
-    public static final String EXAM_EXCHANGE = "qforge.exam";
-    public static final String EXAM_PARSE_TASK_QUEUE = "qforge.exam.parse.task.q";
-    public static final String EXAM_PARSE_RESULT_QUEUE = "qforge.exam.parse.result.q";
-    public static final String EXAM_PARSE_COMPLETED_QUEUE = "qforge.exam.parse.completed.q";
-    public static final String ROUTING_EXAM_PARSE_TASK_CREATED = "exam.parse.task.created";
-    public static final String ROUTING_EXAM_PARSE_RESULT = "exam.parse.result";
-    public static final String ROUTING_EXAM_PARSE_COMPLETED = "exam.parse.completed";
-
     // --- DB write-back: 仅声明 exchange（生产者需要），queue + binding 由 persist-service 声明 ---
     public static final String DB_EXCHANGE = "qforge.db";
 
@@ -93,52 +84,6 @@ public class RabbitTopologyConfig {
     @Bean
     public DirectExchange dbExchange() {
         return new DirectExchange(DB_EXCHANGE, true, false);
-    }
-
-    // --- Exam parse exchange + queues ---
-
-    @Bean
-    public TopicExchange examExchange() {
-        return new TopicExchange(EXAM_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue examParseTaskQueue() {
-        return new Queue(EXAM_PARSE_TASK_QUEUE, true);
-    }
-
-    @Bean
-    public Binding examParseTaskBinding(
-            @Qualifier("examParseTaskQueue") Queue examParseTaskQueue,
-            @Qualifier("examExchange") TopicExchange examExchange
-    ) {
-        return BindingBuilder.bind(examParseTaskQueue).to(examExchange).with(ROUTING_EXAM_PARSE_TASK_CREATED);
-    }
-
-    @Bean
-    public Queue examParseResultQueue() {
-        return new Queue(EXAM_PARSE_RESULT_QUEUE, true);
-    }
-
-    @Bean
-    public Binding examParseResultBinding(
-            @Qualifier("examParseResultQueue") Queue examParseResultQueue,
-            @Qualifier("examExchange") TopicExchange examExchange
-    ) {
-        return BindingBuilder.bind(examParseResultQueue).to(examExchange).with(ROUTING_EXAM_PARSE_RESULT);
-    }
-
-    @Bean
-    public Queue examParseCompletedQueue() {
-        return new Queue(EXAM_PARSE_COMPLETED_QUEUE, true);
-    }
-
-    @Bean
-    public Binding examParseCompletedBinding(
-            @Qualifier("examParseCompletedQueue") Queue examParseCompletedQueue,
-            @Qualifier("examExchange") TopicExchange examExchange
-    ) {
-        return BindingBuilder.bind(examParseCompletedQueue).to(examExchange).with(ROUTING_EXAM_PARSE_COMPLETED);
     }
 
     @Bean

@@ -1,8 +1,5 @@
 package io.github.kamill7779.qforge.question.config;
 
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -46,14 +43,6 @@ public class QForgeBusinessProperties {
 
     /** OCR 结果图片缓存 TTL（秒），默认 30。 */
     private int assetCacheTtlSeconds = 30;
-
-    // ── 试卷上传限制 ──
-
-    /** 试卷上传最大文件数，默认 10。 */
-    private int maxExamUploadFiles = 10;
-
-    /** 允许的文件扩展名（逗号分隔），默认 pdf,jpg,jpeg,png。 */
-    private String allowedExamExtensions = "pdf,jpg,jpeg,png";
 
     // ── WebSocket ──
 
@@ -124,32 +113,6 @@ public class QForgeBusinessProperties {
 
     public void setAssetCacheTtlSeconds(int assetCacheTtlSeconds) {
         this.assetCacheTtlSeconds = assetCacheTtlSeconds;
-    }
-
-    public int getMaxExamUploadFiles() {
-        return maxExamUploadFiles;
-    }
-
-    public void setMaxExamUploadFiles(int maxExamUploadFiles) {
-        this.maxExamUploadFiles = maxExamUploadFiles;
-    }
-
-    public String getAllowedExamExtensions() {
-        return allowedExamExtensions;
-    }
-
-    public void setAllowedExamExtensions(String allowedExamExtensions) {
-        this.allowedExamExtensions = allowedExamExtensions;
-    }
-
-    /**
-     * 将逗号分隔的扩展名字符串解析为 Set。
-     */
-    public Set<String> getAllowedExamExtensionSet() {
-        return Arrays.stream(allowedExamExtensions.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
     }
 
     public String getWsAllowedOrigins() {

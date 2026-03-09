@@ -13,9 +13,12 @@
 
     <modules>
         <module>libs/common-contract</module>
+        <module>libs/internal-api-contract</module>
         <module>services/gateway-service</module>
         <module>services/auth-service</module>
         <module>services/question-service</module>
+        <module>services/exam-service</module>
+        <module>services/exam-parse-service</module>
         <module>services/ocr-service</module>
         <module>services/persist-service</module>
     </modules>
