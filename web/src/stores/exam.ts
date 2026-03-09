@@ -355,15 +355,14 @@ export const useExamStore = defineStore('exam', () => {
 
   /** Export active paper to Word. */
   async function exportWord(paperUuid: string, includeAnswers = false): Promise<void> {
-    const blob = await examPaperApi.exportWord(paperUuid, {
+    const { blob, filename } = await examPaperApi.exportWord(paperUuid, {
       includeAnswers,
       answerPosition: 'AFTER_ALL'
     })
-    // Trigger download
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'exam-paper.docx'
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }

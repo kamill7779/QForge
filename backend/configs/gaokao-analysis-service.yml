@@ -1,0 +1,19 @@
+# ============================================================
+# gaokao-analysis-service.yml — Nacos 配置（Data ID: gaokao-analysis-service.yml）
+# ============================================================
+# 仅包含需要热生效或运行时可调的 AI / 向量参数。
+# ============================================================
+
+qforge:
+  analysis:
+    ai-model: glm-4-plus            # 默认 AI 模型
+    ai-timeout-seconds: 120          # AI 调用超时
+    embedding-model: embedding-3     # 向量 embedding 模型
+    embedding-dimension: 1024        # 向量维度
+    max-similar-results: 10          # 相似题召回上限
+    rerank-top-k: 5                  # 重排后返回数量
+  qdrant:
+    host: ${QDRANT_HOST:qdrant}
+    port: ${QDRANT_PORT:6333}
+    question-collection: gk_question_vectors
+    chunk-collection: gk_rag_chunks

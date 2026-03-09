@@ -21,6 +21,8 @@
         <module>services/exam-parse-service</module>
         <module>services/ocr-service</module>
         <module>services/persist-service</module>
+        <module>services/gaokao-corpus-service</module>
+        <module>services/gaokao-analysis-service</module>
     </modules>
 
     <properties>

@@ -39,11 +39,27 @@
       <div v-if="exam" class="editor-content">
         <!-- Exam meta -->
         <div class="exam-meta-bar">
-          <input v-model="exam.title" class="exam-title-input" placeholder="试卷标题" />
-          <input v-model="exam.subtitle" class="exam-subtitle-input" placeholder="副标题（可选）" />
+          <input
+            :value="exam.title"
+            class="exam-title-input"
+            placeholder="试卷标题"
+            @input="onExamMetaInput('title', ($event.target as HTMLInputElement).value)"
+          />
+          <input
+            :value="exam.subtitle"
+            class="exam-subtitle-input"
+            placeholder="副标题（可选）"
+            @input="onExamMetaInput('subtitle', ($event.target as HTMLInputElement).value)"
+          />
           <div class="exam-meta-row">
             <label>考试时长
-              <input v-model.number="exam.duration" type="number" min="1" class="duration-input" /> 分钟
+              <input
+                :value="exam.duration"
+                type="number"
+                min="1"
+                class="duration-input"
+                @input="onExamDurationInput(($event.target as HTMLInputElement).value)"
+              /> 分钟
             </label>
             <span class="total-score">总分: {{ exam.totalScore }} 分</span>
             <span class="total-questions">共 {{ totalQuestionCount }} 题</span>
@@ -52,7 +68,13 @@
 
         <!-- Sections -->
         <div class="sections-area">
-          <div v-for="(sec, sIdx) in exam.sections" :key="sec.id" class="section-block">
+          <div
+            v-for="(sec, sIdx) in exam.sections"
+            :key="sec.id"
+            class="section-block"
+            :class="{ active: activeSectionId === sec.id }"
+            @click="setActiveSection(sec.id)"
+          >
             <div class="section-header">
               <div class="section-title-row">
                 <span class="section-seq">{{ chineseOrdinal(sIdx) }}、</span>
@@ -128,7 +150,7 @@
             </div>
           </div>
 
-          <button class="add-section-btn" @click="examStore.addSection(exam!.id)">
+          <button class="add-section-btn" @click="addSection">
             + 添加大题
           </button>
         </div>
@@ -223,8 +245,9 @@ onMounted(async () => {
   } else if (!examStore.activeExam && examStore.exams.length) {
     await examStore.setActiveExam(examStore.exams[0].id)
   }
+  syncActiveSection()
   if (!questionStore.questions.length) {
-    questionStore.fetchQuestions()
+    await questionStore.fetchQuestions()
   }
 
   // Load image assets for all questions in current exam
@@ -233,9 +256,19 @@ onMounted(async () => {
 
 watch(() => route.params.id, (id) => {
   if (id) {
-    examStore.setActiveExam(id as string).then(() => loadExamAssets())
+    examStore.setActiveExam(id as string).then(() => {
+      syncActiveSection()
+      loadExamAssets()
+    })
   }
 })
+
+watch(
+  () => exam.value?.sections.map((section) => section.id).join('|') ?? '',
+  () => {
+    syncActiveSection()
+  }
+)
 
 /** Load image assets for all questions in current exam sections. */
 function loadExamAssets() {
@@ -249,9 +282,22 @@ function loadExamAssets() {
   }
 }
 
+function syncActiveSection() {
+  const currentExam = exam.value
+  if (!currentExam) {
+    activeSectionId.value = null
+    return
+  }
+  if (!activeSectionId.value || !currentExam.sections.some((section) => section.id === activeSectionId.value)) {
+    activeSectionId.value = currentExam.sections[0]?.id ?? null
+  }
+}
+
 async function createNew() {
   const e = await examStore.createExam()
+  activeSectionId.value = e.sections[0]?.id ?? null
   router.replace(`/compose/${e.id}`)
+  return e
 }
 
 function doSearch() {
@@ -270,11 +316,13 @@ function onBankScroll() {
   }
 }
 
-function addToCurrentSection(q: QuestionEntry) {
-  if (!exam.value) {
-    createNew()
-  }
-  const e = exam.value!
+function setActiveSection(sectionId: string) {
+  activeSectionId.value = sectionId
+}
+
+async function addToCurrentSection(q: QuestionEntry) {
+  const e = exam.value ?? await createNew()
+  syncActiveSection()
   // If already in exam, remove
   if (examStore.isQuestionInExam(q.questionUuid)) {
     for (const sec of e.sections) {
@@ -290,6 +338,7 @@ function addToCurrentSection(q: QuestionEntry) {
     ? e.sections.find((s) => s.id === activeSectionId.value)
     : e.sections[e.sections.length - 1]
   if (targetSec) {
+    activeSectionId.value = targetSec.id
     examStore.addQuestionToSection(e.id, targetSec.id, q)
     // Load assets for this question in background
     assetHelper.loadAssets(q.questionUuid).then(() => {
@@ -331,6 +380,24 @@ function finishEditSection(sec: ExamSection) {
   if (exam.value) {
     examStore.updateSection(exam.value.id, sec.id, { title: sec.title })
   }
+}
+
+function addSection() {
+  if (!exam.value) return
+  examStore.addSection(exam.value.id)
+  activeSectionId.value = exam.value.sections[exam.value.sections.length - 1]?.id ?? null
+}
+
+function onExamMetaInput(field: 'title' | 'subtitle', value: string) {
+  if (!exam.value) return
+  examStore.updateExamMeta(exam.value.id, { [field]: value })
+}
+
+function onExamDurationInput(value: string) {
+  if (!exam.value) return
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return
+  examStore.updateExamMeta(exam.value.id, { duration: Math.max(1, parsed) })
 }
 
 function onDefaultScoreChange(sec: ExamSection, value: number): void {
@@ -535,6 +602,11 @@ async function doExportWord() {
   border-radius: var(--radius-lg);
   margin-bottom: 16px;
   overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.section-block.active {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 .section-header {
   display: flex;

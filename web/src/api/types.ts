@@ -118,6 +118,14 @@ export interface QuestionOverviewResponse {
   updatedAt: string
 }
 
+export interface QuestionPageResponse {
+  page: number
+  size: number
+  total: number
+  hasMore: boolean
+  items: QuestionOverviewResponse[]
+}
+
 export interface QuestionAssetResponse {
   assetUuid: string
   refKey: string
@@ -263,6 +271,11 @@ export interface SaveExamContentRequest {
 export interface ExamPaperExportRequest {
   includeAnswers: boolean
   answerPosition?: string
+}
+
+export interface ExportFileResponse {
+  blob: Blob
+  filename: string
 }
 
 // ──────────────────── Question Types ────────────────────

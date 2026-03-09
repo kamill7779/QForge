@@ -24,6 +24,8 @@
 | `exam-parse-service.yml` | `exam-parse-service.yml` | 试卷解析上传约束 |
 | `persist-service.yml` | `persist-service.yml` | MQ 重试参数 |
 | `ocr-service.yml` | `ocr-service.yml` | OCR/LLM 模型配置、业务限制 |
+| `gaokao-corpus-service.yml` | `gaokao-corpus-service.yml` | 高考题库上传限制与缓存 TTL |
+| `gaokao-analysis-service.yml` | `gaokao-analysis-service.yml` | AI 模型、向量参数、Qdrant 配置 |
 
 ## 配置热更新说明
 

@@ -11,6 +11,7 @@ import io.github.kamill7779.qforge.question.dto.UpdateAnswerRequest;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionAssetResponse;
+import io.github.kamill7779.qforge.question.dto.QuestionPageResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateSourceRequest;
@@ -46,6 +47,23 @@ public class QuestionController {
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
     ) {
         return ResponseEntity.ok(questionCommandService.listUserQuestions(requestUser));
+    }
+
+    @GetMapping("/page")
+    public ResponseEntity<QuestionPageResponse> pageQuestions(
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "100") int size
+    ) {
+        return ResponseEntity.ok(questionCommandService.pageUserQuestions(requestUser, page, size));
+    }
+
+    @GetMapping("/{questionUuid}")
+    public ResponseEntity<QuestionOverviewResponse> getQuestion(
+            @PathVariable("questionUuid") String questionUuid,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser
+    ) {
+        return ResponseEntity.ok(questionCommandService.getQuestion(questionUuid, requestUser));
     }
 
     @GetMapping("/{questionUuid}/assets")

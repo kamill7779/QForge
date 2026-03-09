@@ -19,6 +19,7 @@ import io.github.kamill7779.qforge.question.dto.OcrTaskAcceptedResponse;
 import io.github.kamill7779.qforge.question.dto.OcrTaskSubmitRequest;
 import io.github.kamill7779.qforge.question.dto.QuestionMainTagResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionOverviewResponse;
+import io.github.kamill7779.qforge.question.dto.QuestionPageResponse;
 import io.github.kamill7779.qforge.question.dto.QuestionStatusResponse;
 import io.github.kamill7779.qforge.question.dto.UpdateDifficultyRequest;
 import io.github.kamill7779.qforge.question.dto.UpdateSourceRequest;
@@ -440,6 +441,46 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     @Override
     public List<QuestionOverviewResponse> listUserQuestions(String requestUser) {
         List<Question> questions = questionRepository.findAllByOwnerUser(requestUser);
+        return buildQuestionOverviewResponses(questions);
+    }
+
+    @Override
+    public QuestionPageResponse pageUserQuestions(String requestUser, int page, int size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        long total = questionRepository.countByOwnerUser(requestUser);
+        if (total == 0) {
+            return new QuestionPageResponse(safePage, safeSize, 0, false, List.of());
+        }
+
+        int offset = (safePage - 1) * safeSize;
+        List<Question> questions = questionRepository.findPageByOwnerUser(requestUser, offset, safeSize);
+        boolean hasMore = offset + questions.size() < total;
+        return new QuestionPageResponse(
+                safePage,
+                safeSize,
+                total,
+                hasMore,
+                buildQuestionOverviewResponses(questions)
+        );
+    }
+
+    @Override
+    public QuestionOverviewResponse getQuestion(String questionUuid, String requestUser) {
+        Question question = findQuestionOwnedByUser(questionUuid, requestUser);
+        List<QuestionOverviewResponse> items = buildQuestionOverviewResponses(List.of(question));
+        if (items.isEmpty()) {
+            throw new BusinessValidationException(
+                    "QUESTION_NOT_FOUND",
+                    "Question not found",
+                    Map.of("questionUuid", questionUuid, "requestUser", requestUser),
+                    HttpStatus.NOT_FOUND
+            );
+        }
+        return items.get(0);
+    }
+
+    private List<QuestionOverviewResponse> buildQuestionOverviewResponses(List<Question> questions) {
         if (questions.isEmpty()) {
             return List.of();
         }

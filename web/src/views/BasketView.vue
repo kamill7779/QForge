@@ -37,7 +37,7 @@
     </div>
 
     <!-- Basket items -->
-    <div v-else class="basket-list">
+    <div v-else ref="listRef" class="basket-list" @scroll="onListScroll">
       <div
         v-for="(item, idx) in basketStore.items"
         :key="item.questionUuid"
@@ -114,6 +114,10 @@ const notif = useNotificationStore()
 const assetHelper = useQuestionAssets()
 const composing = ref(false)
 const assetRenderKey = ref(0)
+const listRef = ref<HTMLElement | null>(null)
+const loadedAssetCount = ref(0)
+const assetBatchLoading = ref(false)
+const ASSET_BATCH_SIZE = 12
 
 // Detail modal state
 const detailUuid = ref<string | null>(null)
@@ -122,23 +126,24 @@ const detailDifficulty = ref<number | null | undefined>()
 
 onMounted(async () => {
   await basketStore.fetchItems()
-  // Load image assets for all basket items in background
-  const uuids = basketStore.items.map(i => i.questionUuid)
-  assetHelper.loadAssetsForMany(uuids).then(() => {
-    assetRenderKey.value++
-  })
+  await loadNextAssetBatch()
 })
 
 function openDetail(item: BasketItemResponse) {
   detailUuid.value = item.questionUuid
   detailSource.value = item.source ?? undefined
   detailDifficulty.value = item.difficulty
+  assetHelper.loadAssets(item.questionUuid).then(() => {
+    assetRenderKey.value++
+  })
 }
 
 async function handleRemove(questionUuid: string) {
   try {
     await basketStore.toggle(questionUuid)
     await basketStore.fetchItems()
+    loadedAssetCount.value = 0
+    await loadNextAssetBatch()
     notif.log('已从试题篮移除')
   } catch {
     notif.log('移除失败')
@@ -149,9 +154,34 @@ async function handleClear() {
   if (!confirm('确定要清空试题篮吗？')) return
   try {
     await basketStore.clear()
+    loadedAssetCount.value = 0
     notif.log('试题篮已清空')
   } catch {
     notif.log('清空失败')
+  }
+}
+
+async function loadNextAssetBatch() {
+  if (assetBatchLoading.value) return
+  const uuids = basketStore.items
+    .slice(loadedAssetCount.value, loadedAssetCount.value + ASSET_BATCH_SIZE)
+    .map((item) => item.questionUuid)
+  if (!uuids.length) return
+  assetBatchLoading.value = true
+  try {
+    loadedAssetCount.value += uuids.length
+    await assetHelper.loadAssetsForMany(uuids)
+    assetRenderKey.value++
+  } finally {
+    assetBatchLoading.value = false
+  }
+}
+
+function onListScroll() {
+  if (!listRef.value) return
+  const { scrollTop, scrollHeight, clientHeight } = listRef.value
+  if (scrollHeight - scrollTop - clientHeight < 240) {
+    loadNextAssetBatch()
   }
 }
 

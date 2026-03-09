@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useQuestionStore } from '@/stores/question'
@@ -53,9 +53,18 @@ const notif = useNotificationStore()
 
 // 401 interceptor: redirect to login on expired token
 let redirecting = false
+
+function clearSessionData() {
+  questionStore.$reset()
+  tagStore.$reset()
+  examStore.$reset()
+  basketStore.$reset()
+}
+
 registerOn401(() => {
   if (redirecting) return
   redirecting = true
+  clearSessionData()
   notif.log('登录已过期，请重新登录')
   auth.logout()
   router.replace('/login')
@@ -86,9 +95,12 @@ onMounted(async () => {
   notif.log('欢迎回来，' + auth.username)
 })
 
+onUnmounted(() => {
+  unregisterOn401()
+})
+
 function logout() {
-  questionStore.$reset()
-  tagStore.$reset()
+  clearSessionData()
   notif.$reset()
   auth.logout()
   router.replace('/login')

@@ -1,0 +1,15 @@
+# ============================================================
+# gaokao-corpus-service.yml — Nacos 配置（Data ID: gaokao-corpus-service.yml）
+# ============================================================
+# 仅包含需要热生效或运行时可调的业务参数。
+# 数据库连接、Redis、RabbitMQ 等基础设施配置在 application.yml 中通过环境变量注入。
+# ============================================================
+
+qforge:
+  gaokao:
+    max-upload-files: 20            # 单次试卷上传最大文件数
+    allowed-extensions: pdf,jpg,jpeg,png
+    max-file-size-mb: 50            # 单文件大小上限（MB）
+  cache:
+    draft-paper-ttl-seconds: 600    # 草稿试卷缓存 TTL
+    taxonomy-ttl-seconds: 3600      # 标签树缓存 TTL

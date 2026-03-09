@@ -65,7 +65,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import LatexPreview from '@/components/LatexPreview.vue'
-import { useQuestionStore } from '@/stores/question'
+import { useQuestionStore, type QuestionEntry } from '@/stores/question'
 import { useQuestionAssets } from '@/composables/useQuestionAssets'
 import { difficultyLabel } from '@/lib/difficulty'
 
@@ -86,10 +86,12 @@ const { loadAssets, resolverFor } = useQuestionAssets()
 
 const loading = ref(true)
 const renderKey = ref(0)
+const questionDetail = ref<QuestionEntry | null>(null)
 
-// Reactive data from store
 const question = computed(() =>
-  questionStore.allQuestions.find(q => q.questionUuid === props.questionUuid)
+  questionDetail.value
+  ?? questionStore.allQuestions.find(q => q.questionUuid === props.questionUuid)
+  ?? null
 )
 
 const stemText = computed(() =>
@@ -121,10 +123,7 @@ const tags = computed(() => {
 const imgResolver = computed(() => resolverFor(props.questionUuid))
 
 onMounted(async () => {
-  // Ensure questions loaded (for answers + tags)
-  if (!questionStore.allQuestions.length) {
-    await questionStore.fetchQuestions()
-  }
+  questionDetail.value = await questionStore.fetchQuestionDetail(props.questionUuid)
 
   // Load image assets
   await loadAssets(props.questionUuid)

@@ -292,14 +292,22 @@ function doSearch() {
   }
 }
 
-function refresh() {
+async function refresh() {
   keyword.value = ''
   questionStore.clearAllFilters()
-  questionStore.fetchQuestions()
+  await questionStore.fetchQuestions()
 }
 
-function toggleDetail(q: QuestionEntry) {
-  detailQuestion.value = detailQuestion.value?.questionUuid === q.questionUuid ? null : q
+async function toggleDetail(q: QuestionEntry) {
+  if (detailQuestion.value?.questionUuid === q.questionUuid) {
+    detailQuestion.value = null
+    return
+  }
+  detailQuestion.value = q
+  const detail = await questionStore.fetchQuestionDetail(q.questionUuid)
+  if (detail) {
+    detailQuestion.value = detail
+  }
 }
 
 async function toggleSelect(q: QuestionEntry) {

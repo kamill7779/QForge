@@ -11,6 +11,7 @@ import { ref, computed } from 'vue'
 import { questionApi } from '@/api/question'
 import { useAuthStore } from '@/stores/auth'
 import type {
+  QuestionPageResponse,
   QuestionOverviewResponse,
   QuestionMainTagResponse
 } from '@/api/types'
@@ -52,11 +53,18 @@ export interface TreeNode {
 
 export const useQuestionStore = defineStore('question', () => {
   const auth = useAuthStore()
+  const BACKEND_PAGE_SIZE = 100
+  const UI_PAGE_SIZE = 20
 
   // ── State ──
   const allQuestions = ref<QuestionEntry[]>([])
   const loading = ref(false)
   const filterKeyword = ref('')
+  const serverTotal = ref(0)
+  const backendPage = ref(0)
+  const serverHasMore = ref(true)
+  const visibleCount = ref(UI_PAGE_SIZE)
+  const detailCache = ref<Record<string, QuestionEntry>>({})
 
   // ── Dimension filters (empty = no filter) ──
   const filterGrade = ref('')
@@ -171,7 +179,7 @@ export const useQuestionStore = defineStore('question', () => {
   })
 
   // ── Getters ──
-  const questions = computed(() => {
+  const filteredQuestions = computed(() => {
     let result = allQuestions.value
 
     // Dimension filters
@@ -209,9 +217,12 @@ export const useQuestionStore = defineStore('question', () => {
     return result
   })
 
-  const totalCount = computed(() => allQuestions.value.length)
-  const filteredCount = computed(() => questions.value.length)
-  const hasMore = computed(() => false) // all data loaded at once
+  const questions = computed(() => filteredQuestions.value.slice(0, visibleCount.value))
+  const totalCount = computed(() => serverTotal.value || allQuestions.value.length)
+  const filteredCount = computed(() => filteredQuestions.value.length)
+  const hasMore = computed(() =>
+    visibleCount.value < filteredQuestions.value.length || serverHasMore.value
+  )
 
   /** Active filter summary for display. */
   const activeFilterCount = computed(() => {
@@ -226,33 +237,57 @@ export const useQuestionStore = defineStore('question', () => {
 
   // ── Actions ──
 
-  /** Fetch all questions from backend. */
-  async function fetchQuestions(): Promise<void> {
+  function normalizeQuestion(q: QuestionOverviewResponse): QuestionEntry {
+    return {
+      questionUuid: q.questionUuid,
+      status: q.status,
+      stemText: q.stemText || '',
+      mainTags: q.mainTags || [],
+      secondaryTags: q.secondaryTags || [],
+      difficulty: q.difficulty ?? null,
+      source: q.source || '未分类',
+      answerCount: q.answerCount ?? 0,
+      answers: (q.answers ?? []).map(a => ({
+        answerUuid: a.answerUuid,
+        latexText: a.latexText,
+        sortOrder: a.sortOrder,
+        official: a.official
+      })),
+      createdAt: q.createdAt || '',
+      updatedAt: q.updatedAt || ''
+    }
+  }
+
+  function mergeQuestions(entries: QuestionEntry[], replace = false): void {
+    const merged = replace ? new Map<string, QuestionEntry>() : new Map(
+      allQuestions.value.map(item => [item.questionUuid, item] as const)
+    )
+    for (const entry of entries) {
+      merged.set(entry.questionUuid, entry)
+    }
+    allQuestions.value = [...merged.values()]
+  }
+
+  /** Fetch one backend page (100 by default) and let the UI consume it in 20-item slices. */
+  async function fetchQuestions(reset = true): Promise<void> {
     if (!auth.token) return
     if (loading.value) return
+    if (!reset && !serverHasMore.value) return
     loading.value = true
     try {
-      const list = await questionApi.list(auth.token)
-      allQuestions.value = (Array.isArray(list) ? list : []).map((q: QuestionOverviewResponse) => ({
-        questionUuid: q.questionUuid,
-        status: q.status,
-        stemText: q.stemText || '',
-        mainTags: q.mainTags || [],
-        secondaryTags: q.secondaryTags || [],
-        difficulty: q.difficulty ?? null,
-        source: q.source || '未分类',
-        answerCount: q.answerCount ?? 0,
-        answers: (q.answers ?? []).map(a => ({
-          answerUuid: a.answerUuid,
-          latexText: a.latexText,
-          sortOrder: a.sortOrder,
-          official: a.official
-        })),
-        createdAt: q.createdAt || '',
-        updatedAt: q.updatedAt || ''
-      }))
-      // Refresh source options
-      fetchSources()
+      const nextPage = reset ? 1 : backendPage.value + 1
+      const res: QuestionPageResponse = await questionApi.listPage(auth.token, nextPage, BACKEND_PAGE_SIZE)
+      const entries = (Array.isArray(res.items) ? res.items : []).map(normalizeQuestion)
+      backendPage.value = res.page || nextPage
+      serverTotal.value = Number.isFinite(res.total) ? res.total : entries.length
+      serverHasMore.value = !!res.hasMore
+      if (reset) {
+        visibleCount.value = UI_PAGE_SIZE
+        mergeQuestions(entries, true)
+      } else {
+        mergeQuestions(entries, false)
+      }
+      await fetchSources()
     } finally {
       loading.value = false
     }
@@ -277,20 +312,48 @@ export const useQuestionStore = defineStore('question', () => {
     await questionApi.updateSource(auth.token, uuid, { source })
     const q = allQuestions.value.find((q) => q.questionUuid === uuid)
     if (q) q.source = source
-    fetchSources()
+    const detail = detailCache.value[uuid]
+    if (detail) detail.source = source
+    await fetchSources()
   }
 
-  /** No-op: backend returns all questions at once. */
-  async function loadMore(): Promise<void> {}
+  async function fetchQuestionDetail(uuid: string): Promise<QuestionEntry | null> {
+    if (!auth.token) return null
+    const cached = detailCache.value[uuid] ?? allQuestions.value.find(q => q.questionUuid === uuid)
+    if (cached?.answers?.length) {
+      detailCache.value[uuid] = cached
+      return cached
+    }
+    const detail = normalizeQuestion(await questionApi.detail(auth.token, uuid))
+    detailCache.value[uuid] = detail
+    mergeQuestions([detail], false)
+    return detail
+  }
+
+  async function loadMore(): Promise<void> {
+    if (visibleCount.value < filteredQuestions.value.length) {
+      visibleCount.value += UI_PAGE_SIZE
+      return
+    }
+    if (serverHasMore.value) {
+      const before = allQuestions.value.length
+      await fetchQuestions(false)
+      if (allQuestions.value.length > before || visibleCount.value < filteredQuestions.value.length) {
+        visibleCount.value += UI_PAGE_SIZE
+      }
+    }
+  }
 
   /** Client-side keyword filter. */
   async function searchQuestions(keyword: string): Promise<void> {
     if (!allQuestions.value.length) await fetchQuestions()
     filterKeyword.value = keyword.toLowerCase()
+    visibleCount.value = UI_PAGE_SIZE
   }
 
   function clearSearch(): void {
     filterKeyword.value = ''
+    visibleCount.value = UI_PAGE_SIZE
   }
 
   /** Set a dimension filter from tree node click. */
@@ -309,6 +372,7 @@ export const useQuestionStore = defineStore('question', () => {
         filterSource.value = filterSource.value === value ? '' : value
         break
     }
+    visibleCount.value = UI_PAGE_SIZE
   }
 
   /** Clear all filters. */
@@ -318,17 +382,23 @@ export const useQuestionStore = defineStore('question', () => {
     filterKnowledge.value = ''
     filterDifficulty.value = ''
     filterSource.value = ''
+    visibleCount.value = UI_PAGE_SIZE
   }
 
   function $reset(): void {
     allQuestions.value = []
     loading.value = false
+    serverTotal.value = 0
+    backendPage.value = 0
+    serverHasMore.value = true
+    visibleCount.value = UI_PAGE_SIZE
     filterKeyword.value = ''
     filterGrade.value = ''
     filterKnowledge.value = ''
     filterDifficulty.value = ''
     filterSource.value = ''
     sourceOptions.value = []
+    detailCache.value = {}
   }
 
   return {
@@ -349,6 +419,7 @@ export const useQuestionStore = defineStore('question', () => {
     fetchQuestions,
     fetchSources,
     updateSource,
+    fetchQuestionDetail,
     loadMore,
     searchQuestions,
     clearSearch,

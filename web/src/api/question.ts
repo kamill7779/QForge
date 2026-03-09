@@ -5,6 +5,7 @@
 import { apiRequest } from './client'
 import type {
   QuestionOverviewResponse,
+  QuestionPageResponse,
   CreateQuestionRequest,
   UpdateStemRequest,
   OcrTaskSubmitRequest,
@@ -23,6 +24,17 @@ import type {
 export const questionApi = {
   list(token: string) {
     return apiRequest<QuestionOverviewResponse[]>('GET', '/api/questions', undefined, token)
+  },
+  listPage(token: string, page: number, size: number) {
+    return apiRequest<QuestionPageResponse>(
+      'GET',
+      `/api/questions/page?page=${page}&size=${size}`,
+      undefined,
+      token
+    )
+  },
+  detail(token: string, uuid: string) {
+    return apiRequest<QuestionOverviewResponse>('GET', `/api/questions/${uuid}`, undefined, token)
   },
   create(token: string, req?: CreateQuestionRequest) {
     return apiRequest<QuestionOverviewResponse>('POST', '/api/questions', req ?? {}, token)
@@ -63,8 +75,8 @@ export const questionApi = {
   aiTasks(token: string, uuid: string) {
     return apiRequest<AiTaskResponse[]>('GET', `/api/questions/${uuid}/ai-tasks`, undefined, token)
   },
-  applyAi(token: string, uuid: string, req: ApplyAiRecommendationRequest) {
-    return apiRequest<void>('POST', `/api/questions/${uuid}/ai-apply`, req, token)
+  applyAi(token: string, uuid: string, taskUuid: string, req: ApplyAiRecommendationRequest) {
+    return apiRequest<void>('PUT', `/api/questions/${uuid}/ai-tasks/${taskUuid}/apply`, req, token)
   },
   updateSource(token: string, uuid: string, req: UpdateSourceRequest) {
     return apiRequest<void>('PUT', `/api/questions/${uuid}/source`, req, token)

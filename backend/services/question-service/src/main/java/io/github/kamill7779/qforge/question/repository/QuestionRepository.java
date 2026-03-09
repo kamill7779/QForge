@@ -29,6 +29,22 @@ public interface QuestionRepository extends BaseMapper<Question> {
         );
     }
 
+    default List<Question> findPageByOwnerUser(String ownerUser, int offset, int limit) {
+        return this.selectList(
+                Wrappers.<Question>lambdaQuery()
+                        .eq(Question::getOwnerUser, ownerUser)
+                        .orderByDesc(Question::getUpdatedAt)
+                        .last("LIMIT " + Math.max(offset, 0) + ", " + Math.max(limit, 1))
+        );
+    }
+
+    default long countByOwnerUser(String ownerUser) {
+        return this.selectCount(
+                Wrappers.<Question>lambdaQuery()
+                        .eq(Question::getOwnerUser, ownerUser)
+        );
+    }
+
     default List<Question> findByQuestionUuidsAndOwnerUser(List<String> questionUuids, String ownerUser) {
         if (questionUuids == null || questionUuids.isEmpty()) {
             return List.of();

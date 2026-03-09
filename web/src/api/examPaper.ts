@@ -9,8 +9,23 @@ import type {
   CreateExamPaperRequest,
   UpdateExamPaperRequest,
   SaveExamContentRequest,
-  ExamPaperExportRequest
+  ExamPaperExportRequest,
+  ExportFileResponse
 } from './types'
+
+function parseFilename(contentDisposition: string | null, fallback: string): string {
+  if (!contentDisposition) return fallback
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1])
+    } catch {
+      return utf8Match[1]
+    }
+  }
+  const plainMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
+  return plainMatch?.[1] || fallback
+}
 
 export const examPaperApi = {
   /** List all exam papers for current user. */
@@ -48,8 +63,8 @@ export const examPaperApi = {
     return apiRequest('PUT', `/api/exam-papers/${paperUuid}/content`, req)
   },
 
-  /** Export paper to Word (returns blob URL). */
-  async exportWord(paperUuid: string, req: ExamPaperExportRequest): Promise<Blob> {
+  /** Export paper to Word through exam-service -> export-sidecar. */
+  async exportWord(paperUuid: string, req: ExamPaperExportRequest): Promise<ExportFileResponse> {
     const { useAuthStore } = await import('@/stores/auth')
     const auth = useAuthStore()
     const headers: Record<string, string> = {
@@ -63,6 +78,9 @@ export const examPaperApi = {
       body: JSON.stringify(req)
     })
     if (!res.ok) throw new Error(`Export failed: ${res.status}`)
-    return res.blob()
+    return {
+      blob: await res.blob(),
+      filename: parseFilename(res.headers.get('Content-Disposition'), `exam-paper-${paperUuid}.docx`)
+    }
   }
 }
