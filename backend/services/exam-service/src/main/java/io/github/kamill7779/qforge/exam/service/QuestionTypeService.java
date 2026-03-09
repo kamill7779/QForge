@@ -21,14 +21,21 @@ public class QuestionTypeService {
     private static final Logger log = LoggerFactory.getLogger(QuestionTypeService.class);
 
     private final QuestionTypeRepository questionTypeRepository;
+    private final ExamCacheService examCacheService;
 
-    public QuestionTypeService(QuestionTypeRepository questionTypeRepository) {
+    public QuestionTypeService(
+            QuestionTypeRepository questionTypeRepository,
+            ExamCacheService examCacheService
+    ) {
         this.questionTypeRepository = questionTypeRepository;
+        this.examCacheService = examCacheService;
     }
 
     public List<QuestionTypeResponse> listForUser(String requestUser) {
-        List<QuestionType> types = questionTypeRepository.findAvailableForUser(requestUser);
-        return types.stream().map(this::toResponse).toList();
+        return examCacheService.getQuestionTypes(requestUser, () -> {
+            List<QuestionType> types = questionTypeRepository.findAvailableForUser(requestUser);
+            return types.stream().map(this::toResponse).toList();
+        });
     }
 
     public QuestionTypeResponse createCustom(SaveQuestionTypeRequest request, String requestUser) {
@@ -56,6 +63,7 @@ public class QuestionTypeService {
         entity.setEnabled(true);
 
         questionTypeRepository.save(entity);
+        examCacheService.evictQuestionTypes(requestUser);
         log.info("User [{}] created custom question type: {}", requestUser, entity.getTypeCode());
         return toResponse(entity);
     }
@@ -82,6 +90,7 @@ public class QuestionTypeService {
         }
 
         questionTypeRepository.save(entity);
+        examCacheService.evictQuestionTypes(requestUser);
         return toResponse(entity);
     }
 
@@ -96,6 +105,7 @@ public class QuestionTypeService {
                     Map.of(), HttpStatus.FORBIDDEN);
         }
         questionTypeRepository.deleteById(id);
+        examCacheService.evictQuestionTypes(requestUser);
     }
 
     private QuestionTypeResponse toResponse(QuestionType e) {

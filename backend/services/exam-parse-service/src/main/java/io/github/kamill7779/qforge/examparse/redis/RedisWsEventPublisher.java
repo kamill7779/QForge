@@ -2,6 +2,7 @@ package io.github.kamill7779.qforge.examparse.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.kamill7779.qforge.common.contract.RedisChannelNames;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,6 @@ public class RedisWsEventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(RedisWsEventPublisher.class);
 
-    /** Redis Pub/Sub 频道名 — 与 question-core-service 保持一致 */
-    public static final String WS_PUSH_CHANNEL = "qforge:ws:push";
-
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
 
@@ -39,7 +37,7 @@ public class RedisWsEventPublisher {
         );
         try {
             String json = objectMapper.writeValueAsString(envelope);
-            redis.convertAndSend(WS_PUSH_CHANNEL, json);
+            redis.convertAndSend(RedisChannelNames.WS_PUSH, json);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize WS push event for user={}, event={}: {}",
                     targetUser, event, e.getMessage());

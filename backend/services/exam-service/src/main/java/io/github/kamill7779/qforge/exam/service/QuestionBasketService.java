@@ -25,50 +25,59 @@ public class QuestionBasketService {
 
     private final QuestionBasketRepository basketRepository;
     private final QuestionCoreClient questionCoreClient;
+    private final ExamCacheService examCacheService;
 
     public QuestionBasketService(
             QuestionBasketRepository basketRepository,
-            QuestionCoreClient questionCoreClient
+            QuestionCoreClient questionCoreClient,
+            ExamCacheService examCacheService
     ) {
         this.basketRepository = basketRepository;
         this.questionCoreClient = questionCoreClient;
+        this.examCacheService = examCacheService;
     }
 
     public List<BasketItemResponse> listItems(String requestUser) {
-        List<QuestionBasket> items = basketRepository.findByOwnerUser(requestUser);
-        if (items.isEmpty()) return List.of();
+        return examCacheService.getBasketItems(requestUser, () -> {
+            List<QuestionBasket> items = basketRepository.findByOwnerUser(requestUser);
+            if (items.isEmpty()) {
+                return List.of();
+            }
 
-        List<String> uuids = items.stream().map(QuestionBasket::getQuestionUuid).toList();
+            List<String> uuids = items.stream().map(QuestionBasket::getQuestionUuid).toList();
 
-        // Feign 调用 question-core-service 批量获取摘要
-        Map<String, QuestionSummaryDTO> summaryMap;
-        try {
-            List<QuestionSummaryDTO> summaries = questionCoreClient.batchGetSummaries(String.join(",", uuids), requestUser);
-            summaryMap = summaries.stream()
-                    .collect(Collectors.toMap(QuestionSummaryDTO::questionUuid, s -> s));
-        } catch (Exception e) {
-            log.warn("Failed to fetch question summaries from question-core-service: {}", e.getMessage());
-            summaryMap = Map.of();
-        }
+            Map<String, QuestionSummaryDTO> summaryMap;
+            try {
+                List<QuestionSummaryDTO> summaries = questionCoreClient.batchGetSummaries(String.join(",", uuids), requestUser);
+                summaryMap = summaries.stream()
+                        .collect(Collectors.toMap(QuestionSummaryDTO::questionUuid, s -> s));
+            } catch (Exception e) {
+                log.warn("Failed to fetch question summaries from question-core-service: {}", e.getMessage());
+                summaryMap = Map.of();
+            }
 
-        Map<String, QuestionSummaryDTO> finalSummaryMap = summaryMap;
-        return items.stream().map(item -> {
-            QuestionSummaryDTO s = finalSummaryMap.get(item.getQuestionUuid());
-            return new BasketItemResponse(
-                    item.getQuestionUuid(),
-                    s != null ? s.stemText() : null,
-                    s != null ? s.source() : null,
-                    s != null ? s.difficulty() : null,
-                    item.getAddedAt()
-            );
-        }).toList();
+            Map<String, QuestionSummaryDTO> finalSummaryMap = summaryMap;
+            return items.stream().map(item -> {
+                QuestionSummaryDTO summary = finalSummaryMap.get(item.getQuestionUuid());
+                return new BasketItemResponse(
+                        item.getQuestionUuid(),
+                        summary != null ? summary.stemText() : null,
+                        summary != null ? summary.source() : null,
+                        summary != null ? summary.difficulty() : null,
+                        item.getAddedAt()
+                );
+            }).toList();
+        });
     }
 
     public List<String> listUuids(String requestUser) {
-        return basketRepository.findByOwnerUser(requestUser)
-                .stream()
-                .map(QuestionBasket::getQuestionUuid)
-                .toList();
+        return examCacheService.getBasketUuids(
+                requestUser,
+                () -> basketRepository.findByOwnerUser(requestUser)
+                        .stream()
+                        .map(QuestionBasket::getQuestionUuid)
+                        .toList()
+        );
     }
 
     @Transactional
@@ -92,6 +101,7 @@ public class QuestionBasketService {
         item.setQuestionUuid(questionUuid);
         // questionId 不再需要，跨服务通过 UUID 关联
         basketRepository.insert(item);
+        examCacheService.evictBasket(requestUser);
         log.info("User [{}] added question {} to basket", requestUser, questionUuid);
     }
 
@@ -100,6 +110,7 @@ public class QuestionBasketService {
         basketRepository.findByOwnerAndQuestionUuid(requestUser, questionUuid)
                 .ifPresent(item -> {
                     basketRepository.deleteById(item.getId());
+                    examCacheService.evictBasket(requestUser);
                     log.info("User [{}] removed question {} from basket", requestUser, questionUuid);
                 });
     }
@@ -109,6 +120,7 @@ public class QuestionBasketService {
         var existing = basketRepository.findByOwnerAndQuestionUuid(requestUser, questionUuid);
         if (existing.isPresent()) {
             basketRepository.deleteById(existing.get().getId());
+            examCacheService.evictBasket(requestUser);
             log.info("User [{}] toggled question {} OUT of basket", requestUser, questionUuid);
             return false;
         } else {
@@ -120,6 +132,7 @@ public class QuestionBasketService {
     @Transactional
     public void clearBasket(String requestUser) {
         basketRepository.deleteByOwnerUser(requestUser);
+        examCacheService.evictBasket(requestUser);
         log.info("User [{}] cleared basket", requestUser);
     }
 }

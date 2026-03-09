@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 /**
  * 业务参数热配置。
  *
- * <p>对应 Nacos dataId {@code question-service.yml} 中的 {@code qforge.business.*} 段。
+ * <p>对应 Nacos dataId {@code question-core-service.yml} 中的 {@code qforge.business.*} 段。
  * Nacos 推送配置变更时，Spring Cloud 的 {@code ConfigurationPropertiesRebinder}
  * 会自动重绑此 Bean，所有调用方在下次方法调用时即获取最新值，无需重启服务。
  */

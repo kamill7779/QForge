@@ -1,11 +1,42 @@
 # Services Overview
 
 ## `gateway-service`
-- Spring Cloud Gateway entry point for frontend requests.
-- Performs JWT validation and centralizes API access concerns.
-- Routes `/api/auth/**` to `auth-service` through Nacos discovery.
+
+- Frontend entry.
+- JWT validation.
+- Route forwarding through Nacos discovery.
 
 ## `auth-service`
+
 - Username/password login.
-- Issues JWT access token.
-- Provides protected `/auth/me` for token verification.
+- JWT issuing and token verification endpoints.
+
+## `question-core-service`
+
+- Question canonical data.
+- Tag catalog and tag relations.
+- OCR/AI task hot state and WS relay.
+- Internal summary/full-data APIs for other backend services.
+
+## `exam-service`
+
+- Question basket.
+- Question type catalog.
+- Exam paper composition and export orchestration.
+
+## `exam-parse-service`
+
+- Exam upload and parse task lifecycle.
+- Parsed-question preview/edit/confirm flow.
+- Confirmation delegates formal creation to `question-core-service`.
+
+## `ocr-service`
+
+- OCR and split pipeline.
+- AI-assisted parse generation.
+- Publishes async result events.
+
+## `persist-service`
+
+- Async OCR/AI task history write-back.
+- Should stay narrow in scope and not become a generic persistence facade.

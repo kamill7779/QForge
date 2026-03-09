@@ -19,14 +19,16 @@
 |------|--------------|------|
 | `auth-service.yml` | `auth-service.yml` | JWT 密钥、过期时间、安全开关 |
 | `gateway-service.yml` | `gateway-service.yml` | 网关内存限制、JWT、安全开关 |
-| `question-service.yml` | `question-service.yml` | 业务参数 (图片/TTL/上传/WS) |
+| `question-core-service.yml` | `question-core-service.yml` | 题库核心服务业务参数与缓存 TTL |
+| `exam-service.yml` | `exam-service.yml` | 组卷服务默认值与缓存 TTL |
+| `exam-parse-service.yml` | `exam-parse-service.yml` | 试卷解析上传约束 |
 | `persist-service.yml` | `persist-service.yml` | MQ 重试参数 |
 | `ocr-service.yml` | `ocr-service.yml` | OCR/LLM 模型配置、业务限制 |
 
 ## 配置热更新说明
 
-- `@ConfigurationProperties` 标注的属性类支持 Nacos 推送热更新，**无需重启服务**
-- `@Value` 注入的属性（如 JWT secret）需要重启服务才能生效
+- `@ConfigurationProperties` 标注且在运行时读取的属性支持 Nacos 推送热更新
+- 启动期构建的 Bean（如 JWT 密钥、HTTP 客户端、部分安全配置）通常仍需重启
 - `application.yml` 中的 Spring Boot 基础配置（如数据库连接）通常需要重启
 
 ## 环境变量优先级

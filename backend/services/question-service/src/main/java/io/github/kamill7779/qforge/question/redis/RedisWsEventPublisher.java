@@ -2,6 +2,7 @@ package io.github.kamill7779.qforge.question.redis;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.kamill7779.qforge.common.contract.RedisChannelNames;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,6 @@ public class RedisWsEventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(RedisWsEventPublisher.class);
 
-    /** Redis Pub/Sub 频道名 */
-    public static final String WS_PUSH_CHANNEL = "qforge:ws:push";
-
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
 
@@ -33,7 +31,7 @@ public class RedisWsEventPublisher {
 
     /**
      * 发布一条 WS 推送事件到 Redis channel。
-     * 所有订阅了 {@value WS_PUSH_CHANNEL} 的实例都会收到。
+     * 所有订阅了 {@value RedisChannelNames#WS_PUSH} 的实例都会收到。
      *
      * @param targetUser 目标用户名
      * @param event      WS 事件名（如 ocr.task.succeeded）
@@ -47,7 +45,7 @@ public class RedisWsEventPublisher {
         );
         try {
             String json = objectMapper.writeValueAsString(envelope);
-            redis.convertAndSend(WS_PUSH_CHANNEL, json);
+            redis.convertAndSend(RedisChannelNames.WS_PUSH, json);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize WS push event for user={}, event={}: {}", targetUser, event, e.getMessage());
         }

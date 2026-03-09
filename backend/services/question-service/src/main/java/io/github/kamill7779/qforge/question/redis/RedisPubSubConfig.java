@@ -1,5 +1,6 @@
 package io.github.kamill7779.qforge.question.redis;
 
+import io.github.kamill7779.qforge.common.contract.RedisChannelNames;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -14,7 +15,7 @@ public class RedisPubSubConfig {
 
     @Bean
     public ChannelTopic wsPushTopic() {
-        return new ChannelTopic(RedisWsEventPublisher.WS_PUSH_CHANNEL);
+        return new ChannelTopic(RedisChannelNames.WS_PUSH);
     }
 
     @Bean

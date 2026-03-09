@@ -17,6 +17,17 @@ public interface ExamSectionRepository extends BaseMapper<ExamSection> {
         );
     }
 
+    default List<ExamSection> findByPaperIds(List<Long> paperIds) {
+        if (paperIds == null || paperIds.isEmpty()) {
+            return List.of();
+        }
+        return this.selectList(
+                Wrappers.<ExamSection>lambdaQuery()
+                        .in(ExamSection::getPaperId, paperIds)
+                        .orderByAsc(ExamSection::getPaperId, ExamSection::getSortOrder)
+        );
+    }
+
     default void deleteByPaperId(Long paperId) {
         this.delete(
                 Wrappers.<ExamSection>lambdaQuery()

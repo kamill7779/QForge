@@ -2,6 +2,7 @@ package io.github.kamill7779.qforge.exam.service;
 
 import io.github.kamill7779.qforge.internal.api.QuestionCoreClient;
 import io.github.kamill7779.qforge.internal.api.QuestionSummaryDTO;
+import io.github.kamill7779.qforge.exam.config.QForgeExamProperties;
 import io.github.kamill7779.qforge.exam.dto.ExportWordRequest;
 import io.github.kamill7779.qforge.exam.dto.exam.CreateExamPaperRequest;
 import io.github.kamill7779.qforge.exam.dto.exam.ExamPaperDetailResponse;
@@ -49,6 +50,7 @@ public class ExamPaperService {
     private final QuestionBasketRepository basketRepository;
     private final QuestionCoreClient questionCoreClient;
     private final ExportService exportService;
+    private final QForgeExamProperties examProperties;
 
     public ExamPaperService(
             ExamPaperRepository examPaperRepository,
@@ -56,7 +58,8 @@ public class ExamPaperService {
             ExamQuestionRepository examQuestionRepository,
             QuestionBasketRepository basketRepository,
             QuestionCoreClient questionCoreClient,
-            ExportService exportService
+            ExportService exportService,
+            QForgeExamProperties examProperties
     ) {
         this.examPaperRepository = examPaperRepository;
         this.examSectionRepository = examSectionRepository;
@@ -64,24 +67,32 @@ public class ExamPaperService {
         this.basketRepository = basketRepository;
         this.questionCoreClient = questionCoreClient;
         this.exportService = exportService;
+        this.examProperties = examProperties;
     }
 
     // ───────── 列表查询 ─────────
 
     public List<ExamPaperOverviewResponse> listPapers(String requestUser) {
         List<ExamPaper> papers = examPaperRepository.findByOwnerUser(requestUser);
+        if (papers.isEmpty()) {
+            return List.of();
+        }
 
         List<Long> paperIds = papers.stream().map(ExamPaper::getId).toList();
-        Map<Long, List<ExamSection>> sectionsByPaper = new HashMap<>();
+        List<ExamSection> allSections = examSectionRepository.findByPaperIds(paperIds);
+        Map<Long, List<ExamSection>> sectionsByPaper = allSections.stream()
+                .collect(Collectors.groupingBy(ExamSection::getPaperId));
         Map<Long, Integer> questionCountByPaper = new HashMap<>();
 
-        if (!paperIds.isEmpty()) {
-            for (Long pid : paperIds) {
-                List<ExamSection> sections = examSectionRepository.findByPaperId(pid);
-                sectionsByPaper.put(pid, sections);
-                List<Long> sids = sections.stream().map(ExamSection::getId).toList();
-                List<ExamQuestion> questions = examQuestionRepository.findBySectionIds(sids);
-                questionCountByPaper.put(pid, questions.size());
+        List<Long> sectionIds = allSections.stream().map(ExamSection::getId).toList();
+        if (!sectionIds.isEmpty()) {
+            Map<Long, Long> sectionToPaper = allSections.stream()
+                    .collect(Collectors.toMap(ExamSection::getId, ExamSection::getPaperId));
+            for (ExamQuestion question : examQuestionRepository.findBySectionIds(sectionIds)) {
+                Long paperId = sectionToPaper.get(question.getSectionId());
+                if (paperId != null) {
+                    questionCountByPaper.merge(paperId, 1, Integer::sum);
+                }
             }
         }
 
@@ -109,7 +120,9 @@ public class ExamPaperService {
                 ? request.getTitle() : "未命名试卷");
         paper.setSubtitle(request.getSubtitle());
         paper.setDescription(request.getDescription());
-        paper.setDurationMinutes(request.getDurationMinutes() != null ? request.getDurationMinutes() : 120);
+        paper.setDurationMinutes(request.getDurationMinutes() != null
+                ? request.getDurationMinutes()
+                : examProperties.getDefaultDurationMinutes());
         paper.setTotalScore(BigDecimal.ZERO);
         paper.setStatus("DRAFT");
         paper.setDeleted(false);
@@ -245,7 +258,9 @@ public class ExamPaperService {
             section.setTitle(sp.getTitle());
             section.setDescription(sp.getDescription());
             section.setQuestionTypeCode(sp.getQuestionTypeCode());
-            section.setDefaultScore(sp.getDefaultScore() != null ? sp.getDefaultScore() : new BigDecimal("5.0"));
+            section.setDefaultScore(sp.getDefaultScore() != null
+                    ? sp.getDefaultScore()
+                    : examProperties.getDefaultQuestionScore());
             section.setSortOrder(si);
             examSectionRepository.save(section);
 
@@ -350,7 +365,7 @@ public class ExamPaperService {
         paper.setPaperUuid(UUID.randomUUID().toString());
         paper.setOwnerUser(requestUser);
         paper.setTitle("试题篮组卷 — " + basketItems.size() + " 题");
-        paper.setDurationMinutes(120);
+        paper.setDurationMinutes(examProperties.getDefaultDurationMinutes());
         paper.setTotalScore(BigDecimal.ZERO);
         paper.setStatus("DRAFT");
         paper.setDeleted(false);
@@ -360,7 +375,7 @@ public class ExamPaperService {
         section.setSectionUuid(UUID.randomUUID().toString());
         section.setPaperId(paper.getId());
         section.setTitle("全部题目");
-        section.setDefaultScore(new BigDecimal("5.0"));
+        section.setDefaultScore(examProperties.getDefaultQuestionScore());
         section.setSortOrder(0);
         examSectionRepository.save(section);
 

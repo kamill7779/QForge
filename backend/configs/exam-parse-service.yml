@@ -1,0 +1,8 @@
+# ============================================================
+# exam-parse-service.yml — Nacos 配置（Data ID: exam-parse-service.yml）
+# ============================================================
+
+qforge:
+  business:
+    max-exam-upload-files: 10
+    allowed-exam-extensions: pdf,jpg,jpeg,png

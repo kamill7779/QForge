@@ -60,6 +60,9 @@ qforge:
     answer-ocr-asset-ttl-hours: 6    # 答案 OCR 资产缓存 TTL（小时）
     asset-cache-ttl-seconds: 30      # OCR 结果图片缓存 TTL（秒）
     ws-allowed-origins: "*"          # WebSocket 允许的 Origin 模式
+  cache:
+    tag-catalog-ttl-seconds: 21600   # 标签目录缓存 TTL（秒）
+    question-summary-ttl-seconds: 600 # 内部题目摘要缓存 TTL（秒）
 
 springdoc:
   api-docs:

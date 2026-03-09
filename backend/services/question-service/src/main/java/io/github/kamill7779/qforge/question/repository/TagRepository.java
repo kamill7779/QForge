@@ -46,6 +46,17 @@ public interface TagRepository extends BaseMapper<Tag> {
         return Optional.ofNullable(tag);
     }
 
+    default Optional<Tag> findSystemTagByName(String tagName) {
+        Tag tag = this.selectOne(
+                Wrappers.<Tag>lambdaQuery()
+                        .eq(Tag::getScope, "SYSTEM")
+                        .eq(Tag::getOwnerUser, "")
+                        .eq(Tag::getTagName, tagName)
+                        .last("LIMIT 1")
+        );
+        return Optional.ofNullable(tag);
+    }
+
     default List<Tag> findSystemTagsByCategory(String categoryCode) {
         return this.selectList(
                 Wrappers.<Tag>lambdaQuery()
@@ -53,6 +64,19 @@ public interface TagRepository extends BaseMapper<Tag> {
                         .eq(Tag::getOwnerUser, "")
                         .eq(Tag::getCategoryCode, categoryCode)
                         .orderByAsc(Tag::getTagName)
+        );
+    }
+
+    default List<Tag> findSystemByCategoryCodes(List<String> categoryCodes) {
+        if (categoryCodes == null || categoryCodes.isEmpty()) {
+            return List.of();
+        }
+        return this.selectList(
+                Wrappers.<Tag>lambdaQuery()
+                        .eq(Tag::getScope, "SYSTEM")
+                        .eq(Tag::getOwnerUser, "")
+                        .in(Tag::getCategoryCode, categoryCodes)
+                        .orderByAsc(Tag::getCategoryCode, Tag::getTagName)
         );
     }
 

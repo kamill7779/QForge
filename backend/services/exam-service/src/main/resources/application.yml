@@ -15,6 +15,10 @@ spring:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DB:qforge}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&useUnicode=true
     username: ${MYSQL_USER:qforge}
     password: ${MYSQL_PASSWORD:qforge}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 server:
   port: 8093
@@ -31,3 +35,11 @@ springdoc:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+qforge:
+  exam:
+    default-duration-minutes: 120
+    default-question-score: 5.0
+  cache:
+    question-type-ttl-seconds: 1800
+    basket-ttl-seconds: 600

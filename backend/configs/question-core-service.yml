@@ -1,0 +1,24 @@
+# ============================================================
+# question-core-service.yml — Nacos 配置（Data ID: question-core-service.yml）
+# ============================================================
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+qforge:
+  business:
+    max-inline-images: 10
+    max-image-binary-bytes: 524288
+    max-reasoning-length: 1024
+    max-error-message-length: 2048
+    task-state-ttl-minutes: 30
+    answer-ocr-guard-ttl-minutes: 10
+    answer-ocr-asset-ttl-hours: 6
+    asset-cache-ttl-seconds: 30
+    ws-allowed-origins: "*"
+  cache:
+    tag-catalog-ttl-seconds: 21600
+    question-summary-ttl-seconds: 600

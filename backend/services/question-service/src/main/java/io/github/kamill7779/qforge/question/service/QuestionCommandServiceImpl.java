@@ -48,6 +48,7 @@ import io.github.kamill7779.qforge.question.repository.TagCategoryRepository;
 import io.github.kamill7779.qforge.question.repository.TagRepository;
 import io.github.kamill7779.qforge.question.validation.StemXmlValidator;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -89,6 +90,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     private final ObjectMapper objectMapper;
     private final TaskStateRedisService taskStateRedisService;
     private final QForgeBusinessProperties businessProperties;
+    private final QuestionTagAssignmentService questionTagAssignmentService;
+    private final QuestionSummaryQueryService questionSummaryQueryService;
     private final StringRedisTemplate redis;
 
     public QuestionCommandServiceImpl(
@@ -107,6 +110,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
             ObjectMapper objectMapper,
             TaskStateRedisService taskStateRedisService,
             QForgeBusinessProperties businessProperties,
+            QuestionTagAssignmentService questionTagAssignmentService,
+            QuestionSummaryQueryService questionSummaryQueryService,
             StringRedisTemplate redis
     ) {
         this.questionRepository = questionRepository;
@@ -124,6 +129,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         this.objectMapper = objectMapper;
         this.taskStateRedisService = taskStateRedisService;
         this.businessProperties = businessProperties;
+        this.questionTagAssignmentService = questionTagAssignmentService;
+        this.questionSummaryQueryService = questionSummaryQueryService;
         this.redis = redis;
     }
 
@@ -186,6 +193,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
         question.setStemText(request.getStemXml());
         questionRepository.save(question);
+        evictStemAssetCache(question.getQuestionUuid());
+        questionSummaryQueryService.evict(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -230,6 +239,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         validateAnswerHasContent(request.getLatexText(), questionUuid);
         Answer answer = saveOneAnswer(question, request.getLatexText());
         validateAndSyncAnswerImages(question, answer, request.getInlineImages());
+        questionSummaryQueryService.evict(question);
         return new AddAnswerResponse(question.getQuestionUuid(), question.getStatus(), answer.getAnswerUuid());
     }
 
@@ -247,6 +257,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         answer.setLatexText(request.getLatexText());
         answerRepository.save(answer);
         validateAndSyncAnswerImages(question, answer, request.getInlineImages());
+        questionSummaryQueryService.evict(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -271,6 +282,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         }
         answerAssetRepository.deleteByAnswerId(answer.getId());
         answerRepository.deleteById(answer.getId());
+        questionSummaryQueryService.evict(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -358,6 +370,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
 
         question.setStatus("READY");
         questionRepository.save(question);
+        questionSummaryQueryService.evict(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -417,7 +430,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         questionAiTaskRepository.deleteByQuestionUuid(questionUuid);
 
         // 8. Evict asset cache from Redis
-        redis.delete(ASSET_CACHE_PREFIX + questionUuid);
+        evictStemAssetCache(questionUuid);
+        questionSummaryQueryService.evict(question);
 
         // 9. Delete the question itself
         questionRepository.deleteById(questionId);
@@ -523,12 +537,26 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         }
 
         List<QuestionAsset> assets = questionAssetRepository.findByQuestionId(questionId);
-        return assets.stream()
+        List<QuestionAssetResponse> result = assets.stream()
                 .filter(a -> a.getRefKey() != null && a.getImageData() != null)
                 .map(a -> new QuestionAssetResponse(
                         a.getAssetUuid(), a.getRefKey(), a.getImageData(), a.getMimeType()
                 ))
                 .toList();
+        try {
+            redis.opsForValue().set(
+                    ASSET_CACHE_PREFIX + questionUuid,
+                    objectMapper.writeValueAsString(result),
+                    Duration.ofSeconds(businessProperties.getAssetCacheTtlSeconds())
+            );
+        } catch (Exception ignored) {
+            // Ignore cache write failures and return DB result.
+        }
+        return result;
+    }
+
+    private void evictStemAssetCache(String questionUuid) {
+        redis.delete(ASSET_CACHE_PREFIX + questionUuid);
     }
 
     private Answer saveOneAnswer(Question question, String latexText) {
@@ -836,45 +864,8 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     @Transactional
     public QuestionStatusResponse updateTags(String questionUuid, UpdateTagsRequest request, String requestUser) {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
-
-        // Delete ALL existing tag relations — full replace strategy
-        questionTagRelRepository.deleteByQuestionId(question.getId());
-
-        if (request.getTags() == null || request.getTags().isEmpty()) {
-            return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
-        }
-
-        // Classify each tag: system tag (main category) vs free-text (secondary)
-        Set<Long> insertedTagIds = new java.util.HashSet<>();
-        for (String tagText : request.getTags()) {
-            if (tagText == null || tagText.isBlank()) {
-                continue;
-            }
-
-            // 1) Try as a known SYSTEM tag code (main categories like GRADE_7, FUNCTION, etc.)
-            Optional<Tag> systemTag = tagRepository.findSystemTagByCode(tagText);
-            if (systemTag.isPresent()) {
-                Tag t = systemTag.get();
-                if (insertedTagIds.add(t.getId())) {
-                    saveQuestionTagRel(question.getId(), t.getId(), t.getCategoryCode(), requestUser);
-                }
-                continue;
-            }
-
-            // 2) Otherwise treat as secondary custom tag
-            TagCategory secondaryCategory = tagCategoryRepository
-                    .findEnabledByCode(CATEGORY_SECONDARY_CUSTOM).orElse(null);
-            if (secondaryCategory == null) continue;
-
-            String normalizedCode = toCustomTagCode(tagText);
-            Tag tag = tagRepository
-                    .findUserTagByCategoryAndCode(requestUser, CATEGORY_SECONDARY_CUSTOM, normalizedCode)
-                    .orElseGet(() -> createUserCustomTag(requestUser, tagText));
-            if (insertedTagIds.add(tag.getId())) {
-                saveQuestionTagRel(question.getId(), tag.getId(), CATEGORY_SECONDARY_CUSTOM, requestUser);
-            }
-        }
-
+        questionTagAssignmentService.replaceTags(question, request.getTags(), requestUser);
+        questionSummaryQueryService.evict(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -884,6 +875,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         question.setDifficulty(request.getDifficulty());
         questionRepository.save(question);
+        questionSummaryQueryService.evict(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
@@ -893,17 +885,13 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         Question question = findQuestionOwnedByUser(questionUuid, requestUser);
         question.setSource(request.getSource());
         questionRepository.save(question);
+        questionSummaryQueryService.evict(question);
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }
 
     @Override
     public List<String> listDistinctSources(String requestUser) {
-        List<Question> questions = questionRepository.findAllByOwnerUser(requestUser);
-        return questions.stream()
-                .map(q -> q.getSource() != null ? q.getSource() : "\u672a\u5206\u7c7b")
-                .distinct()
-                .sorted()
-                .toList();
+        return questionRepository.findDistinctSourcesByOwnerUser(requestUser);
     }
 
     @Override
@@ -1005,6 +993,7 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
         aiTask.setStatus("APPLIED");
         aiTask.setAppliedAt(LocalDateTime.now());
         questionAiTaskRepository.updateById(aiTask);
+        questionSummaryQueryService.evict(question);
 
         return new QuestionStatusResponse(question.getQuestionUuid(), question.getStatus());
     }

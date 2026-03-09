@@ -1,0 +1,11 @@
+# ============================================================
+# exam-service.yml — Nacos 配置（Data ID: exam-service.yml）
+# ============================================================
+
+qforge:
+  exam:
+    default-duration-minutes: 120
+    default-question-score: 5.0
+  cache:
+    question-type-ttl-seconds: 1800
+    basket-ttl-seconds: 600

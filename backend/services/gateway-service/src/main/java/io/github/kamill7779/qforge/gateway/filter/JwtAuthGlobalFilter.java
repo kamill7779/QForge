@@ -1,7 +1,7 @@
 package io.github.kamill7779.qforge.gateway.filter;
 
+import io.github.kamill7779.qforge.gateway.config.SecurityProperties;
 import io.github.kamill7779.qforge.gateway.security.JwtService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -18,12 +18,11 @@ import reactor.core.publisher.Mono;
 public class JwtAuthGlobalFilter implements WebFilter {
 
     private final JwtService jwtService;
+    private final SecurityProperties securityProperties;
 
-    @Value("${security.swagger-public:false}")
-    private boolean swaggerPublic;
-
-    public JwtAuthGlobalFilter(JwtService jwtService) {
+    public JwtAuthGlobalFilter(JwtService jwtService, SecurityProperties securityProperties) {
         this.jwtService = jwtService;
+        this.securityProperties = securityProperties;
     }
 
     @Override
@@ -66,7 +65,7 @@ public class JwtAuthGlobalFilter implements WebFilter {
         if ("/api/auth/login".equals(path) || path.startsWith("/public/") || "/public".equals(path)) {
             return true;
         }
-        if (swaggerPublic) {
+        if (securityProperties.isSwaggerPublic()) {
             return "/swagger-ui.html".equals(path)
                     || path.startsWith("/swagger-ui/")
                     || path.startsWith("/v3/api-docs");

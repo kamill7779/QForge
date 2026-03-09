@@ -1,111 +1,76 @@
-# QForge Backend (Microservices)
+# QForge Backend
 
-This backend is designed as multiple microservices, not a monolith.
+## Current Services
 
-## Services
+- `gateway-service`
+- `auth-service`
+- `question-core-service`
+- `exam-service`
+- `exam-parse-service`
+- `ocr-service`
+- `persist-service`
+- `export-sidecar`
 
-- `gateway-service`: real API gateway (Spring Cloud Gateway), unified entry, JWT validation, route forwarding.
-- `auth-service`: username/password login and JWT token issuing.
+## Shared Libraries
 
-## Shared Library
+- `libs/common-contract`
+  - Async event contracts and shared infra constants.
+- `libs/internal-api-contract`
+  - Sync internal HTTP/Feign contracts.
 
-- `libs/common-contract`: shared DTO/event contracts to keep inter-service schemas consistent.
+## Core Infrastructure
 
-## Infrastructure
-
-- Shared infrastructure for all services:
-- MySQL (`qforge` single shared database)
+- MySQL
 - Redis
 - RabbitMQ
-- Nacos (service registry/discovery)
-- `docker-compose.yml`: full stack for current MVP (infra + auth + gateway)
-- `infra/docker-compose.yml`: infra-only stack
+- Nacos
 
-## Runtime Stack
+Config references for Nacos are maintained under [`backend/configs`](./configs).
 
-- Spring Boot 3
+## Runtime Notes
+
 - Java 17
-- Shared MySQL
-- RabbitMQ for async events
-- Redis for cache/session needs
-- Nacos for service discovery (Spring Cloud Alibaba)
-- Swagger (springdoc) on each service
+- Spring Boot 3
+- Spring Cloud Alibaba (Nacos discovery/config)
+- Redis is used for:
+  - task hot state
+  - WS fan-out
+  - tag catalog cache
+  - question summary cache
+  - exam basket/question type cache
+- RabbitMQ is used for async OCR/AI/write-back flows
 
-## Quick Start (Image Build Mode)
+## Backend Split Rules
 
-From `backend/`:
+- Formal question data is owned by `question-core-service`.
+- `exam-parse-service` only manages temporary parse state until confirmation.
+- `persist-service` is an async write-back service, not a shared repository layer.
+- Sync service-to-service contracts should go into `internal-api-contract`.
+- Async events/shared channel names should go into `common-contract`.
+
+## Quick Start
+
+From [`backend`](./):
 
 ```bash
 docker compose up --build
 ```
 
-Before first startup, initialize MySQL schema manually (Flyway is not used):
+Initialize schema before first startup:
 
 ```bash
 mysql --default-character-set=utf8mb4 -h127.0.0.1 -P3306 -uqforge -pqforge qforge < sql/init-schema.sql
 ```
 
-This starts:
-- `gateway-service` on `http://localhost:8080`
-- `auth-service` on `http://localhost:8088`
-- MySQL, Redis, RabbitMQ, Nacos
+## Gateway/Auth Entry
 
-## JWT Login (MVP)
-
-- Unified login endpoint (through gateway): `POST http://localhost:8080/api/auth/login`
-- Default account:
-- username: `admin`
-- password: `admin123`
-- Protected test endpoint:
-- `GET http://localhost:8080/api/auth/me` (with `Authorization: Bearer <token>`)
-- `GET http://localhost:8080/gateway/ping` (with `Authorization: Bearer <token>`)
-
-Gateway routing rule:
-- `/api/auth/**` -> `auth-service` (`StripPrefix=1`, so `/api/auth/login` forwards to `/auth/login`)
+- Login: `POST http://localhost:8080/api/auth/login`
+- Auth profile check: `GET http://localhost:8080/api/auth/me`
+- Gateway ping: `GET http://localhost:8080/gateway/ping`
 
 ## Swagger
 
-- Auth: `http://localhost:8088/swagger-ui.html`
 - Gateway: `http://localhost:8080/swagger-ui.html`
+- Auth: `http://localhost:8088/swagger-ui.html`
 
-In `dev` profile, swagger is public (no JWT required).
-
-## Develop Debug Container (No Rebuild Loop)
-
-Use the develop compose file:
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-This starts:
-- infra (`mysql`, `redis`, `rabbitmq`, `nacos`)
-- one `dev-container` that runs `auth-service` + `gateway-service` from source with `spring-boot:run`
-
-Characteristics:
-- no app image rebuild on each debug run
-- shared Maven cache volume for faster incremental startup
-- startup script clears possible running Java service processes before booting both services
-
-Useful commands:
-
-```bash
-docker compose -f docker-compose.dev.yml logs -f dev-container
-docker compose -f docker-compose.dev.yml restart dev-container
-docker compose -f docker-compose.dev.yml down
-```
-
-## AI 分析调优（ocr-service）
-
-- 可通过环境变量覆盖输出上限：`ZHIPUAI_MAX_TOKENS`（默认从 `ocr-service` 配置读取）
-- 推荐先提升 `maxTokens`，再通过输入裁剪控制上下文长度
-
-本仓库提供了 prompt 预算调参脚本（题干+答案必须注入）：
-
-```bash
-python backend/scripts/ai_prompt_tuning.py \
-	--stem-file <stem.txt> \
-	--answers-file <answers.txt>
-```
-
-`answers.txt` 使用“空行分隔不同答案”。脚本输出每组预算的字符数与粗略 token 估算，便于选择折中配置。
+Other services expose their own Swagger endpoints on their service ports.

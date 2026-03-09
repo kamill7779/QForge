@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import io.github.kamill7779.qforge.question.entity.Question;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -37,6 +38,19 @@ public interface QuestionRepository extends BaseMapper<Question> {
                         .in(Question::getQuestionUuid, questionUuids)
                         .eq(Question::getOwnerUser, ownerUser)
         );
+    }
+
+    default List<String> findDistinctSourcesByOwnerUser(String ownerUser) {
+        return this.selectObjs(
+                        Wrappers.<Question>query()
+                                .select("DISTINCT source")
+                                .eq("owner_user", ownerUser)
+                                .orderByAsc("source")
+                ).stream()
+                .map(value -> value == null ? "未分类" : value.toString())
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     default Question save(Question entity) {

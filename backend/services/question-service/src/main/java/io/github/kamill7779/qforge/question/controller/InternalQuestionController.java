@@ -18,16 +18,16 @@ import io.github.kamill7779.qforge.question.repository.QuestionRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionTagRelRepository;
 import io.github.kamill7779.qforge.question.repository.TagCategoryRepository;
 import io.github.kamill7779.qforge.question.repository.TagRepository;
+import io.github.kamill7779.qforge.question.service.ParsedQuestionCreateService;
+import io.github.kamill7779.qforge.question.service.QuestionSummaryQueryService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +47,8 @@ public class InternalQuestionController {
 
     private static final Logger log = LoggerFactory.getLogger(InternalQuestionController.class);
 
+    private final QuestionSummaryQueryService questionSummaryQueryService;
+    private final ParsedQuestionCreateService parsedQuestionCreateService;
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
     private final QuestionAssetRepository questionAssetRepository;
@@ -56,6 +58,8 @@ public class InternalQuestionController {
     private final TagCategoryRepository tagCategoryRepository;
 
     public InternalQuestionController(
+            QuestionSummaryQueryService questionSummaryQueryService,
+            ParsedQuestionCreateService parsedQuestionCreateService,
             QuestionRepository questionRepository,
             AnswerRepository answerRepository,
             QuestionAssetRepository questionAssetRepository,
@@ -63,6 +67,8 @@ public class InternalQuestionController {
             QuestionTagRelRepository questionTagRelRepository,
             TagRepository tagRepository,
             TagCategoryRepository tagCategoryRepository) {
+        this.questionSummaryQueryService = questionSummaryQueryService;
+        this.parsedQuestionCreateService = parsedQuestionCreateService;
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
         this.questionAssetRepository = questionAssetRepository;
@@ -87,22 +93,7 @@ public class InternalQuestionController {
             return ResponseEntity.ok(List.of());
         }
 
-        List<Question> questions = questionRepository.findByQuestionUuidsAndOwnerUser(uuidList, ownerUser);
-        List<Long> questionIds = questions.stream().map(Question::getId).toList();
-        Map<Long, Long> answerCounts = answerRepository.countByQuestionIds(questionIds);
-
-        List<QuestionSummaryDTO> result = questions.stream()
-                .map(q -> new QuestionSummaryDTO(
-                        q.getQuestionUuid(),
-                        q.getStatus(),
-                        q.getStemText(),
-                        q.getDifficulty(),
-                        q.getSource(),
-                        answerCounts.getOrDefault(q.getId(), 0L)
-                ))
-                .toList();
-
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(questionSummaryQueryService.getSummaries(uuidList, ownerUser));
     }
 
     // ======================== 2. 批量获取完整数据 ========================
@@ -207,68 +198,10 @@ public class InternalQuestionController {
     // ======================== 4. 从解析结果创建正式题目 ========================
 
     @PostMapping("/from-parse")
-    @Transactional
     public ResponseEntity<CreateQuestionFromParseResponse> createFromParse(
             @RequestBody CreateQuestionFromParseRequest request) {
-
-        String questionUuid = UUID.randomUUID().toString();
-        boolean hasAnswer = request.answerXml() != null && !request.answerXml().isBlank();
-
-        // 创建 q_question
-        Question q = new Question();
-        q.setQuestionUuid(questionUuid);
-        q.setOwnerUser(request.ownerUser());
-        q.setStemText(request.stemXml());
-        q.setStatus(hasAnswer ? "READY" : "DRAFT");
-        q.setVisibility("PRIVATE");
-        q.setDeleted(false);
-        if (request.difficulty() != null) {
-            q.setDifficulty(request.difficulty());
-        }
-        questionRepository.save(q);
-
-        // 创建题干图片资产
-        if (request.stemImages() != null) {
-            for (Map.Entry<String, String> entry : request.stemImages().entrySet()) {
-                QuestionAsset asset = new QuestionAsset();
-                asset.setAssetUuid(UUID.randomUUID().toString());
-                asset.setQuestionId(q.getId());
-                asset.setAssetType("INLINE_IMAGE");
-                asset.setRefKey(entry.getKey());
-                asset.setImageData(entry.getValue());
-                asset.setMimeType("image/png");
-                questionAssetRepository.save(asset);
-            }
-        }
-
-        // 创建 q_answer（如果有答案 XML）
-        if (hasAnswer) {
-            Answer answer = new Answer();
-            answer.setAnswerUuid(UUID.randomUUID().toString());
-            answer.setQuestionId(q.getId());
-            answer.setLatexText(request.answerXml());
-            answer.setAnswerType("SOLUTION");
-            answer.setSortOrder(0);
-            answer.setOfficial(true);
-            answer.setDeleted(false);
-            answerRepository.save(answer);
-
-            // 创建答案图片资产
-            if (request.answerImages() != null) {
-                for (Map.Entry<String, String> entry : request.answerImages().entrySet()) {
-                    AnswerAsset asset = new AnswerAsset();
-                    asset.setAssetUuid(UUID.randomUUID().toString());
-                    asset.setQuestionId(q.getId());
-                    asset.setAnswerId(answer.getId());
-                    asset.setRefKey(entry.getKey());
-                    asset.setImageData(entry.getValue());
-                    asset.setMimeType("image/png");
-                    answerAssetRepository.save(asset);
-                }
-            }
-        }
-
-        log.info("Question created from parse: questionUuid={}, hasAnswer={}", questionUuid, hasAnswer);
-        return ResponseEntity.ok(new CreateQuestionFromParseResponse(questionUuid, q.getId()));
+        CreateQuestionFromParseResponse response = parsedQuestionCreateService.create(request);
+        log.info("Question created from parse: questionUuid={}", response.questionUuid());
+        return ResponseEntity.ok(response);
     }
 }

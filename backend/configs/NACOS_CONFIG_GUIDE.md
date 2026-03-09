@@ -12,7 +12,7 @@
 2. 进入 **配置管理 → 配置列表**
 3. 点击右上角 **+** 创建配置
 4. 填写：
-   - **Data ID**: 如 `question-service.yml`
+   - **Data ID**: 如 `question-core-service.yml`
    - **Group**: `DEFAULT_GROUP`
    - **配置格式**: YAML
    - **配置内容**: 复制 `backend/configs/` 下对应文件内容
@@ -60,9 +60,9 @@ Nacos 热配置 > 环境变量 > application.yml 默认值
 
 ---
 
-### 2.3 question-service（Nacos Data ID: `question-service.yml`）
+### 2.3 question-core-service（Nacos Data ID: `question-core-service.yml`）
 
-#### 业务参数（`qforge.business.*` — 全部支持热更新 ✅）
+#### 业务参数（`qforge.business.*` — 运行时读取的项支持热更新 ✅）
 
 | 配置路径 | 类型 | 默认值 | 说明 |
 |---------|------|--------|------|
@@ -74,9 +74,14 @@ Nacos 热配置 > 环境变量 > application.yml 默认值
 | `qforge.business.answer-ocr-guard-ttl-minutes` | int | `10` | 答案 OCR 防重 TTL（分钟） |
 | `qforge.business.answer-ocr-asset-ttl-hours` | int | `6` | 答案 OCR 资产缓存 TTL（小时） |
 | `qforge.business.asset-cache-ttl-seconds` | int | `30` | OCR 结果图片缓存 TTL（秒） |
-| `qforge.business.max-exam-upload-files` | int | `10` | 试卷上传最大文件数 |
-| `qforge.business.allowed-exam-extensions` | String | `pdf,jpg,jpeg,png` | 允许的文件扩展名（逗号分隔） |
 | `qforge.business.ws-allowed-origins` | String | `*` | WebSocket 允许的 Origin 模式 |
+
+#### 读路径缓存（`qforge.cache.*`）
+
+| 配置路径 | 类型 | 默认值 | 说明 |
+|---------|------|--------|------|
+| `qforge.cache.tag-catalog-ttl-seconds` | int | `21600` | 标签目录缓存 TTL |
+| `qforge.cache.question-summary-ttl-seconds` | int | `600` | 内部题目摘要缓存 TTL |
 
 #### Spring 配置
 
@@ -87,7 +92,27 @@ Nacos 热配置 > 环境变量 > application.yml 默认值
 
 ---
 
-### 2.4 persist-service（Nacos Data ID: `persist-service.yml`）
+### 2.4 exam-service（Nacos Data ID: `exam-service.yml`）
+
+| 配置路径 | 类型 | 默认值 | 热更新 | 说明 |
+|---------|------|--------|:------:|------|
+| `qforge.exam.default-duration-minutes` | int | `120` | 新建试卷默认时长 |
+| `qforge.exam.default-question-score` | decimal | `5.0` | 新建分区默认分值 |
+| `qforge.cache.question-type-ttl-seconds` | int | `1800` | 题型目录缓存 TTL |
+| `qforge.cache.basket-ttl-seconds` | int | `600` | 试题篮缓存 TTL |
+
+---
+
+### 2.5 exam-parse-service（Nacos Data ID: `exam-parse-service.yml`）
+
+| 配置路径 | 类型 | 默认值 | 热更新 | 说明 |
+|---------|------|--------|:------:|------|
+| `qforge.business.max-exam-upload-files` | int | `10` | 试卷上传最大文件数 |
+| `qforge.business.allowed-exam-extensions` | String | `pdf,jpg,jpeg,png` | 允许的文件扩展名（逗号分隔） |
+
+---
+
+### 2.6 persist-service（Nacos Data ID: `persist-service.yml`）
 
 | 配置路径 | 类型 | 默认值 | 热更新 | 说明 |
 |---------|------|--------|:------:|------|
@@ -98,7 +123,7 @@ Nacos 热配置 > 环境变量 > application.yml 默认值
 
 ---
 
-### 2.5 ocr-service（Nacos Data ID: `ocr-service.yml`）
+### 2.7 ocr-service（Nacos Data ID: `ocr-service.yml`）
 
 #### GLM OCR 布局解析（`ocr.provider.glm.*` — 支持热更新 ✅）
 
@@ -159,7 +184,7 @@ Nacos 热配置 > 环境变量 > application.yml 默认值
 
 ---
 
-### 2.6 export-sidecar（Python，非 Nacos 配置）
+### 2.8 export-sidecar（Python，非 Nacos 配置）
 
 | 环境变量 | 默认值 | 说明 |
 |---------|--------|------|
@@ -184,6 +209,8 @@ Nacos 热配置 > 环境变量 > application.yml 默认值
 | `ExamParseCommandService.MAX_FILES` | 10 | `qforge.business.max-exam-upload-files` | 上传文件数上限 |
 | `ExamParseCommandService.ALLOWED_EXTENSIONS` | pdf,jpg,jpeg,png | `qforge.business.allowed-exam-extensions` | 允许的扩展名 |
 | `WebSocketConfig` 硬编码 `"*"` | `*` | `qforge.business.ws-allowed-origins` | WS 跨域策略 |
+| `ExamPaperService` 默认时长 | 120 | `qforge.exam.default-duration-minutes` | 新建试卷默认时长 |
+| `ExamPaperService` 默认分值 | 5.0 | `qforge.exam.default-question-score` | 分区默认分值 |
 | `PdfPageRenderer.RENDER_DPI` | 300 | `qforge.ocr.pdf-render-dpi` | PDF 渲染质量 |
 | `StemXmlConverter.MAX_RETRIES` | 2 | `qforge.ocr.llm-empty-retries` | 空内容重试 |
 | `AnswerXmlConverter.MAX_RETRIES` | 2 | `qforge.ocr.llm-empty-retries` | 空内容重试 |
