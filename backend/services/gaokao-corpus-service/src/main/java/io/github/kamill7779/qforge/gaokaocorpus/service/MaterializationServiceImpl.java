@@ -1,5 +1,6 @@
 package io.github.kamill7779.qforge.gaokaocorpus.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestion;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestionMaterialization;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkQuestionMapper;
@@ -34,10 +35,10 @@ public class MaterializationServiceImpl implements MaterializationService {
 
     @Override
     @Transactional
-    public void materialize(Long gkQuestionId, String ownerUser) {
-        GkQuestion question = questionMapper.selectById(gkQuestionId);
+    public void materialize(Long gkQuestionId, String questionUuid, String ownerUser) {
+        GkQuestion question = resolveQuestion(gkQuestionId, questionUuid);
         if (question == null) {
-            throw new IllegalArgumentException("GK question not found: " + gkQuestionId);
+            throw new IllegalArgumentException("GK question not found");
         }
 
         CreateQuestionFromGaokaoRequest req = new CreateQuestionFromGaokaoRequest();
@@ -53,7 +54,7 @@ public class MaterializationServiceImpl implements MaterializationService {
 
         if (resp != null && resp.isSuccess()) {
             GkQuestionMaterialization mat = new GkQuestionMaterialization();
-            mat.setGkQuestionId(gkQuestionId);
+            mat.setGkQuestionId(question.getId());
             mat.setTargetQuestionUuid(resp.getQuestionUuid());
             mat.setOwnerUser(ownerUser);
             mat.setMode("COPY");
@@ -61,11 +62,23 @@ public class MaterializationServiceImpl implements MaterializationService {
             mat.setCreatedAt(LocalDateTime.now());
             mat.setUpdatedAt(LocalDateTime.now());
             materializationMapper.insert(mat);
-            log.info("Materialized gkQuestion={} -> targetUuid={}", gkQuestionId, resp.getQuestionUuid());
+            log.info("Materialized gkQuestion={} questionUuid={} -> targetUuid={}", question.getId(), question.getQuestionUuid(), resp.getQuestionUuid());
         } else {
             String errorMsg = resp != null ? resp.getErrorMessage() : "null response";
-            log.error("Materialization failed for gkQuestion={}: {}", gkQuestionId, errorMsg);
+            log.error("Materialization failed for gkQuestion={} questionUuid={}: {}", question.getId(), question.getQuestionUuid(), errorMsg);
             throw new RuntimeException("Materialization failed: " + errorMsg);
         }
+    }
+
+    private GkQuestion resolveQuestion(Long gkQuestionId, String questionUuid) {
+        if (gkQuestionId != null) {
+            return questionMapper.selectById(gkQuestionId);
+        }
+        if (questionUuid != null && !questionUuid.isBlank()) {
+            return questionMapper.selectOne(
+                    new LambdaQueryWrapper<GkQuestion>()
+                            .eq(GkQuestion::getQuestionUuid, questionUuid));
+        }
+        throw new IllegalArgumentException("Either gkQuestionId or questionUuid is required");
     }
 }

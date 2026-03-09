@@ -279,8 +279,7 @@ public class ExamPaperService {
 
                 ExamQuestion eq = new ExamQuestion();
                 eq.setSectionId(section.getId());
-                // questionId 不再通过本地查询获取，存 0 或使用 UUID-only 关联
-                eq.setQuestionId(0L);
+                eq.setQuestionId(summary.questionId());
                 eq.setQuestionUuid(qp.getQuestionUuid());
                 eq.setSortOrder(qi);
                 eq.setScore(qp.getScore() != null ? qp.getScore() : section.getDefaultScore());
@@ -387,7 +386,7 @@ public class ExamPaperService {
 
             ExamQuestion eq = new ExamQuestion();
             eq.setSectionId(section.getId());
-            eq.setQuestionId(0L);
+            eq.setQuestionId(summary.questionId() != null ? summary.questionId() : basketItem.getQuestionId());
             eq.setQuestionUuid(basketItem.getQuestionUuid());
             eq.setSortOrder(sortOrder++);
             eq.setScore(section.getDefaultScore());

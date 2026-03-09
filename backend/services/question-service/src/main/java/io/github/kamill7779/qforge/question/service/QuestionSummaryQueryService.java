@@ -100,6 +100,7 @@ public class QuestionSummaryQueryService {
 
     private QuestionSummaryDTO toSummary(Question question, long answerCount) {
         return new QuestionSummaryDTO(
+                question.getId(),
                 question.getQuestionUuid(),
                 question.getStatus(),
                 question.getStemText(),

@@ -108,6 +108,8 @@
             :entry="q"
             :seq="i + 1"
             :is-selected="basketStore.isInBasket(q.questionUuid)"
+            :image-resolver="assetHelper.resolverFor(q.questionUuid)"
+            :render-key="assetRenderKey"
             @toggle-detail="toggleDetail(q)"
             @toggle-select="toggleSelect(q)"
           />
@@ -134,77 +136,34 @@
       </div>
     </div>
 
-    <!-- Question detail modal -->
-    <Teleport to="body">
-      <div v-if="detailQuestion" class="modal-overlay" @click.self="detailQuestion = null">
-        <div class="modal-card">
-          <div class="modal-header">
-            <h3>题目详情</h3>
-            <button class="modal-close" @click="detailQuestion = null">×</button>
-          </div>
-          <div class="modal-body">
-            <LatexPreview :xml="detailQuestion.stemText" />
-            <div class="detail-meta">
-              <div v-if="detailQuestion.mainTags.length" class="detail-tags">
-                <span v-for="t in detailQuestion.mainTags" :key="t.tagCode" class="tag-pill main">{{ t.tagName }}</span>
-              </div>
-              <div v-if="detailQuestion.secondaryTags.length" class="detail-tags">
-                <span v-for="st in detailQuestion.secondaryTags" :key="st" class="tag-pill sec">{{ st }}</span>
-              </div>
-              <div v-if="detailQuestion.difficulty !== null" class="detail-diff">
-                难度: {{ difficultyLabel(detailQuestion.difficulty) }}
-              </div>
-              <!-- Source display & edit -->
-              <div class="detail-source">
-                <label class="detail-source-label">来源:</label>
-                <input
-                  v-model="editSource"
-                  type="text"
-                  class="detail-source-input"
-                  list="source-options"
-                  placeholder="输入或选择来源…"
-                  @change="saveSource"
-                  @blur="saveSource"
-                />
-                <datalist id="source-options">
-                  <option v-for="s in questionStore.sourceOptions" :key="s" :value="s" />
-                </datalist>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button
-              class="btn-action primary"
-              @click="toggleSelect(detailQuestion!); detailQuestion = null"
-            >
-              {{ basketStore.isInBasket(detailQuestion.questionUuid) ? '取消选题' : '+ 选入试题篮' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <QuestionDetailModal
+      v-if="detailUuid"
+      :question-uuid="detailUuid"
+      @close="detailUuid = null"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import QuestionCard from '@/components/QuestionCard.vue'
-import LatexPreview from '@/components/LatexPreview.vue'
+import QuestionDetailModal from '@/components/QuestionDetailModal.vue'
 import { useQuestionStore } from '@/stores/question'
 import { useBasketStore } from '@/stores/basket'
 import { useNotificationStore } from '@/stores/notification'
-import { difficultyLabel } from '@/lib/difficulty'
+import { useQuestionAssets } from '@/composables/useQuestionAssets'
 import type { QuestionEntry, TreeNode } from '@/stores/question'
 
 const questionStore = useQuestionStore()
 const basketStore = useBasketStore()
 const notif = useNotificationStore()
+const assetHelper = useQuestionAssets()
 
 const keyword = ref('')
-const detailQuestion = ref<QuestionEntry | null>(null)
+const detailUuid = ref<string | null>(null)
 const listRef = ref<HTMLElement>()
-const editSource = ref('')
 const sidebarSearch = ref('')
+const assetRenderKey = ref(0)
 
 // Track which tree branches are expanded
 const expandedBranches = ref(new Set<string>(['grade', 'knowledge', 'difficulty', 'source']))
@@ -232,12 +191,15 @@ onMounted(async () => {
   }
   // Initialize basket store — loads UUID set from backend
   await basketStore.init()
+  await loadVisibleQuestionAssets()
 })
 
-// Sync editSource when detail modal opens
-watch(detailQuestion, (q) => {
-  editSource.value = q?.source || '未分类'
-})
+watch(
+  () => questionStore.questions.map((q) => q.questionUuid).join('|'),
+  () => {
+    void loadVisibleQuestionAssets()
+  }
+)
 
 function toggleBranch(key: string) {
   if (expandedBranches.value.has(key)) {
@@ -299,15 +261,18 @@ async function refresh() {
 }
 
 async function toggleDetail(q: QuestionEntry) {
-  if (detailQuestion.value?.questionUuid === q.questionUuid) {
-    detailQuestion.value = null
+  if (detailUuid.value === q.questionUuid) {
+    detailUuid.value = null
     return
   }
-  detailQuestion.value = q
-  const detail = await questionStore.fetchQuestionDetail(q.questionUuid)
-  if (detail) {
-    detailQuestion.value = detail
-  }
+  detailUuid.value = q.questionUuid
+}
+
+async function loadVisibleQuestionAssets() {
+  const uuids = questionStore.questions.map((q) => q.questionUuid)
+  if (!uuids.length) return
+  await assetHelper.loadAssetsForMany(uuids)
+  assetRenderKey.value++
 }
 
 async function toggleSelect(q: QuestionEntry) {
@@ -316,19 +281,6 @@ async function toggleSelect(q: QuestionEntry) {
     notif.log(inBasket ? '已加入试题篮' : '已从试题篮移除')
   } catch {
     notif.log('操作失败，请重试')
-  }
-}
-
-async function saveSource() {
-  if (!detailQuestion.value) return
-  const newSource = editSource.value.trim() || '未分类'
-  if (newSource === detailQuestion.value.source) return
-  try {
-    await questionStore.updateSource(detailQuestion.value.questionUuid, newSource)
-    detailQuestion.value.source = newSource
-    notif.log('来源已更新为「' + newSource + '」')
-  } catch {
-    notif.log('更新来源失败')
   }
 }
 

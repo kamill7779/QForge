@@ -9,11 +9,14 @@ import io.github.kamill7779.qforge.gaokaocorpus.dto.DraftPaperDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.DraftQuestionDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.UpdateDraftPaperRequest;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.UpdateDraftQuestionRequest;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftAnswer;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftOption;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftPaper;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftProfilePreview;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftQuestion;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftSection;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSession;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSourceFile;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftAnswerMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftOptionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftPaperMapper;
@@ -21,10 +24,12 @@ import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftProfilePreview
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftQuestionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftSectionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSourceFileMapper;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +48,7 @@ public class DraftServiceImpl implements DraftService {
     private final GkDraftAnswerMapper draftAnswerMapper;
     private final GkDraftProfilePreviewMapper draftProfilePreviewMapper;
     private final GkIngestSessionMapper ingestSessionMapper;
+    private final GkIngestSourceFileMapper ingestSourceFileMapper;
     private final GaokaoAnalysisClient analysisClient;
 
     public DraftServiceImpl(
@@ -53,6 +59,7 @@ public class DraftServiceImpl implements DraftService {
             GkDraftAnswerMapper draftAnswerMapper,
             GkDraftProfilePreviewMapper draftProfilePreviewMapper,
             GkIngestSessionMapper ingestSessionMapper,
+                GkIngestSourceFileMapper ingestSourceFileMapper,
             GaokaoAnalysisClient analysisClient
     ) {
         this.draftPaperMapper = draftPaperMapper;
@@ -62,6 +69,7 @@ public class DraftServiceImpl implements DraftService {
         this.draftAnswerMapper = draftAnswerMapper;
         this.draftProfilePreviewMapper = draftProfilePreviewMapper;
         this.ingestSessionMapper = ingestSessionMapper;
+        this.ingestSourceFileMapper = ingestSourceFileMapper;
         this.analysisClient = analysisClient;
     }
 
@@ -77,7 +85,7 @@ public class DraftServiceImpl implements DraftService {
                 new LambdaQueryWrapper<GkDraftPaper>()
                         .eq(GkDraftPaper::getSessionId, session.getId()));
         if (paper == null) {
-            throw new IllegalArgumentException("No draft paper for session: " + sessionUuid);
+            paper = bootstrapDraftPaperIfMissing(session);
         }
         return toPaperDTO(paper);
     }
@@ -240,6 +248,142 @@ public class DraftServiceImpl implements DraftService {
         dto.setScore(q.getScore());
         dto.setHasAnswer(q.getHasAnswer());
         dto.setEditVersion(q.getEditVersion());
+        dto.setOptions(draftOptionMapper.selectList(
+                        new LambdaQueryWrapper<GkDraftOption>()
+                                .eq(GkDraftOption::getDraftQuestionId, q.getId())
+                                .orderByAsc(GkDraftOption::getSortOrder))
+                .stream()
+                .map(this::toDraftOptionDTO)
+                .collect(Collectors.toList()));
+        dto.setAnswers(draftAnswerMapper.selectList(
+                        new LambdaQueryWrapper<GkDraftAnswer>()
+                                .eq(GkDraftAnswer::getDraftQuestionId, q.getId())
+                                .orderByAsc(GkDraftAnswer::getSortOrder))
+                .stream()
+                .map(this::toDraftAnswerDTO)
+                .collect(Collectors.toList()));
+        GkDraftProfilePreview preview = draftProfilePreviewMapper.selectOne(
+                new LambdaQueryWrapper<GkDraftProfilePreview>()
+                        .eq(GkDraftProfilePreview::getDraftQuestionId, q.getId())
+                        .orderByDesc(GkDraftProfilePreview::getProfileVersion)
+                        .last("LIMIT 1"));
+        dto.setAnalysisPreview(toAnalysisPreviewDTO(preview));
+        return dto;
+    }
+
+    private GkDraftPaper bootstrapDraftPaperIfMissing(GkIngestSession session) {
+        List<GkIngestSourceFile> sourceFiles = ingestSourceFileMapper.selectList(
+                new LambdaQueryWrapper<GkIngestSourceFile>()
+                        .eq(GkIngestSourceFile::getSessionId, session.getId())
+                        .orderByAsc(GkIngestSourceFile::getCreatedAt)
+                        .orderByAsc(GkIngestSourceFile::getId));
+        if (sourceFiles.isEmpty()) {
+            throw new IllegalArgumentException("No draft paper for session: " + session.getSessionUuid());
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        GkDraftPaper paper = new GkDraftPaper();
+        paper.setDraftPaperUuid(UUID.randomUUID().toString());
+        paper.setSessionId(session.getId());
+        paper.setPaperName(resolvePaperName(session, sourceFiles));
+        paper.setPaperTypeCode("GAOKAO_TEMPLATE");
+        paper.setExamYear(session.getExamYearGuess());
+        paper.setProvinceCode(session.getProvinceCodeGuess());
+        paper.setDurationMinutes(120);
+        paper.setStatus("EDITING");
+        paper.setCreatedAt(now);
+        paper.setUpdatedAt(now);
+        draftPaperMapper.insert(paper);
+
+        GkDraftSection section = new GkDraftSection();
+        section.setDraftSectionUuid(UUID.randomUUID().toString());
+        section.setDraftPaperId(paper.getId());
+        section.setSectionCode("OCR_TEMPLATE");
+        section.setSectionTitle("OCR template imports");
+        section.setSortOrder(1);
+        section.setCreatedAt(now);
+        section.setUpdatedAt(now);
+        draftSectionMapper.insert(section);
+
+        for (int index = 0; index < sourceFiles.size(); index++) {
+            GkIngestSourceFile sourceFile = sourceFiles.get(index);
+            GkDraftQuestion question = new GkDraftQuestion();
+            question.setDraftQuestionUuid(UUID.randomUUID().toString());
+            question.setDraftPaperId(paper.getId());
+            question.setDraftSectionId(section.getId());
+            question.setQuestionNo(String.valueOf(index + 1));
+            question.setQuestionTypeCode("UNCLASSIFIED");
+            question.setAnswerMode("SUBJECTIVE");
+            question.setStemText(buildPlaceholderStem(sourceFile, index + 1));
+            question.setStemXml("<stem><p>Draft template generated from OCR source. Please refine the stem.</p></stem>");
+            question.setNormalizedStemText(buildPlaceholderStem(sourceFile, index + 1));
+            question.setHasAnswer(false);
+            question.setEditVersion(1);
+            question.setCreatedAt(now);
+            question.setUpdatedAt(now);
+            draftQuestionMapper.insert(question);
+        }
+
+        session.setStatus("EDITING");
+        session.setPaperNameGuess(paper.getPaperName());
+        session.setUpdatedAt(now);
+        ingestSessionMapper.updateById(session);
+        log.info("Bootstrapped draft paper for session={}, sourceFiles={}, draftPaperUuid={}",
+                session.getSessionUuid(), sourceFiles.size(), paper.getDraftPaperUuid());
+        return paper;
+    }
+
+    private String resolvePaperName(GkIngestSession session, List<GkIngestSourceFile> sourceFiles) {
+        if (session.getPaperNameGuess() != null && !session.getPaperNameGuess().isBlank()) {
+            return session.getPaperNameGuess();
+        }
+        String firstFileName = sourceFiles.get(0).getFileName();
+        int dotIndex = firstFileName.lastIndexOf('.');
+        return dotIndex > 0 ? firstFileName.substring(0, dotIndex) : firstFileName;
+    }
+
+    private String buildPlaceholderStem(GkIngestSourceFile sourceFile, int questionIndex) {
+        return "Draft question " + questionIndex + " generated from source file: " + sourceFile.getFileName();
+    }
+
+    private DraftQuestionDTO.DraftOptionDTO toDraftOptionDTO(GkDraftOption option) {
+        DraftQuestionDTO.DraftOptionDTO dto = new DraftQuestionDTO.DraftOptionDTO();
+        dto.setDraftOptionUuid(option.getDraftOptionUuid());
+        dto.setOptionLabel(option.getOptionLabel());
+        dto.setOptionText(option.getOptionText());
+        dto.setOptionXml(option.getOptionXml());
+        dto.setSortOrder(option.getSortOrder());
+        return dto;
+    }
+
+    private DraftQuestionDTO.DraftAnswerDTO toDraftAnswerDTO(GkDraftAnswer answer) {
+        DraftQuestionDTO.DraftAnswerDTO dto = new DraftQuestionDTO.DraftAnswerDTO();
+        dto.setDraftAnswerUuid(answer.getDraftAnswerUuid());
+        dto.setAnswerType(answer.getAnswerType());
+        dto.setAnswerText(answer.getAnswerText());
+        dto.setAnswerXml(answer.getAnswerXml());
+        dto.setOfficial(answer.getIsOfficial());
+        dto.setSortOrder(answer.getSortOrder());
+        return dto;
+    }
+
+    private DraftQuestionDTO.AnalysisPreviewDTO toAnalysisPreviewDTO(GkDraftProfilePreview preview) {
+        if (preview == null) {
+            return null;
+        }
+        DraftQuestionDTO.AnalysisPreviewDTO dto = new DraftQuestionDTO.AnalysisPreviewDTO();
+        dto.setKnowledgeTagsJson(preview.getKnowledgeTagsJson());
+        dto.setMethodTagsJson(preview.getMethodTagsJson());
+        dto.setFormulaTagsJson(preview.getFormulaTagsJson());
+        dto.setMistakeTagsJson(preview.getMistakeTagsJson());
+        dto.setAbilityTagsJson(preview.getAbilityTagsJson());
+        dto.setDifficultyScore(preview.getDifficultyScore());
+        dto.setDifficultyLevel(preview.getDifficultyLevel());
+        dto.setReasoningStepsJson(preview.getReasoningStepsJson());
+        dto.setAnalysisSummaryText(preview.getAnalysisSummaryText());
+        dto.setRecommendSeedText(preview.getRecommendSeedText());
+        dto.setProfileVersion(preview.getProfileVersion());
+        dto.setConfirmed(preview.getConfirmed());
         return dto;
     }
 }

@@ -9,12 +9,12 @@
         <button class="btn btn-secondary" @click="goBack">返回会话列表</button>
       </div>
 
-      <div class="paper-summary" v-if="paperForm">
+      <div class="paper-summary" v-if="gaokao.draftPaper">
         <span class="chip">{{ gaokao.draftPaper?.status || 'DRAFT' }}</span>
         <strong>{{ paperForm.paperName || '未命名试卷' }}</strong>
       </div>
 
-      <div class="question-groups">
+      <div v-if="gaokao.draftPaper" class="question-groups">
         <div v-for="section in gaokao.draftPaper?.sections || []" :key="section.draftSectionUuid" class="section-box">
           <div class="section-title">{{ section.sectionTitle || section.sectionCode || '未命名 section' }}</div>
           <button
@@ -28,9 +28,17 @@
           </button>
         </div>
       </div>
+
+      <div v-else class="rail-empty">
+        <h2>草稿整卷尚未生成</h2>
+        <p>
+          当前会话已经进入真实后端链路，但 gaokao-corpus-service 还没有完成 OCR 结果到草稿整卷的自动生成闭环。
+        </p>
+        <p class="error-copy">{{ gaokao.draftPaperLoadMessage || '请先完成上传与 OCR，再在后端补齐草稿生成。' }}</p>
+      </div>
     </section>
 
-    <section class="editor-shell">
+    <section v-if="gaokao.draftPaper" class="editor-shell">
       <div class="editor-panels">
         <article class="card paper-panel">
           <div class="panel-head">
@@ -103,6 +111,40 @@
         </div>
         <LatexPreview :xml="questionForm?.stemXml || ''" placeholder="当前题目暂无可渲染 XML" />
       </div>
+    </section>
+
+    <section v-else class="editor-shell">
+      <article class="card pending-card">
+        <div class="panel-head">
+          <div>
+            <h2>当前工作台不可编辑</h2>
+            <p>这是按真实后端返回状态展示的结果，不再假定草稿一定已经生成。</p>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-secondary" @click="retryLoadDraft">重新加载</button>
+            <button class="btn btn-primary" @click="goBack">返回会话列表</button>
+          </div>
+        </div>
+
+        <div class="pending-grid">
+          <div>
+            <strong>会话 UUID</strong>
+            <p>{{ gaokao.activeSession?.sessionUuid || '-' }}</p>
+          </div>
+          <div>
+            <strong>当前状态</strong>
+            <p>{{ gaokao.activeSession?.status || '-' }}</p>
+          </div>
+          <div>
+            <strong>上传文件数</strong>
+            <p>{{ gaokao.activeSession?.sourceFileUuids.length || 0 }}</p>
+          </div>
+          <div>
+            <strong>后端返回</strong>
+            <p>{{ gaokao.draftPaperLoadMessage || '暂无额外信息' }}</p>
+          </div>
+        </div>
+      </article>
     </section>
   </div>
 </template>
@@ -264,6 +306,15 @@ async function publishPaper() {
     notif.push('error', (error as Error).message)
   }
 }
+
+async function retryLoadDraft() {
+  try {
+    await gaokao.loadDraftPaper()
+    notif.push('success', '草稿整卷已重新加载')
+  } catch (error) {
+    notif.push('warning', (error as Error).message)
+  }
+}
 </script>
 
 <style scoped>
@@ -297,6 +348,29 @@ async function publishPaper() {
   display: grid;
   gap: 14px;
   margin-top: 18px;
+}
+
+.rail-empty {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--color-surface-soft);
+}
+
+.rail-empty h2 {
+  margin: 0;
+}
+
+.rail-empty p {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.error-copy {
+  color: var(--color-danger);
 }
 
 .section-box {
@@ -341,8 +415,13 @@ async function publishPaper() {
 .paper-panel,
 .question-panel,
 .publish-panel,
-.preview-panel {
+.preview-panel,
+.pending-card {
   padding: 20px;
+}
+
+.pending-card {
+  align-self: start;
 }
 
 .panel-head,
@@ -379,6 +458,19 @@ async function publishPaper() {
   margin-top: 18px;
 }
 
+.pending-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.pending-grid p {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+}
+
 label {
   display: grid;
   gap: 8px;
@@ -400,7 +492,8 @@ label {
   }
 
   .paper-form-grid,
-  .question-form-grid {
+  .question-form-grid,
+  .pending-grid {
     grid-template-columns: 1fr;
   }
 }

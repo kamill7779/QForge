@@ -42,6 +42,8 @@
 5. `exam-service` 调用 `export-sidecar /internal/export/questions/word`
 6. `export-sidecar` 只负责 docx 渲染并返回二进制
 
+补充事实：Docker 开发环境下，如果 `export-sidecar` 启动时尚未成功注册到 Nacos，`exam-service` 允许通过显式配置的内部直连地址回退到 `http://export-sidecar:8092`，避免把导出能力绑死在单次注册成功上。
+
 ## 4. export-sidecar 是否适合微服务体系
 
 结论：适合，但定位应当非常明确。

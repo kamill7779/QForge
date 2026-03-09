@@ -40,6 +40,9 @@ qforge:
   exam:
     default-duration-minutes: 120
     default-question-score: 5.0
+  export:
+    sidecar:
+      direct-url: ${EXPORT_SIDECAR_DIRECT_URL:}
   cache:
     question-type-ttl-seconds: 1800
     basket-ttl-seconds: 600

@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell">
-    <header class="app-header">
+    <header v-if="!isImmersiveRoute" class="app-header">
       <div class="topbar-left">
         <div class="logo-mark">Q</div>
         <div class="app-title">QForge</div>
@@ -21,7 +21,7 @@
       <router-view />
     </main>
 
-    <footer class="status-bar">
+    <footer v-if="!isImmersiveRoute" class="status-bar">
       <span class="status-user">{{ auth.username || '未登录' }}</span>
       <span class="status-info">
         题库 {{ questionStore.totalCount }} 题 ·
@@ -33,8 +33,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useQuestionStore } from '@/stores/question'
 import { useTagStore } from '@/stores/tag'
@@ -44,12 +44,14 @@ import { useNotificationStore } from '@/stores/notification'
 import { registerOn401, unregisterOn401 } from '@/api/client'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const questionStore = useQuestionStore()
 const tagStore = useTagStore()
 const examStore = useExamStore()
 const basketStore = useBasketStore()
 const notif = useNotificationStore()
+const isImmersiveRoute = computed(() => route.name === 'preview')
 
 // 401 interceptor: redirect to login on expired token
 let redirecting = false

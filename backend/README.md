@@ -56,6 +56,12 @@ From [`backend`](./):
 docker compose up --build
 ```
 
+For the gaokao template flow only, rebuild and start the relevant stack with:
+
+```bash
+./scripts/docker-rebuild-gaokao.sh
+```
+
 Initialize schema before first startup:
 
 ```bash

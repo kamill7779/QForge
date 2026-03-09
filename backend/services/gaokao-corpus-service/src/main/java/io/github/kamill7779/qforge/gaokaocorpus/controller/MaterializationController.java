@@ -24,7 +24,7 @@ public class MaterializationController {
     public ResponseEntity<Void> materialize(
             @Valid @RequestBody MaterializeRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
-        materializationService.materialize(request.getGkQuestionId(), requestUser);
+        materializationService.materialize(request.getGkQuestionId(), request.getQuestionUuid(), requestUser);
         return ResponseEntity.ok().build();
     }
 }

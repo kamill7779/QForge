@@ -67,7 +67,7 @@
               <div><dt>会话 UUID</dt><dd>{{ gaokao.activeSession.sessionUuid }}</dd></div>
               <div><dt>创建时间</dt><dd>{{ formatDate(gaokao.activeSession.createdAt) }}</dd></div>
               <div><dt>更新时间</dt><dd>{{ formatDate(gaokao.activeSession.updatedAt) }}</dd></div>
-              <div><dt>源文件数</dt><dd>{{ gaokao.activeSession.sourceFileUuids.length }}</dd></div>
+              <div><dt>源文件数</dt><dd>{{ gaokao.activeSession.sourceFileUuids?.length ?? 0 }}</dd></div>
             </dl>
           </article>
         </div>
@@ -98,9 +98,8 @@ function formatDate(value: string) {
 async function createSession() {
   busy.value = true
   try {
-    const session = await gaokao.createSession()
+    await gaokao.createSession()
     notif.push('success', '录入会话已创建')
-    router.replace(`/sessions/${session.sessionUuid}`)
   } catch (error) {
     notif.push('error', (error as Error).message)
   } finally {

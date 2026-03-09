@@ -18,7 +18,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestClient;
 import org.springframework.stereotype.Service;
 
 /**
@@ -32,13 +35,19 @@ public class ExportService {
 
     private final QuestionCoreClient questionCoreClient;
     private final ExportSidecarClient exportSidecarClient;
+    private final RestClient restClient;
+    private final String exportSidecarDirectUrl;
 
     public ExportService(
             QuestionCoreClient questionCoreClient,
-            ExportSidecarClient exportSidecarClient
+            ExportSidecarClient exportSidecarClient,
+            RestClient.Builder restClientBuilder,
+            @Value("${qforge.export.sidecar.direct-url:}") String exportSidecarDirectUrl
     ) {
         this.questionCoreClient = questionCoreClient;
         this.exportSidecarClient = exportSidecarClient;
+        this.restClient = restClientBuilder.build();
+        this.exportSidecarDirectUrl = exportSidecarDirectUrl;
     }
 
     public byte[] exportQuestionsWord(ExportWordRequest request, String requestUser) {
@@ -135,15 +144,12 @@ public class ExportService {
 
         // 5. 调用 export-sidecar
         try {
-            Response feignResponse = exportSidecarClient.exportQuestionsWord(sidecarRequest);
-            if (feignResponse.status() != 200) {
-                log.error("export-sidecar returned status {}", feignResponse.status());
-                throw new BusinessValidationException(
-                        "EXPORT_SIDECAR_ERROR", "导出服务返回错误: " + feignResponse.status(),
-                        Map.of(), HttpStatus.BAD_GATEWAY);
-            }
-            return feignResponse.body().asInputStream().readAllBytes();
+            return invokeSidecarWithFeign(sidecarRequest);
         } catch (BusinessValidationException e) {
+            if (shouldFallbackToDirectUrl()) {
+                log.warn("Falling back to direct export-sidecar URL after Feign failure: {}", e.getMessage());
+                return invokeSidecarDirect(sidecarRequest);
+            }
             throw e;
         } catch (IOException e) {
             log.error("Failed to read export-sidecar response", e);
@@ -152,10 +158,55 @@ public class ExportService {
                     Map.of(), HttpStatus.INTERNAL_SERVER_ERROR);
         } catch (Exception e) {
             log.error("export-sidecar call failed", e);
+            if (shouldFallbackToDirectUrl()) {
+                log.warn("Falling back to direct export-sidecar URL after call failure: {}", e.getMessage());
+                return invokeSidecarDirect(sidecarRequest);
+            }
             throw new BusinessValidationException(
                     "EXPORT_SIDECAR_UNAVAILABLE", "导出服务不可用: " + e.getMessage(),
                     Map.of(), HttpStatus.BAD_GATEWAY);
         }
+    }
+
+    private byte[] invokeSidecarWithFeign(ExportSidecarRequest sidecarRequest) throws IOException {
+        Response feignResponse = exportSidecarClient.exportQuestionsWord(sidecarRequest);
+        if (feignResponse.status() != 200) {
+            log.error("export-sidecar returned status {}", feignResponse.status());
+            throw new BusinessValidationException(
+                    "EXPORT_SIDECAR_ERROR", "导出服务返回错误: " + feignResponse.status(),
+                    Map.of(), HttpStatus.BAD_GATEWAY);
+        }
+        return feignResponse.body().asInputStream().readAllBytes();
+    }
+
+    private byte[] invokeSidecarDirect(ExportSidecarRequest sidecarRequest) {
+        try {
+            byte[] response = restClient.post()
+                    .uri(exportSidecarDirectUrl + "/internal/export/questions/word")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(sidecarRequest)
+                    .retrieve()
+                    .body(byte[].class);
+            if (response == null || response.length == 0) {
+                throw new BusinessValidationException(
+                        "EXPORT_SIDECAR_EMPTY", "导出服务返回空文件",
+                        Map.of("directUrl", exportSidecarDirectUrl), HttpStatus.BAD_GATEWAY);
+            }
+            return response;
+        } catch (BusinessValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Direct export-sidecar call failed: {}", exportSidecarDirectUrl, e);
+            throw new BusinessValidationException(
+                    "EXPORT_SIDECAR_UNAVAILABLE",
+                    "导出服务不可用: " + e.getMessage(),
+                    Map.of("directUrl", exportSidecarDirectUrl),
+                    HttpStatus.BAD_GATEWAY);
+        }
+    }
+
+    private boolean shouldFallbackToDirectUrl() {
+        return exportSidecarDirectUrl != null && !exportSidecarDirectUrl.isBlank();
     }
 
     private List<String> collectAllUuids(ExportWordRequest request) {

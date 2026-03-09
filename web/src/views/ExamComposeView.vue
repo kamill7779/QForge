@@ -21,7 +21,13 @@
         >
           <div class="mini-card-top">
             <span class="mini-seq">{{ i + 1 }}.</span>
-            <LatexPreview :xml="q.stemText" compact class="mini-stem" />
+            <LatexPreview
+              :xml="q.stemText"
+              :image-resolver="assetHelper.resolverFor(q.questionUuid)"
+              :render-key="assetRenderKey"
+              compact
+              class="mini-stem"
+            />
           </div>
           <div class="mini-card-bottom">
             <span v-for="t in q.mainTags.slice(0, 2)" :key="t.tagCode" class="mini-tag">{{ t.tagName }}</span>
@@ -264,6 +270,13 @@ watch(() => route.params.id, (id) => {
 })
 
 watch(
+  () => questionStore.questions.map((q) => q.questionUuid).join('|'),
+  () => {
+    loadQuestionBankAssets()
+  }
+)
+
+watch(
   () => exam.value?.sections.map((section) => section.id).join('|') ?? '',
   () => {
     syncActiveSection()
@@ -280,6 +293,14 @@ function loadExamAssets() {
       assetRenderKey.value++
     })
   }
+}
+
+function loadQuestionBankAssets() {
+  const uuids = questionStore.questions.map((q) => q.questionUuid)
+  if (!uuids.length) return
+  assetHelper.loadAssetsForMany(uuids).then(() => {
+    assetRenderKey.value++
+  })
 }
 
 function syncActiveSection() {

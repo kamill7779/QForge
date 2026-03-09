@@ -5,6 +5,12 @@ import os
 
 # ── Nacos ──
 NACOS_SERVER = os.getenv("NACOS_SERVER_ADDR", "localhost:8848")
+NACOS_USERNAME = os.getenv("NACOS_USERNAME", "")
+NACOS_PASSWORD = os.getenv("NACOS_PASSWORD", "")
+NACOS_REGISTER_RETRIES = int(os.getenv("NACOS_REGISTER_RETRIES", "20"))
+NACOS_REGISTER_RETRY_INTERVAL_SECONDS = float(
+	os.getenv("NACOS_REGISTER_RETRY_INTERVAL_SECONDS", "3")
+)
 SERVICE_NAME = "export-sidecar"
 SERVICE_PORT = int(os.getenv("SERVICE_PORT", "8092"))
 SERVICE_IP = os.getenv("SERVICE_IP", "")

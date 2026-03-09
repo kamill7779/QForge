@@ -5,7 +5,7 @@
  * that can be passed to LatexPreview's imageResolver prop.
  */
 
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { questionApi } from '@/api/question'
 import { useAuthStore } from '@/stores/auth'
 import type { QuestionAssetResponse } from '@/api/types'
@@ -13,6 +13,7 @@ import type { QuestionAssetResponse } from '@/api/types'
 /** Global cache: questionUuid → Map<refKey, base64ImageData> */
 const assetCache = reactive(new Map<string, Map<string, string>>())
 const loadingSet = new Set<string>()
+const assetVersion = ref(0)
 
 export function useQuestionAssets() {
   const auth = useAuthStore()
@@ -29,9 +30,11 @@ export function useQuestionAssets() {
         map.set(a.refKey, a.imageData)
       }
       assetCache.set(questionUuid, map)
+      assetVersion.value++
     } catch {
       // Mark as loaded (no assets) to avoid repeated fetches
       assetCache.set(questionUuid, new Map())
+      assetVersion.value++
     } finally {
       loadingSet.delete(questionUuid)
     }
@@ -52,5 +55,5 @@ export function useQuestionAssets() {
     }
   }
 
-  return { loadAssets, loadAssetsForMany, resolverFor, assetCache }
+  return { loadAssets, loadAssetsForMany, resolverFor, assetCache, assetVersion }
 }

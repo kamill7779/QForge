@@ -4,12 +4,21 @@ import java.util.List;
 
 public class PhotoQueryInternalResponse {
 
+    private String ocrRaw;
     private String stemText;
     private String stemXml;
     private String answerXml;
     private AnalysisResultDTO analysisProfile;
     private List<RecommendGroupDTO> recommendGroups;
     private String reasonSummary;
+
+    public String getOcrRaw() {
+        return ocrRaw;
+    }
+
+    public void setOcrRaw(String ocrRaw) {
+        this.ocrRaw = ocrRaw;
+    }
 
     public String getStemText() {
         return stemText;

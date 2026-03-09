@@ -8,6 +8,7 @@ import io.github.kamill7779.qforge.exam.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.exam.repository.QuestionBasketRepository;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,10 +83,11 @@ public class QuestionBasketService {
 
     @Transactional
     public void addItem(String questionUuid, String requestUser) {
-        // Feign 调用 question-core-service 校验题目存在性
-        Map<String, Object> existsResult = questionCoreClient.checkExists(questionUuid, requestUser);
-        Boolean exists = (Boolean) existsResult.get("exists");
-        if (!Boolean.TRUE.equals(exists)) {
+        Optional<QuestionSummaryDTO> questionSummary = questionCoreClient
+            .batchGetSummaries(questionUuid, requestUser)
+            .stream()
+            .findFirst();
+        if (questionSummary.isEmpty()) {
             throw new BusinessValidationException(
                     "QUESTION_NOT_FOUND", "题目不存在",
                     Map.of("questionUuid", questionUuid), HttpStatus.NOT_FOUND);
@@ -98,8 +100,8 @@ public class QuestionBasketService {
 
         QuestionBasket item = new QuestionBasket();
         item.setOwnerUser(requestUser);
+        item.setQuestionId(questionSummary.get().questionId());
         item.setQuestionUuid(questionUuid);
-        // questionId 不再需要，跨服务通过 UUID 关联
         basketRepository.insert(item);
         examCacheService.evictBasket(requestUser);
         log.info("User [{}] added question {} to basket", requestUser, questionUuid);

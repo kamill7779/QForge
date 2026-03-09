@@ -5,9 +5,29 @@ export class ApiError extends Error {
     public status: number,
     public body: string
   ) {
-    super(`API ${status}: ${body}`)
+    super(resolveApiErrorMessage(status, body))
     this.name = 'ApiError'
   }
+}
+
+function resolveApiErrorMessage(status: number, body: string) {
+  if (!body.trim()) {
+    return `API ${status}`
+  }
+
+  try {
+    const parsed = JSON.parse(body) as { message?: string; code?: string }
+    if (parsed.message) {
+      return parsed.message
+    }
+    if (parsed.code) {
+      return `${parsed.code} (${status})`
+    }
+  } catch {
+    // Ignore JSON parse failure and fall back to raw body.
+  }
+
+  return body.length > 240 ? `${body.slice(0, 237)}...` : body
 }
 
 type On401Fn = () => void

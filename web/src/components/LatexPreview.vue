@@ -7,6 +7,7 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { useLatexRender } from '@/composables/useLatexRender'
+import { useQuestionAssets } from '@/composables/useQuestionAssets'
 
 const props = withDefaults(
   defineProps<{
@@ -27,6 +28,7 @@ const props = withDefaults(
 
 const containerRef = ref<HTMLElement>()
 const { render } = useLatexRender()
+const { assetVersion } = useQuestionAssets()
 
 let renderTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -49,6 +51,13 @@ watch(
   () => [props.xml, props.renderKey] as const,
   scheduleRender,
   { immediate: true }
+)
+
+watch(
+  assetVersion,
+  () => {
+    if (props.imageResolver) scheduleRender()
+  }
 )
 
 onBeforeUnmount(() => {

@@ -1,6 +1,7 @@
 package io.github.kamill7779.qforge.gaokaocorpus.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public class DraftQuestionDTO {
 
@@ -14,6 +15,9 @@ public class DraftQuestionDTO {
     private BigDecimal score;
     private Boolean hasAnswer;
     private Integer editVersion;
+    private List<DraftOptionDTO> options;
+    private List<DraftAnswerDTO> answers;
+    private AnalysisPreviewDTO analysisPreview;
 
     public String getDraftQuestionUuid() { return draftQuestionUuid; }
     public void setDraftQuestionUuid(String draftQuestionUuid) { this.draftQuestionUuid = draftQuestionUuid; }
@@ -44,4 +48,114 @@ public class DraftQuestionDTO {
 
     public Integer getEditVersion() { return editVersion; }
     public void setEditVersion(Integer editVersion) { this.editVersion = editVersion; }
+
+    public List<DraftOptionDTO> getOptions() { return options; }
+    public void setOptions(List<DraftOptionDTO> options) { this.options = options; }
+
+    public List<DraftAnswerDTO> getAnswers() { return answers; }
+    public void setAnswers(List<DraftAnswerDTO> answers) { this.answers = answers; }
+
+    public AnalysisPreviewDTO getAnalysisPreview() { return analysisPreview; }
+    public void setAnalysisPreview(AnalysisPreviewDTO analysisPreview) { this.analysisPreview = analysisPreview; }
+
+    public static class DraftOptionDTO {
+        private String draftOptionUuid;
+        private String optionLabel;
+        private String optionText;
+        private String optionXml;
+        private Integer sortOrder;
+
+        public String getDraftOptionUuid() { return draftOptionUuid; }
+        public void setDraftOptionUuid(String draftOptionUuid) { this.draftOptionUuid = draftOptionUuid; }
+
+        public String getOptionLabel() { return optionLabel; }
+        public void setOptionLabel(String optionLabel) { this.optionLabel = optionLabel; }
+
+        public String getOptionText() { return optionText; }
+        public void setOptionText(String optionText) { this.optionText = optionText; }
+
+        public String getOptionXml() { return optionXml; }
+        public void setOptionXml(String optionXml) { this.optionXml = optionXml; }
+
+        public Integer getSortOrder() { return sortOrder; }
+        public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+    }
+
+    public static class DraftAnswerDTO {
+        private String draftAnswerUuid;
+        private String answerType;
+        private String answerText;
+        private String answerXml;
+        private Boolean official;
+        private Integer sortOrder;
+
+        public String getDraftAnswerUuid() { return draftAnswerUuid; }
+        public void setDraftAnswerUuid(String draftAnswerUuid) { this.draftAnswerUuid = draftAnswerUuid; }
+
+        public String getAnswerType() { return answerType; }
+        public void setAnswerType(String answerType) { this.answerType = answerType; }
+
+        public String getAnswerText() { return answerText; }
+        public void setAnswerText(String answerText) { this.answerText = answerText; }
+
+        public String getAnswerXml() { return answerXml; }
+        public void setAnswerXml(String answerXml) { this.answerXml = answerXml; }
+
+        public Boolean getOfficial() { return official; }
+        public void setOfficial(Boolean official) { this.official = official; }
+
+        public Integer getSortOrder() { return sortOrder; }
+        public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+    }
+
+    public static class AnalysisPreviewDTO {
+        private String knowledgeTagsJson;
+        private String methodTagsJson;
+        private String formulaTagsJson;
+        private String mistakeTagsJson;
+        private String abilityTagsJson;
+        private BigDecimal difficultyScore;
+        private String difficultyLevel;
+        private String reasoningStepsJson;
+        private String analysisSummaryText;
+        private String recommendSeedText;
+        private Integer profileVersion;
+        private Boolean confirmed;
+
+        public String getKnowledgeTagsJson() { return knowledgeTagsJson; }
+        public void setKnowledgeTagsJson(String knowledgeTagsJson) { this.knowledgeTagsJson = knowledgeTagsJson; }
+
+        public String getMethodTagsJson() { return methodTagsJson; }
+        public void setMethodTagsJson(String methodTagsJson) { this.methodTagsJson = methodTagsJson; }
+
+        public String getFormulaTagsJson() { return formulaTagsJson; }
+        public void setFormulaTagsJson(String formulaTagsJson) { this.formulaTagsJson = formulaTagsJson; }
+
+        public String getMistakeTagsJson() { return mistakeTagsJson; }
+        public void setMistakeTagsJson(String mistakeTagsJson) { this.mistakeTagsJson = mistakeTagsJson; }
+
+        public String getAbilityTagsJson() { return abilityTagsJson; }
+        public void setAbilityTagsJson(String abilityTagsJson) { this.abilityTagsJson = abilityTagsJson; }
+
+        public BigDecimal getDifficultyScore() { return difficultyScore; }
+        public void setDifficultyScore(BigDecimal difficultyScore) { this.difficultyScore = difficultyScore; }
+
+        public String getDifficultyLevel() { return difficultyLevel; }
+        public void setDifficultyLevel(String difficultyLevel) { this.difficultyLevel = difficultyLevel; }
+
+        public String getReasoningStepsJson() { return reasoningStepsJson; }
+        public void setReasoningStepsJson(String reasoningStepsJson) { this.reasoningStepsJson = reasoningStepsJson; }
+
+        public String getAnalysisSummaryText() { return analysisSummaryText; }
+        public void setAnalysisSummaryText(String analysisSummaryText) { this.analysisSummaryText = analysisSummaryText; }
+
+        public String getRecommendSeedText() { return recommendSeedText; }
+        public void setRecommendSeedText(String recommendSeedText) { this.recommendSeedText = recommendSeedText; }
+
+        public Integer getProfileVersion() { return profileVersion; }
+        public void setProfileVersion(Integer profileVersion) { this.profileVersion = profileVersion; }
+
+        public Boolean getConfirmed() { return confirmed; }
+        public void setConfirmed(Boolean confirmed) { this.confirmed = confirmed; }
+    }
 }

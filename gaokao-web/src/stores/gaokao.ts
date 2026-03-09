@@ -17,6 +17,7 @@ export const useGaokaoStore = defineStore('gaokao', () => {
   const sessions = ref<IngestSession[]>([])
   const activeSession = ref<IngestSession | null>(null)
   const draftPaper = ref<DraftPaper | null>(null)
+  const draftPaperLoadMessage = ref('')
   const activeDraftQuestionUuid = ref('')
   const corpusPapers = ref<GkPaper[]>([])
   const corpusTotal = ref(0)
@@ -52,6 +53,7 @@ export const useGaokaoStore = defineStore('gaokao', () => {
   async function uploadFiles(files: File[]) {
     if (!activeSession.value) throw new Error('请先创建或选择录入会话')
     await gaokaoApi.uploadFiles(activeSession.value.sessionUuid, files)
+    activeSession.value = await gaokaoApi.getSession(activeSession.value.sessionUuid)
   }
 
   async function triggerOcrSplit() {
@@ -62,9 +64,17 @@ export const useGaokaoStore = defineStore('gaokao', () => {
 
   async function loadDraftPaper() {
     if (!activeSession.value) throw new Error('当前没有录入会话')
-    draftPaper.value = await gaokaoApi.getDraftPaper(activeSession.value.sessionUuid)
-    const firstQuestion = draftPaper.value.sections[0]?.questions[0]
-    activeDraftQuestionUuid.value = firstQuestion?.draftQuestionUuid ?? ''
+    try {
+      draftPaper.value = await gaokaoApi.getDraftPaper(activeSession.value.sessionUuid)
+      draftPaperLoadMessage.value = ''
+      const firstQuestion = draftPaper.value.sections[0]?.questions[0]
+      activeDraftQuestionUuid.value = firstQuestion?.draftQuestionUuid ?? ''
+    } catch (error) {
+      draftPaper.value = null
+      draftPaperLoadMessage.value = (error as Error).message
+      activeDraftQuestionUuid.value = ''
+      throw error
+    }
   }
 
   async function saveDraftPaper(request: UpdateDraftPaperRequest) {
@@ -138,6 +148,7 @@ export const useGaokaoStore = defineStore('gaokao', () => {
     sessions,
     activeSession,
     draftPaper,
+    draftPaperLoadMessage,
     draftQuestions,
     activeDraftQuestionUuid,
     activeDraftQuestion,

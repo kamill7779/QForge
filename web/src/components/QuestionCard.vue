@@ -16,7 +16,13 @@
     <div class="qc-body" @click="emit('toggleDetail')">
       <span class="qc-seq">{{ seq }}.</span>
       <div class="qc-stem-wrap">
-        <LatexPreview :xml="entry.stemText" compact class="qc-stem-preview" />
+        <LatexPreview
+          :xml="entry.stemText"
+          :image-resolver="imageResolver"
+          :render-key="renderKey"
+          compact
+          class="qc-stem-preview"
+        />
       </div>
     </div>
 
@@ -55,6 +61,8 @@ const props = defineProps<{
   entry: QuestionEntry
   seq: number
   isSelected?: boolean
+  imageResolver?: (ref: string) => string
+  renderKey?: number
 }>()
 
 const emit = defineEmits<{

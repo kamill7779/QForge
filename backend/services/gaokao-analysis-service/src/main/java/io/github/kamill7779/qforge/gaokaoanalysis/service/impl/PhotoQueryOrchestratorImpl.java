@@ -69,6 +69,7 @@ public class PhotoQueryOrchestratorImpl implements PhotoQueryOrchestrator {
             }
         }
         if (rawText == null) rawText = "";
+        int topK = request.getTopK() != null && request.getTopK() > 0 ? request.getTopK() : 10;
 
         // Step 2: Cleanse text
         String cleaned = textCleansingService.cleanStemText(rawText);
@@ -83,7 +84,7 @@ public class PhotoQueryOrchestratorImpl implements PhotoQueryOrchestrator {
         AnalysisResultDTO analysisProfile = aiAnalysisService.analyzeQuestion(analyzeReq);
 
         // Step 4: Vector search
-        List<RecommendedQuestionDTO> candidates = vectorService.searchSimilar(normalizedForSearch, Collections.emptyMap(), 10);
+        List<RecommendedQuestionDTO> candidates = vectorService.searchSimilar(normalizedForSearch, Collections.emptyMap(), topK);
 
         // Step 5: Rerank
         List<RecommendedQuestionDTO> reranked = rerankerService.rerank(cleaned, candidates);
@@ -93,8 +94,10 @@ public class PhotoQueryOrchestratorImpl implements PhotoQueryOrchestrator {
 
         // Build response
         PhotoQueryInternalResponse response = new PhotoQueryInternalResponse();
+        response.setOcrRaw(rawText);
         response.setStemText(cleaned);
         response.setStemXml(stemXml);
+        response.setAnswerXml(analysisProfile.getAnswerXml());
         response.setAnalysisProfile(analysisProfile);
         RecommendGroupDTO group = new RecommendGroupDTO();
         group.setRelationType("SAME_CLASS");

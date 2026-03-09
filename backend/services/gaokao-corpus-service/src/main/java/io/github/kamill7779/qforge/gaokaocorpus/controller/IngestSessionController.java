@@ -10,9 +10,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/gaokao/ingest-sessions")
@@ -42,6 +44,14 @@ public class IngestSessionController {
     public ResponseEntity<IngestSessionDTO> getSession(
             @PathVariable("sessionUuid") String sessionUuid) {
         return ResponseEntity.ok(ingestService.getSession(sessionUuid));
+    }
+
+    @PostMapping("/{sessionUuid}/files")
+    public ResponseEntity<Void> uploadFiles(
+            @PathVariable("sessionUuid") String sessionUuid,
+            @RequestPart("files") MultipartFile[] files) {
+        ingestService.uploadFiles(sessionUuid, files);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PostMapping("/{sessionUuid}/ocr-split")

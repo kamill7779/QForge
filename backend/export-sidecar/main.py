@@ -12,6 +12,8 @@ export-sidecar — FastAPI 入口
 
 import io
 import logging
+import threading
+import time
 import traceback
 from contextlib import asynccontextmanager
 from typing import Dict, List, Optional
@@ -44,34 +46,84 @@ logger = logging.getLogger("export-sidecar")
 # ─── Nacos helpers ─────────────────────────────────
 
 _nacos_client = None
+_nacos_registered = False
+_nacos_stop_event = threading.Event()
+_nacos_thread = None
+
+
+def _build_nacos_client():
+    import nacos
+
+    client_kwargs = {"namespace": ""}
+    if config.NACOS_USERNAME:
+        client_kwargs["username"] = config.NACOS_USERNAME
+        client_kwargs["password"] = config.NACOS_PASSWORD
+    return nacos.NacosClient(config.NACOS_SERVER, **client_kwargs)
+
+
+def _try_register_nacos() -> None:
+    global _nacos_client, _nacos_registered
+    if _nacos_client is None:
+        _nacos_client = _build_nacos_client()
+
+    _nacos_client.add_naming_instance(
+        config.SERVICE_NAME,
+        config.SERVICE_IP,
+        config.SERVICE_PORT,
+        metadata={"preserved.register.source": "PYTHON"},
+    )
+    _nacos_registered = True
+    logger.info(
+        "Nacos registration OK -> %s:%s",
+        config.SERVICE_IP,
+        config.SERVICE_PORT,
+    )
+
+
+def _nacos_register_loop():
+    """后台持续重试注册，直到 Nacos 可用或进程退出。"""
+    global _nacos_client
+
+    attempt = 0
+    last_error = None
+    while not _nacos_stop_event.is_set():
+        attempt += 1
+        try:
+            _try_register_nacos()
+            return
+        except Exception as e:
+            last_error = e
+            _nacos_client = None
+            if attempt <= config.NACOS_REGISTER_RETRIES or attempt % 10 == 0:
+                logger.warning(
+                    "Nacos registration attempt %s failed, will retry in %ss: %s",
+                    attempt,
+                    config.NACOS_REGISTER_RETRY_INTERVAL_SECONDS,
+                    e,
+                )
+            _nacos_stop_event.wait(config.NACOS_REGISTER_RETRY_INTERVAL_SECONDS)
+
+    if last_error is not None:
+        logger.warning("Nacos registration stopped before success: %s", last_error)
 
 
 def _init_nacos():
-    """尝试注册到 Nacos，失败不影响启动。"""
-    global _nacos_client
-    try:
-        import nacos
-        _nacos_client = nacos.NacosClient(
-            config.NACOS_SERVER, namespace="", username="nacos", password="nacos"
-        )
-        _nacos_client.add_naming_instance(
-            config.SERVICE_NAME,
-            config.SERVICE_IP,
-            config.SERVICE_PORT,
-            metadata={"preserved.register.source": "PYTHON"},
-        )
-        logger.info(
-            "Nacos registration OK → %s:%s",
-            config.SERVICE_IP,
-            config.SERVICE_PORT,
-        )
-    except Exception as e:
-        logger.warning("Nacos registration failed (service still runs): %s", e)
+    """启动后台注册线程；失败不阻塞服务启动。"""
+    global _nacos_thread
+
+    _nacos_stop_event.clear()
+    _nacos_thread = threading.Thread(
+        target=_nacos_register_loop,
+        name="nacos-register",
+        daemon=True,
+    )
+    _nacos_thread.start()
 
 
 def _deregister_nacos():
-    global _nacos_client
-    if _nacos_client is None:
+    global _nacos_client, _nacos_registered
+    _nacos_stop_event.set()
+    if _nacos_client is None or not _nacos_registered:
         return
     try:
         _nacos_client.remove_naming_instance(
@@ -80,6 +132,8 @@ def _deregister_nacos():
         logger.info("Nacos deregistration OK")
     except Exception:
         pass
+    finally:
+        _nacos_registered = False
 
 
 # ─── FastAPI lifespan ──────────────────────────────
