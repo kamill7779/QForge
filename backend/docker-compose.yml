@@ -497,6 +497,27 @@ services:
       gateway-service:
         condition: service_started
 
+  gaokao-web:
+    pull_policy: never
+    build:
+      context: ../gaokao-web
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        VITE_GAOKAO_MOCK: "false"
+    container_name: qforge-gaokao-web
+    networks: [qforge-net]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "5175:80"
+    depends_on:
+      gateway-service:
+        condition: service_started
+
 volumes:
   mysql-data:  # persistent: survives docker compose down; use down -v to wipe
   nacos-data:  # Nacos 热配置持久化，目录 /home/nacos/data
