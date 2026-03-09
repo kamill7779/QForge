@@ -1,6 +1,5 @@
 package io.github.kamill7779.qforge.gaokaocorpus.client;
 
-import io.github.kamill7779.qforge.gaokaocorpus.dto.PhotoQueryResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,5 +14,5 @@ public interface GaokaoAnalysisClient {
     void analyzePaper(@RequestBody AnalyzePaperRequest request);
 
     @PostMapping("/internal/gaokao-analysis/photo-query")
-    PhotoQueryResponse photoQuery(@RequestBody PhotoQueryInternalRequest request);
+    PhotoQueryInternalResponse photoQuery(@RequestBody PhotoQueryInternalRequest request);
 }

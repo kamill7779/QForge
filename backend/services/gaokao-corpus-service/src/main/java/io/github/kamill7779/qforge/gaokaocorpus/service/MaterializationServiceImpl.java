@@ -1,8 +1,13 @@
 package io.github.kamill7779.qforge.gaokaocorpus.service;
 
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestion;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestionMaterialization;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkQuestionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkQuestionMaterializationMapper;
+import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoRequest;
+import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoResponse;
 import io.github.kamill7779.qforge.internal.api.QuestionCoreClient;
+import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,7 +35,37 @@ public class MaterializationServiceImpl implements MaterializationService {
     @Override
     @Transactional
     public void materialize(Long gkQuestionId, String ownerUser) {
-        // TODO: implement — call question-core-service via Feign to create a formal question, then record bridge
-        throw new UnsupportedOperationException("Not yet implemented");
+        GkQuestion question = questionMapper.selectById(gkQuestionId);
+        if (question == null) {
+            throw new IllegalArgumentException("GK question not found: " + gkQuestionId);
+        }
+
+        CreateQuestionFromGaokaoRequest req = new CreateQuestionFromGaokaoRequest();
+        req.setOwnerUser(ownerUser);
+        req.setQuestionTypeCode(question.getQuestionTypeCode());
+        req.setStemText(question.getStemText());
+        req.setStemXml(question.getStemXml());
+        req.setSource("GAOKAO_CORPUS");
+        req.setDifficultyLevel(question.getDifficultyLevel());
+        req.setDifficulty(question.getDifficultyScore());
+
+        CreateQuestionFromGaokaoResponse resp = questionCoreClient.createFromGaokao(req);
+
+        if (resp != null && resp.isSuccess()) {
+            GkQuestionMaterialization mat = new GkQuestionMaterialization();
+            mat.setGkQuestionId(gkQuestionId);
+            mat.setTargetQuestionUuid(resp.getQuestionUuid());
+            mat.setOwnerUser(ownerUser);
+            mat.setMode("COPY");
+            mat.setStatus("ACTIVE");
+            mat.setCreatedAt(LocalDateTime.now());
+            mat.setUpdatedAt(LocalDateTime.now());
+            materializationMapper.insert(mat);
+            log.info("Materialized gkQuestion={} -> targetUuid={}", gkQuestionId, resp.getQuestionUuid());
+        } else {
+            String errorMsg = resp != null ? resp.getErrorMessage() : "null response";
+            log.error("Materialization failed for gkQuestion={}: {}", gkQuestionId, errorMsg);
+            throw new RuntimeException("Materialization failed: " + errorMsg);
+        }
     }
 }
