@@ -1,6 +1,10 @@
 package io.github.kamill7779.qforge.exam.controller;
 
 import io.github.kamill7779.qforge.exam.dto.BasketItemResponse;
+import io.github.kamill7779.qforge.exam.dto.compose.BasketComposeDetailResponse;
+import io.github.kamill7779.qforge.exam.dto.compose.SaveBasketComposeContentRequest;
+import io.github.kamill7779.qforge.exam.dto.compose.UpdateBasketComposeMetaRequest;
+import io.github.kamill7779.qforge.exam.dto.exam.ExamPaperDetailResponse;
 import io.github.kamill7779.qforge.exam.service.QuestionBasketService;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +13,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -64,5 +70,31 @@ public class QuestionBasketController {
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
         basketService.clearBasket(requestUser);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/compose")
+    public ResponseEntity<BasketComposeDetailResponse> getCompose(
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
+        return ResponseEntity.ok(basketService.getCompose(requestUser));
+    }
+
+    @PutMapping("/compose/meta")
+    public ResponseEntity<BasketComposeDetailResponse> updateComposeMeta(
+            @RequestBody UpdateBasketComposeMetaRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
+        return ResponseEntity.ok(basketService.updateComposeMeta(request, requestUser));
+    }
+
+    @PutMapping("/compose/content")
+    public ResponseEntity<BasketComposeDetailResponse> saveComposeContent(
+            @RequestBody SaveBasketComposeContentRequest request,
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
+        return ResponseEntity.ok(basketService.saveComposeContent(request, requestUser));
+    }
+
+    @PostMapping("/compose/confirm")
+    public ResponseEntity<ExamPaperDetailResponse> confirmCompose(
+            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
+        return ResponseEntity.ok(basketService.confirmCompose(requestUser));
     }
 }

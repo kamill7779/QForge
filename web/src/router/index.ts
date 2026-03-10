@@ -29,9 +29,14 @@ const router = createRouter({
           component: () => import('@/views/BasketView.vue')
         },
         {
-          path: 'compose/:id?',
+          path: 'compose',
           name: 'compose',
           component: () => import('@/views/ExamComposeView.vue')
+        },
+        {
+          path: 'exams/:id/edit',
+          name: 'exam-edit',
+          component: () => import('@/views/ExamPaperEditView.vue')
         },
         {
           path: 'preview/:id',

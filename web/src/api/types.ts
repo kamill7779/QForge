@@ -308,3 +308,62 @@ export interface BasketItemResponse {
   addedAt: string
 }
 
+// ──────────────────── Basket Compose ────────────────────
+
+export interface BasketComposeQuestionResponse {
+  questionUuid: string
+  stemText: string | null
+  source: string | null
+  difficulty: number | null
+  score: number
+  sortOrder: number
+  note: string | null
+}
+
+export interface BasketComposeSectionResponse {
+  sectionUuid: string
+  title: string
+  description: string | null
+  questionTypeCode: string | null
+  defaultScore: number
+  sortOrder: number
+  questions: BasketComposeQuestionResponse[]
+}
+
+export interface BasketComposeDetailResponse {
+  composeUuid: string
+  title: string
+  subtitle: string | null
+  description: string | null
+  durationMinutes: number | null
+  sections: BasketComposeSectionResponse[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UpdateBasketComposeMetaRequest {
+  title?: string
+  subtitle?: string
+  description?: string
+  durationMinutes?: number
+}
+
+export interface SaveBasketComposeQuestionPayload {
+  questionUuid: string
+  score?: number
+  note?: string
+}
+
+export interface SaveBasketComposeSectionPayload {
+  sectionUuid?: string
+  title: string
+  description?: string
+  questionTypeCode?: string
+  defaultScore?: number
+  questions: SaveBasketComposeQuestionPayload[]
+}
+
+export interface SaveBasketComposeContentRequest {
+  sections: SaveBasketComposeSectionPayload[]
+}
+

@@ -28,7 +28,7 @@
 | `/api/exam-parse/**` | `exam-parse-service` | 路径不改写 |
 | `/api/exam-papers/**` | `exam-service` | 路径不改写 |
 | `/api/question-types/**` | `exam-service` | 路径不改写 |
-| `/api/question-basket/**` | `exam-service` | 路径不改写 |
+| `/api/question-basket/**` | `question-basket-service` | 路径不改写 |
 | `/api/questions/**` | `question-core-service` | 路径不改写 |
 | `/api/tags/**` | `question-core-service` | 路径不改写 |
 | `/ws/questions/**` | `question-core-service` | WebSocket 转发 |
@@ -96,9 +96,9 @@
 | --- | --- | --- |
 | `WS` | `/ws/questions?user={username}&token={token}` | OCR、AI、试卷解析等异步事件推送 |
 
-## 4. exam-service
+## 4. question-basket-service
 
-### 4.1 试题篮
+### 4.1 试题篮与确认前组卷
 
 基路径：`/api/question-basket`
 
@@ -110,8 +110,14 @@
 | `POST` | `/api/question-basket/{questionUuid}/toggle` | 在试题篮中切换 |
 | `DELETE` | `/api/question-basket/{questionUuid}` | 单条移除 |
 | `DELETE` | `/api/question-basket` | 清空试题篮 |
+| `GET` | `/api/question-basket/compose` | 获取确认前组卷状态 |
+| `PUT` | `/api/question-basket/compose/meta` | 保存确认前组卷元信息 |
+| `PUT` | `/api/question-basket/compose/content` | 保存确认前组卷结构 |
+| `POST` | `/api/question-basket/compose/confirm` | 确认组卷并生成真实试卷 |
 
-### 4.2 题型配置
+## 5. exam-service
+
+### 5.1 题型配置
 
 基路径：`/api/question-types`
 
@@ -122,7 +128,7 @@
 | `PUT` | `/api/question-types/{id}` | 修改自定义题型 |
 | `DELETE` | `/api/question-types/{id}` | 删除自定义题型 |
 
-### 4.3 试卷
+### 5.2 试卷
 
 基路径：`/api/exam-papers`
 
@@ -130,14 +136,21 @@
 | --- | --- | --- | --- |
 | `GET` | `/api/exam-papers` | 查询当前用户试卷列表 | 已做批量聚合，避免旧版 N+1 |
 | `POST` | `/api/exam-papers` | 新建空试卷 | 默认时长来自配置 |
-| `POST` | `/api/exam-papers/from-basket` | 由试题篮一键创建试卷 | 默认分值来自配置 |
 | `GET` | `/api/exam-papers/{paperUuid}` | 查询试卷详情 | 内部批量调用 `question-core-service` 摘要接口 |
 | `PUT` | `/api/exam-papers/{paperUuid}` | 更新试卷元信息 | 标题、副标题、说明、时长、状态 |
 | `DELETE` | `/api/exam-papers/{paperUuid}` | 删除试卷 | 逻辑上删除整卷实体 |
 | `PUT` | `/api/exam-papers/{paperUuid}/content` | 原子保存整卷结构 | 先删旧 section/question，再写新结构 |
 | `POST` | `/api/exam-papers/{paperUuid}/export/word` | 导出 Word | 通过 `export-sidecar` 执行导出 |
 
-## 5. exam-parse-service
+### 5.3 内部接口
+
+基路径：`/internal/exam-papers`
+
+| 方法 | 路径 | 调用方 | 功能 |
+| --- | --- | --- | --- |
+| `POST` | `/internal/exam-papers/from-basket-compose` | `question-basket-service` | 将确认前组卷状态落为真实试卷 |
+
+## 6. exam-parse-service
 
 基路径：`/api/exam-parse`
 
@@ -153,7 +166,7 @@
 | `POST` | `/api/exam-parse/tasks/{taskUuid}/questions/{seqNo}/unskip` | 恢复题目 | `SKIPPED -> PENDING` |
 | `DELETE` | `/api/exam-parse/tasks/{taskUuid}` | 删除任务与全部暂存数据 | 删除任务、源文件、暂存题 |
 
-## 6. ocr-service
+## 7. ocr-service
 
 `ocr-service` 不直接服务前端页面，主要承担内部任务入口和 MQ 消费。
 
@@ -173,7 +186,7 @@
 | `AiAnalysisTaskConsumer` | `AiAnalysisTaskCreatedEvent` | `AiAnalysisResultEvent` + `DbWriteBackEvent(AI_LOCAL)` |
 | `ExamParseTaskConsumer` | `ExamParseTaskCreatedEvent` | 逐题 `ExamParseQuestionResultEvent` + `ExamParseCompletedEvent` |
 
-## 7. persist-service
+## 8. persist-service
 
 `persist-service` 当前没有 HTTP 接口，职责是异步落库，不参与对外 API。
 
@@ -191,7 +204,7 @@
 - `persist-service` 只负责最终 MySQL 写回。
 - Redis 热状态、WebSocket 推送、业务编排都不在 `persist-service` 内完成。
 
-## 8. 外部依赖服务
+## 9. 外部依赖服务
 
 ### 8.1 export-sidecar
 
@@ -201,7 +214,7 @@
 | --- | --- | --- | --- |
 | `POST` | `/internal/export/questions/word` | `exam-service` | 生成试卷 Word 文档 |
 
-## 9. gaokao-corpus-service
+## 10. gaokao-corpus-service
 
 ### 9.1 对外业务接口 — 录入会话
 
@@ -249,7 +262,7 @@
 | `POST` | `/api/gaokao/materialize` | 物化高考题到 question-core-service |
 | `GET` | `/api/gaokao/taxonomy` | 查询数学标签树 |
 
-## 10. gaokao-analysis-service
+## 11. gaokao-analysis-service
 
 ### 10.1 内部接口
 

@@ -31,7 +31,11 @@ spring:
             - id: exam-service-route
               uri: lb://exam-service
               predicates:
-                - Path=/api/exam-papers/**,/api/question-types/**,/api/question-basket/**
+                - Path=/api/exam-papers/**,/api/question-types/**
+            - id: question-basket-service-route
+              uri: lb://question-basket-service
+              predicates:
+                - Path=/api/question-basket/**
             - id: question-core-route
               uri: lb://question-core-service
               predicates:

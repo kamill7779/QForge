@@ -479,3 +479,46 @@ CREATE TABLE IF NOT EXISTS q_question_basket (
     INDEX idx_qb_owner_added (owner_user, added_at),
     CONSTRAINT fk_qb_question FOREIGN KEY (question_id) REFERENCES q_question(id)
 ) COMMENT '试题篮（购物车），每个用户一个篮';
+
+CREATE TABLE IF NOT EXISTS q_basket_compose (
+    id               BIGINT PRIMARY KEY AUTO_INCREMENT,
+    compose_uuid     CHAR(36)      NOT NULL UNIQUE,
+    owner_user       VARCHAR(128)  NOT NULL,
+    title            VARCHAR(512)  NOT NULL DEFAULT '试题篮组卷',
+    subtitle         VARCHAR(512)  NULL,
+    description      TEXT          NULL,
+    duration_minutes INT           NULL DEFAULT 120,
+    created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_bc_owner_user (owner_user),
+    INDEX idx_bc_owner_updated (owner_user, updated_at)
+) COMMENT '确认前组卷状态主表';
+
+CREATE TABLE IF NOT EXISTS q_basket_compose_section (
+    id                  BIGINT PRIMARY KEY AUTO_INCREMENT,
+    section_uuid        CHAR(36)     NOT NULL UNIQUE,
+    compose_id          BIGINT       NOT NULL,
+    title               VARCHAR(255) NOT NULL,
+    description         TEXT         NULL,
+    question_type_code  VARCHAR(64)  NULL,
+    default_score       DECIMAL(5,1) NOT NULL DEFAULT 5.0,
+    sort_order          INT          NOT NULL DEFAULT 0,
+    created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_bcs_compose_order (compose_id, sort_order),
+    CONSTRAINT fk_bcs_compose FOREIGN KEY (compose_id) REFERENCES q_basket_compose(id) ON DELETE CASCADE
+) COMMENT '确认前组卷大题';
+
+CREATE TABLE IF NOT EXISTS q_basket_compose_question (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    section_id      BIGINT       NOT NULL,
+    question_uuid   CHAR(36)     NOT NULL,
+    sort_order      INT          NOT NULL DEFAULT 0,
+    score           DECIMAL(5,1) NOT NULL DEFAULT 5.0,
+    note            VARCHAR(512) NULL,
+    created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_bcq_section_question (section_id, question_uuid),
+    INDEX idx_bcq_section_order (section_id, sort_order),
+    INDEX idx_bcq_question_uuid (question_uuid),
+    CONSTRAINT fk_bcq_section FOREIGN KEY (section_id) REFERENCES q_basket_compose_section(id) ON DELETE CASCADE
+) COMMENT '确认前组卷题目';

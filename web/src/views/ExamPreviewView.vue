@@ -1,7 +1,7 @@
 <template>
   <div class="preview-view">
     <div class="preview-toolbar no-print">
-      <router-link :to="exam ? `/compose/${exam.id}` : '/exams'" class="back-btn">
+      <router-link :to="exam ? `/exams/${exam.id}/edit` : '/exams'" class="back-btn">
         ← 返回编辑
       </router-link>
       <span class="toolbar-title">试卷预览</span>

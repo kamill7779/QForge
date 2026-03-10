@@ -40,6 +40,7 @@ import { useQuestionStore } from '@/stores/question'
 import { useTagStore } from '@/stores/tag'
 import { useExamStore } from '@/stores/exam'
 import { useBasketStore } from '@/stores/basket'
+import { useBasketComposeStore } from '@/stores/basketCompose'
 import { useNotificationStore } from '@/stores/notification'
 import { registerOn401, unregisterOn401 } from '@/api/client'
 
@@ -50,6 +51,7 @@ const questionStore = useQuestionStore()
 const tagStore = useTagStore()
 const examStore = useExamStore()
 const basketStore = useBasketStore()
+const basketComposeStore = useBasketComposeStore()
 const notif = useNotificationStore()
 const isImmersiveRoute = computed(() => route.name === 'preview')
 
@@ -61,6 +63,7 @@ function clearSessionData() {
   tagStore.$reset()
   examStore.$reset()
   basketStore.$reset()
+  basketComposeStore.$reset()
 }
 
 registerOn401(() => {

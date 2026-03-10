@@ -104,7 +104,6 @@ import QuestionDetailModal from '@/components/QuestionDetailModal.vue'
 import { useBasketStore } from '@/stores/basket'
 import { useNotificationStore } from '@/stores/notification'
 import { useQuestionAssets } from '@/composables/useQuestionAssets'
-import { examPaperApi } from '@/api/examPaper'
 import { difficultyLabel } from '@/lib/difficulty'
 import type { BasketItemResponse } from '@/api/types'
 
@@ -187,15 +186,8 @@ function onListScroll() {
 
 async function handleCompose() {
   composing.value = true
-  try {
-    const detail = await examPaperApi.createFromBasket()
-    notif.log(`已创建试卷「${detail.title}」，共 ${detail.sections.reduce((s, sec) => s + sec.questions.length, 0)} 题`)
-    router.push(`/compose/${detail.paperUuid}`)
-  } catch (e: any) {
-    notif.log(e?.message ?? '创建试卷失败')
-  } finally {
-    composing.value = false
-  }
+  router.push('/compose')
+  composing.value = false
 }
 
 function formatDate(iso: string): string {

@@ -1,5 +1,11 @@
 package io.github.kamill7779.qforge.exam.service;
 
+import io.github.kamill7779.qforge.internal.api.BasketComposeCreateExamRequest;
+import io.github.kamill7779.qforge.internal.api.BasketComposeSectionCreateRequest;
+import io.github.kamill7779.qforge.internal.api.BasketComposeQuestionCreateRequest;
+import io.github.kamill7779.qforge.internal.api.InternalExamPaperDetailDTO;
+import io.github.kamill7779.qforge.internal.api.InternalExamQuestionDTO;
+import io.github.kamill7779.qforge.internal.api.InternalExamSectionDTO;
 import io.github.kamill7779.qforge.internal.api.QuestionCoreClient;
 import io.github.kamill7779.qforge.internal.api.QuestionSummaryDTO;
 import io.github.kamill7779.qforge.exam.config.QForgeExamProperties;
@@ -16,12 +22,10 @@ import io.github.kamill7779.qforge.exam.dto.export.ExportSectionPayload;
 import io.github.kamill7779.qforge.exam.entity.ExamPaper;
 import io.github.kamill7779.qforge.exam.entity.ExamQuestion;
 import io.github.kamill7779.qforge.exam.entity.ExamSection;
-import io.github.kamill7779.qforge.exam.entity.QuestionBasket;
 import io.github.kamill7779.qforge.exam.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.exam.repository.ExamPaperRepository;
 import io.github.kamill7779.qforge.exam.repository.ExamQuestionRepository;
 import io.github.kamill7779.qforge.exam.repository.ExamSectionRepository;
-import io.github.kamill7779.qforge.exam.repository.QuestionBasketRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +51,6 @@ public class ExamPaperService {
     private final ExamPaperRepository examPaperRepository;
     private final ExamSectionRepository examSectionRepository;
     private final ExamQuestionRepository examQuestionRepository;
-    private final QuestionBasketRepository basketRepository;
     private final QuestionCoreClient questionCoreClient;
     private final ExportService exportService;
     private final QForgeExamProperties examProperties;
@@ -56,7 +59,6 @@ public class ExamPaperService {
             ExamPaperRepository examPaperRepository,
             ExamSectionRepository examSectionRepository,
             ExamQuestionRepository examQuestionRepository,
-            QuestionBasketRepository basketRepository,
             QuestionCoreClient questionCoreClient,
             ExportService exportService,
             QForgeExamProperties examProperties
@@ -64,7 +66,6 @@ public class ExamPaperService {
         this.examPaperRepository = examPaperRepository;
         this.examSectionRepository = examSectionRepository;
         this.examQuestionRepository = examQuestionRepository;
-        this.basketRepository = basketRepository;
         this.questionCoreClient = questionCoreClient;
         this.exportService = exportService;
         this.examProperties = examProperties;
@@ -336,71 +337,46 @@ public class ExamPaperService {
         return exportService.exportQuestionsWord(exportRequest, requestUser);
     }
 
-    // ───────── 从试题篮创建试卷 ─────────
-
     @Transactional
-    public ExamPaperDetailResponse createFromBasket(String requestUser) {
-        List<QuestionBasket> basketItems = basketRepository.findByOwnerUser(requestUser);
-        if (basketItems.isEmpty()) {
-            throw new BusinessValidationException("BASKET_EMPTY", "试题篮为空，无法创建试卷",
-                    Map.of(), HttpStatus.BAD_REQUEST);
+    public InternalExamPaperDetailDTO createFromBasketCompose(BasketComposeCreateExamRequest request, String requestUser) {
+        CreateExamPaperRequest createRequest = new CreateExamPaperRequest();
+        createRequest.setTitle(request.title());
+        createRequest.setSubtitle(request.subtitle());
+        createRequest.setDescription(request.description());
+        createRequest.setDurationMinutes(request.durationMinutes());
+
+        ExamPaperDetailResponse created = createPaper(createRequest, requestUser);
+        List<BasketComposeSectionCreateRequest> sectionRequests =
+                request.sections() != null ? request.sections() : List.of();
+        if (sectionRequests.isEmpty()) {
+            return toInternalDetail(created);
         }
 
-        // Feign 批量获取摘要
-        List<String> uuids = basketItems.stream().map(QuestionBasket::getQuestionUuid).toList();
-        Map<String, QuestionSummaryDTO> summaryMap;
-        try {
-            List<QuestionSummaryDTO> summaries = questionCoreClient.batchGetSummaries(
-                    String.join(",", uuids), requestUser);
-            summaryMap = summaries.stream()
-                    .collect(Collectors.toMap(QuestionSummaryDTO::questionUuid, s -> s));
-        } catch (Exception e) {
-            log.error("Failed to fetch question summaries from question-core-service", e);
-            throw new BusinessValidationException("CORE_SERVICE_UNAVAILABLE",
-                    "题目核心服务不可用", Map.of(), HttpStatus.BAD_GATEWAY);
+        SaveExamContentRequest saveRequest = new SaveExamContentRequest();
+        List<SaveExamContentRequest.SectionPayload> sections = new ArrayList<>();
+        for (BasketComposeSectionCreateRequest sectionRequest : sectionRequests) {
+            SaveExamContentRequest.SectionPayload sectionPayload = new SaveExamContentRequest.SectionPayload();
+            sectionPayload.setSectionUuid(sectionRequest.sectionUuid());
+            sectionPayload.setTitle(sectionRequest.title());
+            sectionPayload.setDescription(sectionRequest.description());
+            sectionPayload.setQuestionTypeCode(sectionRequest.questionTypeCode());
+            sectionPayload.setDefaultScore(sectionRequest.defaultScore());
+
+            List<SaveExamContentRequest.QuestionPayload> questions = new ArrayList<>();
+            List<BasketComposeQuestionCreateRequest> questionRequests =
+                    sectionRequest.questions() != null ? sectionRequest.questions() : List.of();
+            for (BasketComposeQuestionCreateRequest questionRequest : questionRequests) {
+                SaveExamContentRequest.QuestionPayload questionPayload = new SaveExamContentRequest.QuestionPayload();
+                questionPayload.setQuestionUuid(questionRequest.questionUuid());
+                questionPayload.setScore(questionRequest.score());
+                questionPayload.setNote(questionRequest.note());
+                questions.add(questionPayload);
+            }
+            sectionPayload.setQuestions(questions);
+            sections.add(sectionPayload);
         }
-
-        ExamPaper paper = new ExamPaper();
-        paper.setPaperUuid(UUID.randomUUID().toString());
-        paper.setOwnerUser(requestUser);
-        paper.setTitle("试题篮组卷 — " + basketItems.size() + " 题");
-        paper.setDurationMinutes(examProperties.getDefaultDurationMinutes());
-        paper.setTotalScore(BigDecimal.ZERO);
-        paper.setStatus("DRAFT");
-        paper.setDeleted(false);
-        examPaperRepository.save(paper);
-
-        ExamSection section = new ExamSection();
-        section.setSectionUuid(UUID.randomUUID().toString());
-        section.setPaperId(paper.getId());
-        section.setTitle("全部题目");
-        section.setDefaultScore(examProperties.getDefaultQuestionScore());
-        section.setSortOrder(0);
-        examSectionRepository.save(section);
-
-        BigDecimal totalScore = BigDecimal.ZERO;
-        int sortOrder = 0;
-        for (QuestionBasket basketItem : basketItems) {
-            QuestionSummaryDTO summary = summaryMap.get(basketItem.getQuestionUuid());
-            if (summary == null) continue;
-
-            ExamQuestion eq = new ExamQuestion();
-            eq.setSectionId(section.getId());
-            eq.setQuestionId(summary.questionId() != null ? summary.questionId() : basketItem.getQuestionId());
-            eq.setQuestionUuid(basketItem.getQuestionUuid());
-            eq.setSortOrder(sortOrder++);
-            eq.setScore(section.getDefaultScore());
-            examQuestionRepository.save(eq);
-            totalScore = totalScore.add(eq.getScore());
-        }
-
-        paper.setTotalScore(totalScore);
-        examPaperRepository.save(paper);
-
-        log.info("User [{}] created exam paper from basket: {} with {} questions",
-                requestUser, paper.getPaperUuid(), sortOrder);
-
-        return getPaperDetail(paper.getPaperUuid(), requestUser);
+        saveRequest.setSections(sections);
+        return toInternalDetail(saveContent(created.paperUuid(), saveRequest, requestUser));
     }
 
     // ───────── 内部工具 ─────────
@@ -424,6 +400,43 @@ public class ExamPaperService {
                 sections,
                 paper.getCreatedAt(),
                 paper.getUpdatedAt()
+        );
+    }
+
+    private InternalExamPaperDetailDTO toInternalDetail(ExamPaperDetailResponse detail) {
+        return new InternalExamPaperDetailDTO(
+                detail.paperUuid(),
+                detail.title(),
+                detail.subtitle(),
+                detail.description(),
+                detail.durationMinutes(),
+                detail.totalScore(),
+                detail.status(),
+                detail.sections().stream().map(this::toInternalSection).toList(),
+                detail.createdAt(),
+                detail.updatedAt()
+        );
+    }
+
+    private InternalExamSectionDTO toInternalSection(ExamSectionResponse section) {
+        return new InternalExamSectionDTO(
+                section.sectionUuid(),
+                section.title(),
+                section.description(),
+                section.questionTypeCode(),
+                section.defaultScore(),
+                section.sortOrder(),
+                section.questions().stream().map(this::toInternalQuestion).toList()
+        );
+    }
+
+    private InternalExamQuestionDTO toInternalQuestion(ExamQuestionResponse question) {
+        return new InternalExamQuestionDTO(
+                question.questionUuid(),
+                question.stemText(),
+                question.score(),
+                question.sortOrder(),
+                question.note()
         );
     }
 }

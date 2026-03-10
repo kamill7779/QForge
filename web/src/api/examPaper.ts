@@ -38,11 +38,6 @@ export const examPaperApi = {
     return apiRequest('POST', '/api/exam-papers', req)
   },
 
-  /** Create a new exam paper from basket (one-click import). */
-  createFromBasket(): Promise<ExamPaperDetailResponse> {
-    return apiRequest('POST', '/api/exam-papers/from-basket')
-  },
-
   /** Get full exam paper with sections + questions. */
   detail(paperUuid: string): Promise<ExamPaperDetailResponse> {
     return apiRequest('GET', `/api/exam-papers/${paperUuid}`)

@@ -150,6 +150,8 @@ services:
         condition: service_started
       exam-service:
         condition: service_started
+      question-basket-service:
+        condition: service_started
       exam-parse-service:
         condition: service_started
       gaokao-corpus-service:
@@ -216,6 +218,35 @@ services:
       RABBITMQ_PASSWORD: guest
       NACOS_SERVER_ADDR: 49.235.113.163:8848
       EXPORT_SIDECAR_DIRECT_URL: http://export-sidecar:8092
+
+  question-basket-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: question-basket-service
+    networks: [qforge-net]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      MYSQL_HOST: 49.235.113.163
+      MYSQL_PORT: 13306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: 49.235.113.163
+      REDIS_PORT: 16379
+      RABBITMQ_HOST: 49.235.113.163
+      RABBITMQ_PORT: 15674
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: 49.235.113.163:8848
 
   exam-parse-service:
     pull_policy: never

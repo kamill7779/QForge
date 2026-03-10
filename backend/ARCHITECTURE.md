@@ -14,8 +14,11 @@
   - Exposes internal summary/full-data APIs for other backend services.
   - Accepts parsed-question confirmation from `exam-parse-service`.
 - `exam-service`
-  - Owns question basket, question types, exam paper composition, and export orchestration.
+  - Owns persisted exam papers, question types, and export orchestration.
   - Depends on `question-core-service` for question summaries and full export payloads.
+- `question-basket-service`
+  - Owns question basket and pre-confirm compose state.
+  - Confirms compose state into real exam papers through `exam-service`.
 - `exam-parse-service`
   - Owns exam upload, parse task tracking, preview/edit/confirm workflow.
   - Does not write formal questions directly; confirmation now goes through `question-core-service`.
@@ -54,7 +57,8 @@
 
 - `auth-service`: auth credentials and token issuance.
 - `question-core-service`: question canonical data and tag truth.
-- `exam-service`: exam composition state and basket state.
+- `question-basket-service`: basket state and pre-confirm compose state.
+- `exam-service`: persisted exam paper state and export.
 - `exam-parse-service`: parse-session temporary state before confirmation.
 - `persist-service`: async task result history only.
 

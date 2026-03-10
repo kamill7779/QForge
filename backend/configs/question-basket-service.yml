@@ -1,0 +1,10 @@
+# ============================================================
+# question-basket-service.yml — Nacos 配置
+# ============================================================
+
+qforge:
+  compose:
+    default-duration-minutes: 120
+    default-question-score: 5.0
+  cache:
+    basket-ttl-seconds: 600

@@ -314,6 +314,22 @@ export const useExamStore = defineStore('exam', () => {
     debouncedSaveContent(examId)
   }
 
+  function moveQuestionAcrossSections(examId: string, fromSectionId: string, questionUuid: string, targetSectionId: string): void {
+    const exam = exams.value.find((e) => e.id === examId)
+    if (!exam || fromSectionId === targetSectionId) return
+    const fromSection = exam.sections.find((section) => section.id === fromSectionId)
+    const targetSection = exam.sections.find((section) => section.id === targetSectionId)
+    if (!fromSection || !targetSection) return
+    const index = fromSection.questions.findIndex((question) => question.questionUuid === questionUuid)
+    if (index < 0) return
+    const [question] = fromSection.questions.splice(index, 1)
+    fromSection.questions.forEach((item, idx) => { item.seq = idx + 1 })
+    targetSection.questions.push(question)
+    targetSection.questions.forEach((item, idx) => { item.seq = idx + 1 })
+    exam.updatedAt = nowIso()
+    debouncedSaveContent(examId)
+  }
+
   function isQuestionInExam(questionUuid: string): boolean {
     const exam = activeExam.value
     if (!exam) return false
@@ -498,6 +514,7 @@ export const useExamStore = defineStore('exam', () => {
     removeQuestion,
     updateQuestionScore,
     moveQuestion,
+    moveQuestionAcrossSections,
     isQuestionInExam,
     duplicateExam,
     exportWord,

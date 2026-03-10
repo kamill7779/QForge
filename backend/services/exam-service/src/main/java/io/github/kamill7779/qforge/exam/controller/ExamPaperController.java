@@ -46,12 +46,6 @@ public class ExamPaperController {
         return ResponseEntity.status(HttpStatus.CREATED).body(examPaperService.createPaper(request, requestUser));
     }
 
-    @PostMapping("/from-basket")
-    public ResponseEntity<ExamPaperDetailResponse> createFromBasket(
-            @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(examPaperService.createFromBasket(requestUser));
-    }
-
     @GetMapping("/{paperUuid}")
     public ResponseEntity<ExamPaperDetailResponse> getPaperDetail(
             @PathVariable("paperUuid") String paperUuid,

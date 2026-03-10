@@ -20,9 +20,14 @@
 
 ## `exam-service`
 
-- Question basket.
 - Question type catalog.
-- Exam paper composition and export orchestration.
+- Persisted exam paper composition and export orchestration.
+
+## `question-basket-service`
+
+- Question basket item management.
+- Pre-confirm compose state.
+- Confirm compose into real exam papers through `exam-service`.
 
 ## `exam-parse-service`
 

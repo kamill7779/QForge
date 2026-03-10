@@ -48,12 +48,12 @@ onMounted(() => {
 
 async function createNew() {
   const exam = await examStore.createExam()
-  router.push(`/compose/${exam.id}`)
+  router.push(`/exams/${exam.id}/edit`)
 }
 
 async function openCompose(id: string) {
   await examStore.setActiveExam(id)
-  router.push(`/compose/${id}`)
+  router.push(`/exams/${id}/edit`)
 }
 
 function openPreview(id: string) {

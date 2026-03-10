@@ -8,4 +8,3 @@ qforge:
     default-question-score: 5.0
   cache:
     question-type-ttl-seconds: 1800
-    basket-ttl-seconds: 600

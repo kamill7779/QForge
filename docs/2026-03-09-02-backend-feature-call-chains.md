@@ -46,28 +46,33 @@
 3. `question-core-service` 更新 `q_question.source`。
 4. 题目摘要缓存被主动失效，后续列表/详情重新读取新值。
 
-## 4. 试题篮增删与一键组卷
+## 4. 试题篮与确认前组卷
 
 ### 4.1 试题篮切换
 
 1. 前端调用 `POST /api/question-basket/{questionUuid}/toggle`。
-2. `exam-service` 在 `q_question_basket` 中完成加入或移除。
-3. `exam-service` 同步更新试题篮 Redis 缓存：
+2. `question-basket-service` 在 `q_question_basket` 中完成加入或移除。
+3. 若当前用户已经存在确认前组卷状态，`question-basket-service` 同步更新 `q_basket_compose*`。
+4. `question-basket-service` 同步更新试题篮 Redis 缓存：
    - `qforge:basket:uuids:{user}`
    - `qforge:basket:items:{user}`
-4. 前端如需完整展示，再调用 `GET /api/question-basket` 获取条目概览。
+5. 前端如需完整展示，再调用 `GET /api/question-basket` 获取条目概览。
 
-### 4.2 从试题篮创建试卷
+### 4.2 进入组卷页
 
-1. 前端调用 `POST /api/exam-papers/from-basket`。
-2. `exam-service` 读取当前用户试题篮条目。
-3. `exam-service` 通过 `QuestionCoreClient.batchGetSummaries` 调用 `question-core-service /internal/questions/batch` 批量取摘要。
-4. `exam-service` 创建：
-   - 一条 `ExamPaper`
-   - 一条默认 `ExamSection`
-   - 多条 `ExamQuestion`
-5. 默认时长、默认分值来自 `qforge.exam.*` 配置。
-6. `exam-service` 返回新试卷详情。
+1. 前端调用 `GET /api/question-basket/compose`。
+2. 若当前用户没有确认前组卷状态，`question-basket-service` 从 `q_question_basket` 初始化 `q_basket_compose*`。
+3. `question-basket-service` 调用 `question-core-service /internal/questions/batch` 批量取题目摘要。
+4. `question-basket-service` 返回确认前组卷结构给前端。
+
+### 4.3 确认组卷并落库
+
+1. 前端调用 `POST /api/question-basket/compose/confirm`。
+2. `question-basket-service` 先做一次“试题篮 -> compose”一致性重放。
+3. `question-basket-service` 调用 `exam-service /internal/exam-papers/from-basket-compose`。
+4. `exam-service` 创建 `q_exam_paper / q_exam_section / q_exam_question`。
+5. `question-basket-service` 清空 `q_question_basket` 与 `q_basket_compose*`。
+6. 真实试卷此后不再受试题篮变化影响。
 
 ## 5. 试卷详情查询与保存
 
