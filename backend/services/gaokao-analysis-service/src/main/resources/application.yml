@@ -24,6 +24,19 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  ai:
+    zhipuai:
+      api-key: ${ZHIPUAI_API_KEY:}
+      chat:
+        options:
+          model: ${qforge.analysis.ai-model:glm-4-plus}
+          temperature: 0.1
+          response-format:
+            type: json_object
+      embedding:
+        options:
+          model: ${qforge.analysis.embedding-model:embedding-3}
+          dimensions: ${qforge.analysis.embedding-dimension:1024}
 
 server:
   port: ${SERVER_PORT:8096}
