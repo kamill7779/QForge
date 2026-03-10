@@ -17,6 +17,8 @@ public interface VectorService {
      */
     void buildChunkVectors(Long questionId);
 
+    void upsertChunkVector(String chunkUuid, String chunkText, Map<String, Object> payload);
+
     /**
      * Search similar questions via vector similarity + optional metadata filters.
      */

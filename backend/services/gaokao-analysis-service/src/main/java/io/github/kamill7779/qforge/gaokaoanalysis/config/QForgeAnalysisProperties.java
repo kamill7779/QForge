@@ -11,6 +11,8 @@ public class QForgeAnalysisProperties {
     private int aiTimeoutSeconds;
     private String embeddingModel;
     private int embeddingDimension;
+    private int maxSimilarResults;
+    private int rerankTopK;
 
     public String getAiModel() {
         return aiModel;
@@ -42,5 +44,21 @@ public class QForgeAnalysisProperties {
 
     public void setEmbeddingDimension(int embeddingDimension) {
         this.embeddingDimension = embeddingDimension;
+    }
+
+    public int getMaxSimilarResults() {
+        return maxSimilarResults;
+    }
+
+    public void setMaxSimilarResults(int maxSimilarResults) {
+        this.maxSimilarResults = maxSimilarResults;
+    }
+
+    public int getRerankTopK() {
+        return rerankTopK;
+    }
+
+    public void setRerankTopK(int rerankTopK) {
+        this.rerankTopK = rerankTopK;
     }
 }

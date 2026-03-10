@@ -4,11 +4,20 @@ import java.math.BigDecimal;
 
 public class RecommendedQuestionDTO {
 
+    private Long questionId;
     private String questionUuid;
     private String stemText;
     private String questionTypeCode;
     private String difficultyLevel;
     private BigDecimal score;
+
+    public Long getQuestionId() {
+        return questionId;
+    }
+
+    public void setQuestionId(Long questionId) {
+        this.questionId = questionId;
+    }
 
     public String getQuestionUuid() {
         return questionUuid;

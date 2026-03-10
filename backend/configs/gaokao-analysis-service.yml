@@ -9,7 +9,7 @@ qforge:
     ai-model: glm-4-plus            # 默认 AI 模型
     ai-timeout-seconds: 120          # AI 调用超时
     embedding-model: embedding-3     # 向量 embedding 模型
-    embedding-dimension: 1024        # 向量维度
+    embedding-dimension: 2048        # 向量维度
     max-similar-results: 10          # 相似题召回上限
     rerank-top-k: 5                  # 重排后返回数量
   qdrant:
@@ -17,3 +17,18 @@ qforge:
     port: ${QDRANT_PORT:6333}
     question-collection: gk_question_vectors
     chunk-collection: gk_rag_chunks
+
+spring:
+  ai:
+    zhipuai:
+      api-key: ${ZHIPUAI_API_KEY:}
+      chat:
+        options:
+          model: ${qforge.analysis.ai-model}
+          temperature: 0.1
+          response-format:
+            type: json_object
+      embedding:
+        options:
+          model: ${qforge.analysis.embedding-model}
+          dimensions: ${qforge.analysis.embedding-dimension}

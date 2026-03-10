@@ -2,10 +2,15 @@ package io.github.kamill7779.qforge.gaokaocorpus.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.github.kamill7779.qforge.gaokaocorpus.client.GaokaoAnalysisClient;
+import io.github.kamill7779.qforge.gaokaocorpus.client.OcrRecognizeRequest;
+import io.github.kamill7779.qforge.gaokaocorpus.client.OcrRecognizeResponse;
+import io.github.kamill7779.qforge.gaokaocorpus.client.OcrServiceClient;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.IngestSessionDTO;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestOcrPage;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSession;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSourceFile;
 import io.github.kamill7779.qforge.gaokaocorpus.exception.BusinessValidationException;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestOcrPageMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSourceFileMapper;
 import java.io.IOException;
@@ -14,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Locale;
 import java.util.List;
 import java.util.Set;
@@ -38,7 +44,9 @@ public class IngestServiceImpl implements IngestService {
 
     private final GkIngestSessionMapper ingestSessionMapper;
     private final GkIngestSourceFileMapper ingestSourceFileMapper;
+    private final GkIngestOcrPageMapper ingestOcrPageMapper;
     private final GaokaoAnalysisClient analysisClient;
+    private final OcrServiceClient ocrServiceClient;
     private final int maxUploadFiles;
     private final Set<String> allowedExtensions;
     private final Path uploadRootDir;
@@ -46,14 +54,18 @@ public class IngestServiceImpl implements IngestService {
     public IngestServiceImpl(
             GkIngestSessionMapper ingestSessionMapper,
             GkIngestSourceFileMapper ingestSourceFileMapper,
+            GkIngestOcrPageMapper ingestOcrPageMapper,
             GaokaoAnalysisClient analysisClient,
+            OcrServiceClient ocrServiceClient,
             @Value("${qforge.gaokao.max-upload-files:20}") int maxUploadFiles,
             @Value("${qforge.gaokao.allowed-extensions:pdf,jpg,jpeg,png}") String allowedExtensions,
             @Value("${qforge.gaokao.upload-root-dir:./data/gaokao/uploads}") String uploadRootDir
     ) {
         this.ingestSessionMapper = ingestSessionMapper;
         this.ingestSourceFileMapper = ingestSourceFileMapper;
+        this.ingestOcrPageMapper = ingestOcrPageMapper;
         this.analysisClient = analysisClient;
+        this.ocrServiceClient = ocrServiceClient;
         this.maxUploadFiles = maxUploadFiles;
         this.allowedExtensions = Arrays.stream(allowedExtensions.split(","))
                 .map(item -> item.trim().toLowerCase(Locale.ROOT))
@@ -189,9 +201,39 @@ public class IngestServiceImpl implements IngestService {
         ingestSessionMapper.updateById(session);
         log.info("Triggered OCR split for session: uuid={}", sessionUuid);
 
-        // OCR processing would be async via MQ in production.
-        // For now, transition to SPLIT_READY to allow the flow to continue.
-        session.setStatus("SPLIT_READY");
+        List<GkIngestSourceFile> sourceFiles = ingestSourceFileMapper.selectList(
+                new LambdaQueryWrapper<GkIngestSourceFile>()
+                        .eq(GkIngestSourceFile::getSessionId, session.getId())
+                        .orderByAsc(GkIngestSourceFile::getId));
+        ingestOcrPageMapper.delete(new LambdaQueryWrapper<GkIngestOcrPage>()
+                .eq(GkIngestOcrPage::getSessionId, session.getId()));
+
+        try {
+            int pageNo = 1;
+            for (GkIngestSourceFile sourceFile : sourceFiles) {
+                OcrRecognizeRequest request = new OcrRecognizeRequest();
+                request.setImageBase64(encodeFileAsBase64(sourceFile.getStorageRef()));
+                request.setFileType(sourceFile.getFileType());
+                OcrRecognizeResponse response = ocrServiceClient.recognize(request);
+
+                GkIngestOcrPage page = new GkIngestOcrPage();
+                page.setSessionId(session.getId());
+                page.setSourceFileId(sourceFile.getId());
+                page.setPageNo(pageNo++);
+                page.setFullText(response != null ? response.getFullText() : "");
+                page.setLayoutJson(response != null ? response.getLayoutJson() : "[]");
+                page.setFormulaJson(response != null ? response.getFormulaJson() : "[]");
+                page.setPageImageRef(sourceFile.getStorageRef());
+                page.setCreatedAt(LocalDateTime.now());
+                ingestOcrPageMapper.insert(page);
+            }
+            session.setStatus("SPLIT_READY");
+            session.setErrorMsg(null);
+        } catch (Exception ex) {
+            session.setStatus("OCR_FAILED");
+            session.setErrorMsg(ex.getMessage());
+            log.error("OCR split failed for session={}", sessionUuid, ex);
+        }
         session.setUpdatedAt(LocalDateTime.now());
         ingestSessionMapper.updateById(session);
     }
@@ -260,6 +302,14 @@ public class IngestServiceImpl implements IngestService {
             return HexFormat.of().formatHex(digest.digest(bytes));
         } catch (IOException | NoSuchAlgorithmException e) {
             throw new RuntimeException("Failed to calculate sha256 for file: " + filePath, e);
+        }
+    }
+
+    private String encodeFileAsBase64(String storageRef) {
+        try {
+            return Base64.getEncoder().encodeToString(Files.readAllBytes(Path.of(storageRef)));
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to read source file for OCR: " + storageRef, ex);
         }
     }
 }

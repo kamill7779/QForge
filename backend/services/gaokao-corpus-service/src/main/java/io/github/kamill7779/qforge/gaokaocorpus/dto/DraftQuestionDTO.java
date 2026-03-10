@@ -17,7 +17,9 @@ public class DraftQuestionDTO {
     private Integer editVersion;
     private List<DraftOptionDTO> options;
     private List<DraftAnswerDTO> answers;
+    private List<DraftAssetDTO> stemAssets;
     private AnalysisPreviewDTO analysisPreview;
+    private List<DraftQuestionDTO> childQuestions;
 
     public String getDraftQuestionUuid() { return draftQuestionUuid; }
     public void setDraftQuestionUuid(String draftQuestionUuid) { this.draftQuestionUuid = draftQuestionUuid; }
@@ -55,8 +57,14 @@ public class DraftQuestionDTO {
     public List<DraftAnswerDTO> getAnswers() { return answers; }
     public void setAnswers(List<DraftAnswerDTO> answers) { this.answers = answers; }
 
+    public List<DraftAssetDTO> getStemAssets() { return stemAssets; }
+    public void setStemAssets(List<DraftAssetDTO> stemAssets) { this.stemAssets = stemAssets; }
+
     public AnalysisPreviewDTO getAnalysisPreview() { return analysisPreview; }
     public void setAnalysisPreview(AnalysisPreviewDTO analysisPreview) { this.analysisPreview = analysisPreview; }
+
+    public List<DraftQuestionDTO> getChildQuestions() { return childQuestions; }
+    public void setChildQuestions(List<DraftQuestionDTO> childQuestions) { this.childQuestions = childQuestions; }
 
     public static class DraftOptionDTO {
         private String draftOptionUuid;
@@ -88,6 +96,7 @@ public class DraftQuestionDTO {
         private String answerXml;
         private Boolean official;
         private Integer sortOrder;
+        private List<DraftAssetDTO> assets;
 
         public String getDraftAnswerUuid() { return draftAnswerUuid; }
         public void setDraftAnswerUuid(String draftAnswerUuid) { this.draftAnswerUuid = draftAnswerUuid; }
@@ -103,6 +112,24 @@ public class DraftQuestionDTO {
 
         public Boolean getOfficial() { return official; }
         public void setOfficial(Boolean official) { this.official = official; }
+
+        public Integer getSortOrder() { return sortOrder; }
+        public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+
+        public List<DraftAssetDTO> getAssets() { return assets; }
+        public void setAssets(List<DraftAssetDTO> assets) { this.assets = assets; }
+    }
+
+    public static class DraftAssetDTO {
+        private String assetType;
+        private String storageRef;
+        private Integer sortOrder;
+
+        public String getAssetType() { return assetType; }
+        public void setAssetType(String assetType) { this.assetType = assetType; }
+
+        public String getStorageRef() { return storageRef; }
+        public void setStorageRef(String storageRef) { this.storageRef = storageRef; }
 
         public Integer getSortOrder() { return sortOrder; }
         public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }

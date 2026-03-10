@@ -1,6 +1,7 @@
 package io.github.kamill7779.qforge.gaokaoanalysis.service.impl;
 
 import io.github.kamill7779.qforge.gaokaoanalysis.dto.RecommendedQuestionDTO;
+import io.github.kamill7779.qforge.gaokaoanalysis.config.QForgeAnalysisProperties;
 import io.github.kamill7779.qforge.gaokaoanalysis.service.RerankerService;
 import java.util.Comparator;
 import java.util.List;
@@ -13,6 +14,11 @@ import org.springframework.stereotype.Service;
 public class RerankerServiceImpl implements RerankerService {
 
     private static final Logger log = LoggerFactory.getLogger(RerankerServiceImpl.class);
+    private final QForgeAnalysisProperties analysisProperties;
+
+    public RerankerServiceImpl(QForgeAnalysisProperties analysisProperties) {
+        this.analysisProperties = analysisProperties;
+    }
 
     @Override
     public List<RecommendedQuestionDTO> rerank(String queryStem, List<RecommendedQuestionDTO> candidates) {
@@ -25,6 +31,7 @@ public class RerankerServiceImpl implements RerankerService {
                 .sorted(Comparator.comparing(
                         RecommendedQuestionDTO::getScore,
                         Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(Math.max(1, analysisProperties.getRerankTopK()))
                 .collect(Collectors.toList());
     }
 }

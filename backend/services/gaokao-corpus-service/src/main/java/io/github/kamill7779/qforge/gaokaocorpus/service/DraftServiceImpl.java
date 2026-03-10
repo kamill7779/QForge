@@ -10,19 +10,25 @@ import io.github.kamill7779.qforge.gaokaocorpus.dto.DraftQuestionDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.UpdateDraftPaperRequest;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.UpdateDraftQuestionRequest;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftAnswer;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftAnswerAsset;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftOption;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftPaper;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftProfilePreview;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftQuestion;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftQuestionAsset;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftSection;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestOcrPage;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSession;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSourceFile;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftAnswerAssetMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftAnswerMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftOptionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftPaperMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftProfilePreviewMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftQuestionMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftQuestionAssetMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftSectionMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestOcrPageMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSourceFileMapper;
 import java.time.LocalDateTime;
@@ -46,9 +52,12 @@ public class DraftServiceImpl implements DraftService {
     private final GkDraftQuestionMapper draftQuestionMapper;
     private final GkDraftOptionMapper draftOptionMapper;
     private final GkDraftAnswerMapper draftAnswerMapper;
+    private final GkDraftQuestionAssetMapper draftQuestionAssetMapper;
+    private final GkDraftAnswerAssetMapper draftAnswerAssetMapper;
     private final GkDraftProfilePreviewMapper draftProfilePreviewMapper;
     private final GkIngestSessionMapper ingestSessionMapper;
     private final GkIngestSourceFileMapper ingestSourceFileMapper;
+    private final GkIngestOcrPageMapper ingestOcrPageMapper;
     private final GaokaoAnalysisClient analysisClient;
 
     public DraftServiceImpl(
@@ -57,9 +66,12 @@ public class DraftServiceImpl implements DraftService {
             GkDraftQuestionMapper draftQuestionMapper,
             GkDraftOptionMapper draftOptionMapper,
             GkDraftAnswerMapper draftAnswerMapper,
+            GkDraftQuestionAssetMapper draftQuestionAssetMapper,
+            GkDraftAnswerAssetMapper draftAnswerAssetMapper,
             GkDraftProfilePreviewMapper draftProfilePreviewMapper,
             GkIngestSessionMapper ingestSessionMapper,
-                GkIngestSourceFileMapper ingestSourceFileMapper,
+            GkIngestSourceFileMapper ingestSourceFileMapper,
+            GkIngestOcrPageMapper ingestOcrPageMapper,
             GaokaoAnalysisClient analysisClient
     ) {
         this.draftPaperMapper = draftPaperMapper;
@@ -67,9 +79,12 @@ public class DraftServiceImpl implements DraftService {
         this.draftQuestionMapper = draftQuestionMapper;
         this.draftOptionMapper = draftOptionMapper;
         this.draftAnswerMapper = draftAnswerMapper;
+        this.draftQuestionAssetMapper = draftQuestionAssetMapper;
+        this.draftAnswerAssetMapper = draftAnswerAssetMapper;
         this.draftProfilePreviewMapper = draftProfilePreviewMapper;
         this.ingestSessionMapper = ingestSessionMapper;
         this.ingestSourceFileMapper = ingestSourceFileMapper;
+        this.ingestOcrPageMapper = ingestOcrPageMapper;
         this.analysisClient = analysisClient;
     }
 
@@ -120,6 +135,22 @@ public class DraftServiceImpl implements DraftService {
         if (question == null) {
             throw new IllegalArgumentException("Draft question not found: " + draftQuestionUuid);
         }
+        if (request.getDraftSectionUuid() != null) {
+            GkDraftSection section = draftSectionMapper.selectOne(
+                    new LambdaQueryWrapper<GkDraftSection>()
+                            .eq(GkDraftSection::getDraftSectionUuid, request.getDraftSectionUuid())
+                            .last("LIMIT 1"));
+            question.setDraftSectionId(section != null ? section.getId() : null);
+        }
+        if (request.getParentDraftQuestionUuid() != null) {
+            GkDraftQuestion parent = draftQuestionMapper.selectOne(
+                    new LambdaQueryWrapper<GkDraftQuestion>()
+                            .eq(GkDraftQuestion::getDraftQuestionUuid, request.getParentDraftQuestionUuid())
+                            .last("LIMIT 1"));
+            question.setParentQuestionId(parent != null ? parent.getId() : null);
+            question.setRootQuestionId(parent != null && parent.getRootQuestionId() != null ? parent.getRootQuestionId() :
+                    parent != null ? parent.getId() : null);
+        }
         if (request.getQuestionNo() != null) question.setQuestionNo(request.getQuestionNo());
         if (request.getQuestionTypeCode() != null) question.setQuestionTypeCode(request.getQuestionTypeCode());
         if (request.getAnswerMode() != null) question.setAnswerMode(request.getAnswerMode());
@@ -129,6 +160,15 @@ public class DraftServiceImpl implements DraftService {
         if (request.getEditVersion() != null) question.setEditVersion(request.getEditVersion());
         question.setUpdatedAt(LocalDateTime.now());
         draftQuestionMapper.updateById(question);
+        if (request.getOptions() != null) {
+            replaceOptions(question.getId(), request.getOptions());
+        }
+        if (request.getAnswers() != null) {
+            replaceAnswers(question.getId(), request.getAnswers());
+        }
+        if (request.getStemAssets() != null) {
+            replaceStemAssets(question.getId(), request.getStemAssets());
+        }
         log.info("Updated draft question: {}", draftQuestionUuid);
         return toQuestionDTO(question);
     }
@@ -170,6 +210,14 @@ public class DraftServiceImpl implements DraftService {
         AnalyzePaperRequest req = new AnalyzePaperRequest();
         req.setDraftPaperUuid(draftPaperUuid);
         req.setDraftQuestionIds(questionIds);
+        req.setQuestions(questions.stream().map(question -> {
+            AnalyzePaperRequest.QuestionPayload payload = new AnalyzePaperRequest.QuestionPayload();
+            payload.setDraftQuestionId(question.getId());
+            payload.setStemText(question.getStemText());
+            payload.setStemXml(question.getStemXml());
+            payload.setQuestionTypeCode(question.getQuestionTypeCode());
+            return payload;
+        }).collect(Collectors.toList()));
         try {
             analysisClient.analyzePaper(req);
             paper.setStatus("ANALYZING");
@@ -218,6 +266,7 @@ public class DraftServiceImpl implements DraftService {
                 new LambdaQueryWrapper<GkDraftQuestion>()
                         .eq(GkDraftQuestion::getDraftPaperId, paper.getId()));
         Map<Long, List<GkDraftQuestion>> questionsBySectionId = allQuestions.stream()
+                .filter(q -> q.getParentQuestionId() == null)
                 .filter(q -> q.getDraftSectionId() != null)
                 .collect(Collectors.groupingBy(GkDraftQuestion::getDraftSectionId));
 
@@ -262,24 +311,40 @@ public class DraftServiceImpl implements DraftService {
                 .stream()
                 .map(this::toDraftAnswerDTO)
                 .collect(Collectors.toList()));
+        dto.setStemAssets(draftQuestionAssetMapper.selectList(
+                        new LambdaQueryWrapper<GkDraftQuestionAsset>()
+                                .eq(GkDraftQuestionAsset::getDraftQuestionId, q.getId())
+                                .orderByAsc(GkDraftQuestionAsset::getSortOrder))
+                .stream()
+                .map(this::toDraftAssetDTO)
+                .collect(Collectors.toList()));
         GkDraftProfilePreview preview = draftProfilePreviewMapper.selectOne(
                 new LambdaQueryWrapper<GkDraftProfilePreview>()
                         .eq(GkDraftProfilePreview::getDraftQuestionId, q.getId())
                         .orderByDesc(GkDraftProfilePreview::getProfileVersion)
                         .last("LIMIT 1"));
         dto.setAnalysisPreview(toAnalysisPreviewDTO(preview));
+        List<GkDraftQuestion> childQuestions = draftQuestionMapper.selectList(
+                new LambdaQueryWrapper<GkDraftQuestion>()
+                        .eq(GkDraftQuestion::getParentQuestionId, q.getId())
+                        .orderByAsc(GkDraftQuestion::getQuestionNo, GkDraftQuestion::getId));
+        dto.setChildQuestions(childQuestions.stream().map(this::toQuestionDTO).collect(Collectors.toList()));
         return dto;
     }
 
     private GkDraftPaper bootstrapDraftPaperIfMissing(GkIngestSession session) {
+        List<GkIngestOcrPage> ocrPages = ingestOcrPageMapper.selectList(
+                new LambdaQueryWrapper<GkIngestOcrPage>()
+                        .eq(GkIngestOcrPage::getSessionId, session.getId())
+                        .orderByAsc(GkIngestOcrPage::getPageNo, GkIngestOcrPage::getId));
+        if (ocrPages.isEmpty()) {
+            throw new IllegalArgumentException("No draft paper for session: " + session.getSessionUuid());
+        }
         List<GkIngestSourceFile> sourceFiles = ingestSourceFileMapper.selectList(
                 new LambdaQueryWrapper<GkIngestSourceFile>()
                         .eq(GkIngestSourceFile::getSessionId, session.getId())
                         .orderByAsc(GkIngestSourceFile::getCreatedAt)
                         .orderByAsc(GkIngestSourceFile::getId));
-        if (sourceFiles.isEmpty()) {
-            throw new IllegalArgumentException("No draft paper for session: " + session.getSessionUuid());
-        }
 
         LocalDateTime now = LocalDateTime.now();
         GkDraftPaper paper = new GkDraftPaper();
@@ -305,8 +370,8 @@ public class DraftServiceImpl implements DraftService {
         section.setUpdatedAt(now);
         draftSectionMapper.insert(section);
 
-        for (int index = 0; index < sourceFiles.size(); index++) {
-            GkIngestSourceFile sourceFile = sourceFiles.get(index);
+        for (int index = 0; index < ocrPages.size(); index++) {
+            GkIngestOcrPage ocrPage = ocrPages.get(index);
             GkDraftQuestion question = new GkDraftQuestion();
             question.setDraftQuestionUuid(UUID.randomUUID().toString());
             question.setDraftPaperId(paper.getId());
@@ -314,14 +379,24 @@ public class DraftServiceImpl implements DraftService {
             question.setQuestionNo(String.valueOf(index + 1));
             question.setQuestionTypeCode("UNCLASSIFIED");
             question.setAnswerMode("SUBJECTIVE");
-            question.setStemText(buildPlaceholderStem(sourceFile, index + 1));
-            question.setStemXml("<stem><p>Draft template generated from OCR source. Please refine the stem.</p></stem>");
-            question.setNormalizedStemText(buildPlaceholderStem(sourceFile, index + 1));
+            question.setStemText(normalizeOcrText(ocrPage.getFullText()));
+            question.setStemXml(buildStemXml(ocrPage.getFullText()));
+            question.setNormalizedStemText(normalizeOcrText(ocrPage.getFullText()));
             question.setHasAnswer(false);
             question.setEditVersion(1);
             question.setCreatedAt(now);
             question.setUpdatedAt(now);
             draftQuestionMapper.insert(question);
+
+            if (ocrPage.getPageImageRef() != null && !ocrPage.getPageImageRef().isBlank()) {
+                GkDraftQuestionAsset asset = new GkDraftQuestionAsset();
+                asset.setDraftQuestionId(question.getId());
+                asset.setAssetType("OCR_PAGE_IMAGE");
+                asset.setStorageRef(ocrPage.getPageImageRef());
+                asset.setSortOrder(1);
+                asset.setCreatedAt(now);
+                draftQuestionAssetMapper.insert(asset);
+            }
         }
 
         session.setStatus("EDITING");
@@ -342,8 +417,11 @@ public class DraftServiceImpl implements DraftService {
         return dotIndex > 0 ? firstFileName.substring(0, dotIndex) : firstFileName;
     }
 
-    private String buildPlaceholderStem(GkIngestSourceFile sourceFile, int questionIndex) {
-        return "Draft question " + questionIndex + " generated from source file: " + sourceFile.getFileName();
+    private String normalizeOcrText(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        return text.replace('\r', '\n').replaceAll("\\n{2,}", "\n").trim();
     }
 
     private DraftQuestionDTO.DraftOptionDTO toDraftOptionDTO(GkDraftOption option) {
@@ -364,7 +442,109 @@ public class DraftServiceImpl implements DraftService {
         dto.setAnswerXml(answer.getAnswerXml());
         dto.setOfficial(answer.getIsOfficial());
         dto.setSortOrder(answer.getSortOrder());
+        dto.setAssets(draftAnswerAssetMapper.selectList(
+                        new LambdaQueryWrapper<GkDraftAnswerAsset>()
+                                .eq(GkDraftAnswerAsset::getDraftAnswerId, answer.getId())
+                                .orderByAsc(GkDraftAnswerAsset::getSortOrder))
+                .stream()
+                .map(this::toDraftAssetDTO)
+                .collect(Collectors.toList()));
         return dto;
+    }
+
+    private DraftQuestionDTO.DraftAssetDTO toDraftAssetDTO(GkDraftQuestionAsset asset) {
+        DraftQuestionDTO.DraftAssetDTO dto = new DraftQuestionDTO.DraftAssetDTO();
+        dto.setAssetType(asset.getAssetType());
+        dto.setStorageRef(asset.getStorageRef());
+        dto.setSortOrder(asset.getSortOrder());
+        return dto;
+    }
+
+    private DraftQuestionDTO.DraftAssetDTO toDraftAssetDTO(GkDraftAnswerAsset asset) {
+        DraftQuestionDTO.DraftAssetDTO dto = new DraftQuestionDTO.DraftAssetDTO();
+        dto.setAssetType(asset.getAssetType());
+        dto.setStorageRef(asset.getStorageRef());
+        dto.setSortOrder(asset.getSortOrder());
+        return dto;
+    }
+
+    private void replaceOptions(Long draftQuestionId, List<UpdateDraftQuestionRequest.OptionPayload> options) {
+        draftOptionMapper.delete(new LambdaQueryWrapper<GkDraftOption>()
+                .eq(GkDraftOption::getDraftQuestionId, draftQuestionId));
+        LocalDateTime now = LocalDateTime.now();
+        for (UpdateDraftQuestionRequest.OptionPayload option : options) {
+            GkDraftOption entity = new GkDraftOption();
+            entity.setDraftOptionUuid(option.getDraftOptionUuid() != null ? option.getDraftOptionUuid() : UUID.randomUUID().toString());
+            entity.setDraftQuestionId(draftQuestionId);
+            entity.setOptionLabel(option.getOptionLabel());
+            entity.setOptionText(option.getOptionText());
+            entity.setOptionXml(option.getOptionXml());
+            entity.setSortOrder(option.getSortOrder());
+            entity.setCreatedAt(now);
+            entity.setUpdatedAt(now);
+            draftOptionMapper.insert(entity);
+        }
+    }
+
+    private void replaceAnswers(Long draftQuestionId, List<UpdateDraftQuestionRequest.AnswerPayload> answers) {
+        List<GkDraftAnswer> existingAnswers = draftAnswerMapper.selectList(
+                new LambdaQueryWrapper<GkDraftAnswer>().eq(GkDraftAnswer::getDraftQuestionId, draftQuestionId));
+        for (GkDraftAnswer answer : existingAnswers) {
+            draftAnswerAssetMapper.delete(new LambdaQueryWrapper<GkDraftAnswerAsset>()
+                    .eq(GkDraftAnswerAsset::getDraftAnswerId, answer.getId()));
+        }
+        draftAnswerMapper.delete(new LambdaQueryWrapper<GkDraftAnswer>()
+                .eq(GkDraftAnswer::getDraftQuestionId, draftQuestionId));
+
+        LocalDateTime now = LocalDateTime.now();
+        for (UpdateDraftQuestionRequest.AnswerPayload answer : answers) {
+            GkDraftAnswer entity = new GkDraftAnswer();
+            entity.setDraftAnswerUuid(answer.getDraftAnswerUuid() != null ? answer.getDraftAnswerUuid() : UUID.randomUUID().toString());
+            entity.setDraftQuestionId(draftQuestionId);
+            entity.setAnswerType(answer.getAnswerType());
+            entity.setAnswerText(answer.getAnswerText());
+            entity.setAnswerXml(answer.getAnswerXml());
+            entity.setIsOfficial(answer.getOfficial());
+            entity.setSortOrder(answer.getSortOrder());
+            entity.setCreatedAt(now);
+            entity.setUpdatedAt(now);
+            draftAnswerMapper.insert(entity);
+
+            if (answer.getAssets() != null) {
+                for (UpdateDraftQuestionRequest.AssetPayload asset : answer.getAssets()) {
+                    GkDraftAnswerAsset answerAsset = new GkDraftAnswerAsset();
+                    answerAsset.setDraftAnswerId(entity.getId());
+                    answerAsset.setAssetType(asset.getAssetType());
+                    answerAsset.setStorageRef(asset.getStorageRef());
+                    answerAsset.setSortOrder(asset.getSortOrder());
+                    answerAsset.setCreatedAt(now);
+                    draftAnswerAssetMapper.insert(answerAsset);
+                }
+            }
+        }
+    }
+
+    private void replaceStemAssets(Long draftQuestionId, List<UpdateDraftQuestionRequest.AssetPayload> assets) {
+        draftQuestionAssetMapper.delete(new LambdaQueryWrapper<GkDraftQuestionAsset>()
+                .eq(GkDraftQuestionAsset::getDraftQuestionId, draftQuestionId));
+        LocalDateTime now = LocalDateTime.now();
+        for (UpdateDraftQuestionRequest.AssetPayload asset : assets) {
+            GkDraftQuestionAsset entity = new GkDraftQuestionAsset();
+            entity.setDraftQuestionId(draftQuestionId);
+            entity.setAssetType(asset.getAssetType());
+            entity.setStorageRef(asset.getStorageRef());
+            entity.setSortOrder(asset.getSortOrder());
+            entity.setCreatedAt(now);
+            draftQuestionAssetMapper.insert(entity);
+        }
+    }
+
+    private String buildStemXml(String rawText) {
+        String normalized = normalizeOcrText(rawText);
+        if (normalized.isBlank()) {
+            return "<stem><p/></stem>";
+        }
+        return "<stem><p><![CDATA[" + normalized + "]]></p></stem>";
     }
 
     private DraftQuestionDTO.AnalysisPreviewDTO toAnalysisPreviewDTO(GkDraftProfilePreview preview) {

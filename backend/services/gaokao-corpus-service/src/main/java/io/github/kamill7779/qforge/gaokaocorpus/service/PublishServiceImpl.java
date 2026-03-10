@@ -1,27 +1,37 @@
 package io.github.kamill7779.qforge.gaokaocorpus.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import io.github.kamill7779.qforge.common.contract.GaokaoIndexingConstants;
+import io.github.kamill7779.qforge.common.contract.GaokaoPaperIndexRequestedEvent;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.GkPaperDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.GkQuestionDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftAnswer;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftAnswerAsset;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftOption;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftPaper;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftProfilePreview;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftQuestion;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftQuestionAsset;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftSection;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkAnswerAsset;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSession;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkPaper;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkPaperSection;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestion;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestionAnswer;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestionAsset;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestionOption;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkQuestionProfile;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkAnswerAssetMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftAnswerAssetMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftAnswerMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftQuestionAssetMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftOptionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftPaperMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftProfilePreviewMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftQuestionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftSectionMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkQuestionAssetMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkPaperMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkPaperSectionMapper;
@@ -38,6 +48,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +62,8 @@ public class PublishServiceImpl implements PublishService {
     private final GkDraftQuestionMapper draftQuestionMapper;
     private final GkDraftOptionMapper draftOptionMapper;
     private final GkDraftAnswerMapper draftAnswerMapper;
+    private final GkDraftQuestionAssetMapper draftQuestionAssetMapper;
+    private final GkDraftAnswerAssetMapper draftAnswerAssetMapper;
     private final GkDraftProfilePreviewMapper draftProfilePreviewMapper;
     private final GkIngestSessionMapper ingestSessionMapper;
     private final GkPaperMapper paperMapper;
@@ -58,7 +71,10 @@ public class PublishServiceImpl implements PublishService {
     private final GkQuestionMapper questionMapper;
     private final GkQuestionOptionMapper questionOptionMapper;
     private final GkQuestionAnswerMapper questionAnswerMapper;
+    private final GkQuestionAssetMapper questionAssetMapper;
+    private final GkAnswerAssetMapper answerAssetMapper;
     private final GkQuestionProfileMapper questionProfileMapper;
+    private final RabbitTemplate rabbitTemplate;
 
     public PublishServiceImpl(
             GkDraftPaperMapper draftPaperMapper,
@@ -66,6 +82,8 @@ public class PublishServiceImpl implements PublishService {
             GkDraftQuestionMapper draftQuestionMapper,
             GkDraftOptionMapper draftOptionMapper,
             GkDraftAnswerMapper draftAnswerMapper,
+            GkDraftQuestionAssetMapper draftQuestionAssetMapper,
+            GkDraftAnswerAssetMapper draftAnswerAssetMapper,
             GkDraftProfilePreviewMapper draftProfilePreviewMapper,
             GkIngestSessionMapper ingestSessionMapper,
             GkPaperMapper paperMapper,
@@ -73,13 +91,18 @@ public class PublishServiceImpl implements PublishService {
             GkQuestionMapper questionMapper,
             GkQuestionOptionMapper questionOptionMapper,
             GkQuestionAnswerMapper questionAnswerMapper,
-            GkQuestionProfileMapper questionProfileMapper
+            GkQuestionAssetMapper questionAssetMapper,
+            GkAnswerAssetMapper answerAssetMapper,
+            GkQuestionProfileMapper questionProfileMapper,
+            RabbitTemplate rabbitTemplate
     ) {
         this.draftPaperMapper = draftPaperMapper;
         this.draftSectionMapper = draftSectionMapper;
         this.draftQuestionMapper = draftQuestionMapper;
         this.draftOptionMapper = draftOptionMapper;
         this.draftAnswerMapper = draftAnswerMapper;
+        this.draftQuestionAssetMapper = draftQuestionAssetMapper;
+        this.draftAnswerAssetMapper = draftAnswerAssetMapper;
         this.draftProfilePreviewMapper = draftProfilePreviewMapper;
         this.ingestSessionMapper = ingestSessionMapper;
         this.paperMapper = paperMapper;
@@ -87,7 +110,10 @@ public class PublishServiceImpl implements PublishService {
         this.questionMapper = questionMapper;
         this.questionOptionMapper = questionOptionMapper;
         this.questionAnswerMapper = questionAnswerMapper;
+        this.questionAssetMapper = questionAssetMapper;
+        this.answerAssetMapper = answerAssetMapper;
         this.questionProfileMapper = questionProfileMapper;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -113,7 +139,7 @@ public class PublishServiceImpl implements PublishService {
         paper.setExamYear(draftPaper.getExamYear());
         paper.setProvinceCode(draftPaper.getProvinceCode());
         paper.setSubjectCode("MATH");
-        paper.setStatus("READY");
+        paper.setStatus("INDEXING");
         paper.setCreatedAt(LocalDateTime.now());
         paper.setUpdatedAt(LocalDateTime.now());
         paperMapper.insert(paper);
@@ -143,6 +169,7 @@ public class PublishServiceImpl implements PublishService {
                         .eq(GkDraftQuestion::getDraftPaperId, draftPaper.getId()));
         Map<Long, Long> questionIdMap = new HashMap<>();
         List<GkQuestionDTO> questionDTOs = new ArrayList<>();
+        List<GaokaoPaperIndexRequestedEvent.QuestionPayload> eventQuestions = new ArrayList<>();
 
         for (GkDraftQuestion dq : draftQuestions) {
             GkQuestion q = new GkQuestion();
@@ -193,11 +220,25 @@ public class PublishServiceImpl implements PublishService {
                 questionOptionMapper.insert(qo);
             }
 
+            List<GkDraftQuestionAsset> stemAssets = draftQuestionAssetMapper.selectList(
+                    new LambdaQueryWrapper<GkDraftQuestionAsset>()
+                            .eq(GkDraftQuestionAsset::getDraftQuestionId, dq.getId())
+                            .orderByAsc(GkDraftQuestionAsset::getSortOrder));
+            for (GkDraftQuestionAsset stemAsset : stemAssets) {
+                GkQuestionAsset asset = new GkQuestionAsset();
+                asset.setQuestionId(q.getId());
+                asset.setAssetType(stemAsset.getAssetType());
+                asset.setStorageRef(stemAsset.getStorageRef());
+                asset.setSortOrder(stemAsset.getSortOrder());
+                questionAssetMapper.insert(asset);
+            }
+
             // 5. Copy answers
             List<GkDraftAnswer> answers = draftAnswerMapper.selectList(
                     new LambdaQueryWrapper<GkDraftAnswer>()
                             .eq(GkDraftAnswer::getDraftQuestionId, dq.getId())
                             .orderByAsc(GkDraftAnswer::getSortOrder));
+            List<GaokaoPaperIndexRequestedEvent.AnswerPayload> eventAnswers = new ArrayList<>();
             for (GkDraftAnswer ans : answers) {
                 GkQuestionAnswer qa = new GkQuestionAnswer();
                 qa.setAnswerUuid(UUID.randomUUID().toString());
@@ -208,6 +249,26 @@ public class PublishServiceImpl implements PublishService {
                 qa.setIsOfficial(ans.getIsOfficial());
                 qa.setSortOrder(ans.getSortOrder());
                 questionAnswerMapper.insert(qa);
+
+                List<GkDraftAnswerAsset> answerAssets = draftAnswerAssetMapper.selectList(
+                        new LambdaQueryWrapper<GkDraftAnswerAsset>()
+                                .eq(GkDraftAnswerAsset::getDraftAnswerId, ans.getId())
+                                .orderByAsc(GkDraftAnswerAsset::getSortOrder));
+                for (GkDraftAnswerAsset answerAsset : answerAssets) {
+                    GkAnswerAsset asset = new GkAnswerAsset();
+                    asset.setAnswerId(qa.getId());
+                    asset.setAssetType(answerAsset.getAssetType());
+                    asset.setStorageRef(answerAsset.getStorageRef());
+                    asset.setSortOrder(answerAsset.getSortOrder());
+                    answerAssetMapper.insert(asset);
+                }
+                eventAnswers.add(new GaokaoPaperIndexRequestedEvent.AnswerPayload(
+                        qa.getId(),
+                        qa.getAnswerText(),
+                        qa.getAnswerXml(),
+                        qa.getIsOfficial(),
+                        qa.getSortOrder()
+                ));
             }
 
             // 6. Copy profile
@@ -229,6 +290,27 @@ public class PublishServiceImpl implements PublishService {
                 questionProfileMapper.insert(profile);
             }
 
+            eventQuestions.add(new GaokaoPaperIndexRequestedEvent.QuestionPayload(
+                    q.getId(),
+                    q.getQuestionUuid(),
+                    q.getQuestionNo(),
+                    q.getQuestionTypeCode(),
+                    q.getAnswerMode(),
+                    q.getStemText(),
+                    q.getStemXml(),
+                    q.getNormalizedStemText(),
+                    q.getDifficultyScore(),
+                    q.getDifficultyLevel(),
+                    preview != null ? preview.getKnowledgeTagsJson() : "[]",
+                    preview != null ? preview.getMethodTagsJson() : "[]",
+                    preview != null ? preview.getFormulaTagsJson() : "[]",
+                    preview != null ? preview.getMistakeTagsJson() : "[]",
+                    preview != null ? preview.getAbilityTagsJson() : "[]",
+                    preview != null ? preview.getReasoningStepsJson() : "[]",
+                    preview != null ? preview.getAnalysisSummaryText() : null,
+                    eventAnswers
+            ));
+
             GkQuestionDTO qDTO = new GkQuestionDTO();
             qDTO.setQuestionUuid(q.getQuestionUuid());
             qDTO.setPaperUuid(paper.getPaperUuid());
@@ -241,6 +323,20 @@ public class PublishServiceImpl implements PublishService {
             questionDTOs.add(qDTO);
         }
 
+        for (GkDraftQuestion dq : draftQuestions) {
+            if (dq.getParentQuestionId() == null && dq.getRootQuestionId() == null) {
+                continue;
+            }
+            Long publishedQuestionId = questionIdMap.get(dq.getId());
+            GkQuestion publishedQuestion = publishedQuestionId == null ? null : questionMapper.selectById(publishedQuestionId);
+            if (publishedQuestion == null) {
+                continue;
+            }
+            publishedQuestion.setParentQuestionId(questionIdMap.get(dq.getParentQuestionId()));
+            publishedQuestion.setRootQuestionId(questionIdMap.get(dq.getRootQuestionId()));
+            questionMapper.updateById(publishedQuestion);
+        }
+
         // 7. Update session and draft paper status
         draftPaper.setStatus("READY_TO_PUBLISH");
         draftPaper.setUpdatedAt(LocalDateTime.now());
@@ -250,6 +346,21 @@ public class PublishServiceImpl implements PublishService {
             session.setUpdatedAt(LocalDateTime.now());
             ingestSessionMapper.updateById(session);
         }
+
+        rabbitTemplate.convertAndSend(
+                GaokaoIndexingConstants.GAOKAO_INDEX_EXCHANGE,
+                GaokaoIndexingConstants.ROUTING_PAPER_INDEX_REQUESTED,
+                new GaokaoPaperIndexRequestedEvent(
+                        UUID.randomUUID().toString(),
+                        paper.getId(),
+                        paper.getPaperUuid(),
+                        paper.getPaperName(),
+                        paper.getExamYear() != null ? String.valueOf(paper.getExamYear()) : null,
+                        paper.getProvinceCode(),
+                        LocalDateTime.now().toString(),
+                        eventQuestions
+                )
+        );
 
         log.info("Published paper complete: uuid={}, questions={}", paper.getPaperUuid(), questionDTOs.size());
 
