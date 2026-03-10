@@ -213,7 +213,7 @@ public class InternalQuestionController {
 
     @PostMapping("/from-gaokao")
     public ResponseEntity<CreateQuestionFromGaokaoResponse> createFromGaokao(
-            @RequestBody CreateQuestionFromGaokaoRequest request) {
+            @jakarta.validation.Valid @RequestBody CreateQuestionFromGaokaoRequest request) {
         CreateQuestionFromGaokaoResponse response = gaokaoQuestionCreateService.create(request);
         if (response.isSuccess()) {
             log.info("Question created from gaokao: questionUuid={}", response.getQuestionUuid());

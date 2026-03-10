@@ -113,6 +113,14 @@ public class VectorServiceImpl implements VectorService {
             body.put("limit", Math.max(1, Math.min(topK, Math.max(1, analysisProperties.getMaxSimilarResults()))));
             body.put("with_payload", true);
 
+            if (filters != null && !filters.isEmpty()) {
+                List<Map<String, Object>> must = new ArrayList<>();
+                for (Map.Entry<String, Object> entry : filters.entrySet()) {
+                    must.add(Map.of("key", entry.getKey(), "match", Map.of("value", entry.getValue())));
+                }
+                body.put("filter", Map.of("must", must));
+            }
+
             Map<String, Object> response = restClient.post()
                     .uri("/collections/{collection}/points/query", qdrantProperties.getQuestionCollection())
                     .body(body)

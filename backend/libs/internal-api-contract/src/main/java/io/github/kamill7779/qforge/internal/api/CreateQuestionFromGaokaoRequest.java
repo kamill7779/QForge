@@ -1,13 +1,17 @@
 package io.github.kamill7779.qforge.internal.api;
 
+import jakarta.validation.constraints.NotBlank;
+
 /**
  * 从高考数学语料库物化到 question-core-service 正式题库的请求。
  * 由 gaokao-corpus-service 调用 QuestionCoreClient.createFromGaokao()。
  */
 public class CreateQuestionFromGaokaoRequest {
 
+    @NotBlank
     private String ownerUser;
     private String questionTypeCode;
+    @NotBlank
     private String stemText;
     private String stemXml;
     private String answerText;

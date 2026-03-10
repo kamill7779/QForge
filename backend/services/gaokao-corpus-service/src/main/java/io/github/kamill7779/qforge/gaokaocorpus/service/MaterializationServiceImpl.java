@@ -15,6 +15,8 @@ import io.github.kamill7779.qforge.gaokaocorpus.repository.GkQuestionProfileMapp
 import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoRequest;
 import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoResponse;
 import io.github.kamill7779.qforge.internal.api.QuestionCoreClient;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MaterializationServiceImpl implements MaterializationService {
 
     private static final Logger log = LoggerFactory.getLogger(MaterializationServiceImpl.class);
+    private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {};
 
     private final GkQuestionMapper questionMapper;
     private final GkQuestionAnswerMapper questionAnswerMapper;
@@ -35,6 +38,7 @@ public class MaterializationServiceImpl implements MaterializationService {
     private final GkQuestionProfileMapper questionProfileMapper;
     private final GkQuestionMaterializationMapper materializationMapper;
     private final QuestionCoreClient questionCoreClient;
+    private final ObjectMapper objectMapper;
 
     public MaterializationServiceImpl(
             GkQuestionMapper questionMapper,
@@ -43,7 +47,8 @@ public class MaterializationServiceImpl implements MaterializationService {
             GkAnswerAssetMapper answerAssetMapper,
             GkQuestionProfileMapper questionProfileMapper,
             GkQuestionMaterializationMapper materializationMapper,
-            QuestionCoreClient questionCoreClient
+            QuestionCoreClient questionCoreClient,
+            ObjectMapper objectMapper
     ) {
         this.questionMapper = questionMapper;
         this.questionAnswerMapper = questionAnswerMapper;
@@ -52,6 +57,7 @@ public class MaterializationServiceImpl implements MaterializationService {
         this.questionProfileMapper = questionProfileMapper;
         this.materializationMapper = materializationMapper;
         this.questionCoreClient = questionCoreClient;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -195,17 +201,11 @@ public class MaterializationServiceImpl implements MaterializationService {
         if (rawJson == null || rawJson.isBlank()) {
             return List.of();
         }
-        String trimmed = rawJson.trim();
-        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-            trimmed = trimmed.substring(1, trimmed.length() - 1);
+        try {
+            return objectMapper.readValue(rawJson, STRING_LIST_TYPE);
+        } catch (Exception ex) {
+            log.warn("Failed to parse JSON token list, raw='{}': {}", rawJson, ex.getMessage());
+            return List.of();
         }
-        List<String> tokens = new ArrayList<>();
-        for (String token : trimmed.split("[,，]")) {
-            String normalized = token.replace("\"", "").trim();
-            if (!normalized.isEmpty()) {
-                tokens.add(normalized);
-            }
-        }
-        return tokens;
     }
 }

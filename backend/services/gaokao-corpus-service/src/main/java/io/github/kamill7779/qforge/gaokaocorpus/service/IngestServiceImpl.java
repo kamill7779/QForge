@@ -13,7 +13,10 @@ import io.github.kamill7779.qforge.gaokaocorpus.exception.BusinessValidationExce
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestOcrPageMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSourceFileMapper;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -24,6 +27,7 @@ import java.util.Locale;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -298,16 +302,28 @@ public class IngestServiceImpl implements IngestService {
     private String calculateSha256(Path filePath) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = Files.readAllBytes(filePath);
-            return HexFormat.of().formatHex(digest.digest(bytes));
+            try (InputStream in = Files.newInputStream(filePath);
+                 DigestInputStream dis = new DigestInputStream(in, digest)) {
+                byte[] buf = new byte[8192];
+                while (dis.read(buf) != -1) { /* drain */ }
+            }
+            return HexFormat.of().formatHex(digest.digest());
         } catch (IOException | NoSuchAlgorithmException e) {
             throw new RuntimeException("Failed to calculate sha256 for file: " + filePath, e);
         }
     }
 
     private String encodeFileAsBase64(String storageRef) {
-        try {
-            return Base64.getEncoder().encodeToString(Files.readAllBytes(Path.of(storageRef)));
+        try (InputStream in = Files.newInputStream(Path.of(storageRef));
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            OutputStream base64Out = Base64.getEncoder().wrap(baos);
+            byte[] buf = new byte[8192];
+            int read;
+            while ((read = in.read(buf)) != -1) {
+                base64Out.write(buf, 0, read);
+            }
+            base64Out.close();
+            return baos.toString(java.nio.charset.StandardCharsets.ISO_8859_1);
         } catch (IOException ex) {
             throw new RuntimeException("Failed to read source file for OCR: " + storageRef, ex);
         }
