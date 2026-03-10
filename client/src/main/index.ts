@@ -8,11 +8,12 @@ import {
 } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs'
+import { resolveApiBaseUrl, resolveWsBaseUrl } from './config'
 
 // ──────────────────── Config ────────────────────
 
-const API_BASE_URL = process.env.QFORGE_API_BASE_URL || 'https://www.qforge.cn'
-const WS_BASE_URL = process.env.QFORGE_WS_BASE_URL || 'ws://localhost:8080'
+const API_BASE_URL = resolveApiBaseUrl()
+const WS_BASE_URL = resolveWsBaseUrl()
 
 const SHORTCUTS = {
   OCR: process.env.QFORGE_SHORTCUT_OCR || 'CommandOrControl+Alt+A',

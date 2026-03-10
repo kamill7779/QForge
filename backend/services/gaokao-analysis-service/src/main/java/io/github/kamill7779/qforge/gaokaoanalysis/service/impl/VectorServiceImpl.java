@@ -7,9 +7,12 @@ import io.github.kamill7779.qforge.gaokaoanalysis.dto.RecommendedQuestionDTO;
 import io.github.kamill7779.qforge.gaokaoanalysis.service.VectorService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -17,6 +20,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Service
 @SuppressWarnings("unchecked")
@@ -28,6 +32,7 @@ public class VectorServiceImpl implements VectorService {
     private final QForgeAnalysisProperties analysisProperties;
     private final QdrantProperties qdrantProperties;
     private final RestClient restClient;
+    private final Set<String> ensuredCollections = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public VectorServiceImpl(
             ObjectProvider<EmbeddingModel> embeddingModelProvider,
@@ -176,26 +181,36 @@ public class VectorServiceImpl implements VectorService {
     }
 
     private void ensureCollection(String collectionName, Map<String, Object> vectors) {
+        if (!ensuredCollections.add(collectionName)) {
+            return;
+        }
         try {
-            restClient.get().uri("/collections/{collection}", collectionName).retrieve().body(String.class);
-        } catch (RestClientException ex) {
-            try {
-                restClient.put()
-                        .uri("/collections/{collection}", collectionName)
-                        .body(Map.of("vectors", vectors))
-                        .retrieve()
-                        .body(String.class);
-                log.info("Created Qdrant collection={}", collectionName);
-            } catch (Exception createEx) {
-                log.warn("Failed to create Qdrant collection {}: {}", collectionName, createEx.getMessage());
+            restClient.put()
+                    .uri("/collections/{collection}", collectionName)
+                    .body(Map.of("vectors", vectors))
+                    .retrieve()
+                    .body(String.class);
+            log.info("Created Qdrant collection={}", collectionName);
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 409) {
+                log.debug("Qdrant collection already exists: {}", collectionName);
+                return;
             }
+            ensuredCollections.remove(collectionName);
+            log.warn("Failed to create Qdrant collection {}: {}", collectionName, ex.getMessage());
+        } catch (RestClientException ex) {
+            ensuredCollections.remove(collectionName);
+            log.warn("Failed to create Qdrant collection {}: {}", collectionName, ex.getMessage());
         }
     }
 
     private void upsertPoint(String collectionName, String pointId, Map<String, Object> vector, Map<String, Object> payload) {
         try {
             restClient.put()
-                    .uri("/collections/{collection}/points", collectionName)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/collections/{collection}/points")
+                            .queryParam("wait", true)
+                            .build(collectionName))
                     .body(Map.of(
                             "points", List.of(Map.of(
                                     "id", pointId,

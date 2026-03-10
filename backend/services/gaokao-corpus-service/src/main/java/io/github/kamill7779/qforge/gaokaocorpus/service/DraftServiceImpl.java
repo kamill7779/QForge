@@ -544,7 +544,11 @@ public class DraftServiceImpl implements DraftService {
         if (normalized.isBlank()) {
             return "<stem><p/></stem>";
         }
-        return "<stem><p><![CDATA[" + normalized + "]]></p></stem>";
+        return "<stem><p><![CDATA[" + escapeForCdata(normalized) + "]]></p></stem>";
+    }
+
+    private String escapeForCdata(String value) {
+        return value.replace("]]>", "]]]]><![CDATA[>");
     }
 
     private DraftQuestionDTO.AnalysisPreviewDTO toAnalysisPreviewDTO(GkDraftProfilePreview preview) {

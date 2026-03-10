@@ -191,7 +191,47 @@ public class GaokaoPaperIndexRequestedConsumer {
     }
 
     private int estimateTokens(String text) {
-        return text == null || text.isBlank() ? 0 : Math.max(1, text.length() / 4);
+        if (text == null || text.isBlank()) {
+            return 0;
+        }
+
+        int tokens = 0;
+        int latinRunLength = 0;
+        for (int offset = 0; offset < text.length(); ) {
+            int codePoint = text.codePointAt(offset);
+            offset += Character.charCount(codePoint);
+
+            if (Character.isWhitespace(codePoint)) {
+                tokens += estimateLatinRunTokens(latinRunLength);
+                latinRunLength = 0;
+                continue;
+            }
+            if (isCjkToken(codePoint)) {
+                tokens += estimateLatinRunTokens(latinRunLength);
+                latinRunLength = 0;
+                tokens += 1;
+                continue;
+            }
+            latinRunLength += 1;
+        }
+
+        tokens += estimateLatinRunTokens(latinRunLength);
+        return Math.max(1, tokens);
+    }
+
+    private int estimateLatinRunTokens(int runLength) {
+        if (runLength <= 0) {
+            return 0;
+        }
+        return Math.max(1, (runLength + 3) / 4);
+    }
+
+    private boolean isCjkToken(int codePoint) {
+        Character.UnicodeScript script = Character.UnicodeScript.of(codePoint);
+        return script == Character.UnicodeScript.HAN
+                || script == Character.UnicodeScript.HIRAGANA
+                || script == Character.UnicodeScript.KATAKANA
+                || script == Character.UnicodeScript.HANGUL;
     }
 
     private String toJson(Object payload) {

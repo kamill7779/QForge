@@ -19,15 +19,38 @@ public class RabbitTopologyConfig {
 
     @Bean
     public Queue gaokaoPaperIndexRequestedQueue() {
-        return new Queue(GaokaoIndexingConstants.PAPER_INDEX_REQUESTED_QUEUE, true);
+        return new Queue(
+                GaokaoIndexingConstants.PAPER_INDEX_REQUESTED_QUEUE,
+                true,
+                false,
+                false,
+                java.util.Map.of(
+                        "x-dead-letter-exchange", GaokaoIndexingConstants.GAOKAO_INDEX_EXCHANGE,
+                        "x-dead-letter-routing-key", GaokaoIndexingConstants.ROUTING_PAPER_INDEX_REQUESTED_DLQ
+                )
+        );
+    }
+
+    @Bean
+    public Queue gaokaoPaperIndexRequestedDlq() {
+        return new Queue(GaokaoIndexingConstants.PAPER_INDEX_REQUESTED_DLQ, true);
     }
 
     @Bean
     public Binding gaokaoPaperIndexRequestedBinding(
-            Queue gaokaoPaperIndexRequestedQueue,
+            @Qualifier("gaokaoPaperIndexRequestedQueue") Queue gaokaoPaperIndexRequestedQueue,
             @Qualifier("gaokaoIndexExchange") TopicExchange gaokaoIndexExchange) {
         return BindingBuilder.bind(gaokaoPaperIndexRequestedQueue)
                 .to(gaokaoIndexExchange)
                 .with(GaokaoIndexingConstants.ROUTING_PAPER_INDEX_REQUESTED);
+    }
+
+    @Bean
+    public Binding gaokaoPaperIndexRequestedDlqBinding(
+            @Qualifier("gaokaoPaperIndexRequestedDlq") Queue gaokaoPaperIndexRequestedDlq,
+            @Qualifier("gaokaoIndexExchange") TopicExchange gaokaoIndexExchange) {
+        return BindingBuilder.bind(gaokaoPaperIndexRequestedDlq)
+                .to(gaokaoIndexExchange)
+                .with(GaokaoIndexingConstants.ROUTING_PAPER_INDEX_REQUESTED_DLQ);
     }
 }

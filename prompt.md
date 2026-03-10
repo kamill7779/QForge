@@ -562,6 +562,11 @@ QForge 的核心业务可以概括为：
 9. `web` 的组卷流程分两阶段：`/compose`（确认前编排）和 `/exams/:id/edit`（真实试卷编辑）。两阶段使用不同的 Pinia store（`basketComposeStore` 和 `examStore`）。
 10. `gaokao-corpus-service` 发布试卷后通过 RabbitMQ 异步触发 `gaokao-analysis-service` 构建向量索引，完成后回调更新状态为 `READY`。
 11. `question-core-service` 提供 `/internal/questions/from-gaokao` 内部接口，供高考语料物化后创建正式题目。
+12. `question-service` 当前既有存储约定中，`Question.stemText` 承载的是可渲染题干 XML，不要把“stemXml 写入 stemText”直接判定为回归，除非先整体调整题目存储契约。
+13. `gaokao-corpus-service` 当前业务范围仍是“高考数学专项”，`subjectCode = MATH` 是现阶段有效约束，不应在没有新需求时强行泛化为多学科。
+14. 正式高考题 profile 表字段名是 `knowledge_path_json`，它承载知识标签；草稿预览层字段名是 `knowledgeTagsJson`。处理这两层数据时不要混淆。
+15. `gaokao-analysis-service` 当前索引消费链路已经要求：Qdrant collection 创建按幂等方式处理，点 upsert 使用 `wait=true`，MQ 主消费队列带 DLQ。
+16. RabbitMQ 已存在队列的参数不会被应用启动自动原地修改；如果调整了 `qforge.gaokao.paper.index.requested.q` 这类队列的 DLQ / arguments，需要做显式队列迁移或在本地 Docker 环境中删除旧队列后重建。
 
 ## 19. 遇到冲突时的优先级
 
@@ -586,6 +591,9 @@ QForge 的核心业务可以概括为：
 10. 混淆确认前组卷状态（`basketComposeStore` / `q_basket_compose`）与真实试卷（`examStore` / `q_exam_paper`）。
 11. 把高考语料子系统（`gaokao-*`）的逻辑混入主题库或试卷编辑流程。
 12. 让 `gaokao-web` 承担 `web` 或 `client` 的职责。
+13. 不要把 `knowledge_path_json` 和 `knowledgeTagsJson` 的命名差异直接当成 bug，先区分正式表与草稿预览表。
+14. 不要在未核对 `question-service` 既有题干存储约定前，把“XML 存入 stemText”当作必须修复的问题。
+15. 不要把数学专项范围内的 `subjectCode = MATH` 误判为当前必须修复的泛化缺陷。
 
 ## 21. 你的默认输出风格
 

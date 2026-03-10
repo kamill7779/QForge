@@ -11,4 +11,6 @@ public final class GaokaoIndexingConstants {
     public static final String GAOKAO_INDEX_EXCHANGE = "qforge.gaokao.index";
     public static final String ROUTING_PAPER_INDEX_REQUESTED = "gaokao.paper.index.requested";
     public static final String PAPER_INDEX_REQUESTED_QUEUE = "qforge.gaokao.paper.index.requested.q";
+    public static final String PAPER_INDEX_REQUESTED_DLQ = "qforge.gaokao.paper.index.requested.dlq";
+    public static final String ROUTING_PAPER_INDEX_REQUESTED_DLQ = ROUTING_PAPER_INDEX_REQUESTED + ".dlq";
 }
