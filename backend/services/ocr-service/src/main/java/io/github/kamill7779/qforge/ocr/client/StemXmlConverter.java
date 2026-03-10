@@ -10,6 +10,7 @@ import io.github.kamill7779.qforge.ocr.config.StemXmlProperties;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -103,7 +104,7 @@ public class StemXmlConverter {
     private final StemXmlProperties properties;
     private final QForgeOcrProperties ocrProps;
 
-    public StemXmlConverter(ZhipuAiClient zhipuAiClient, StemXmlProperties properties,
+    public StemXmlConverter(@Lazy ZhipuAiClient zhipuAiClient, StemXmlProperties properties,
                              QForgeOcrProperties ocrProps) {
         this.zhipuAiClient = zhipuAiClient;
         this.properties = properties;

@@ -10,6 +10,7 @@ import io.github.kamill7779.qforge.ocr.config.QForgeOcrProperties;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -40,7 +41,7 @@ public class AnswerXmlConverter {
     private final AnswerXmlProperties properties;
     private final QForgeOcrProperties ocrProps;
 
-    public AnswerXmlConverter(ZhipuAiClient zhipuAiClient, AnswerXmlProperties properties,
+    public AnswerXmlConverter(@Lazy ZhipuAiClient zhipuAiClient, AnswerXmlProperties properties,
                                QForgeOcrProperties ocrProps) {
         this.zhipuAiClient = zhipuAiClient;
         this.properties = properties;

@@ -10,6 +10,7 @@ import io.github.kamill7779.qforge.ocr.config.QForgeOcrProperties;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -84,7 +85,7 @@ public class ExamSplitLlmClient {
     private final ExamParseAiProperties properties;
     private final QForgeOcrProperties ocrProps;
 
-    public ExamSplitLlmClient(ZhipuAiClient zhipuAiClient, ExamParseAiProperties properties,
+    public ExamSplitLlmClient(@Lazy ZhipuAiClient zhipuAiClient, ExamParseAiProperties properties,
                                 QForgeOcrProperties ocrProps) {
         this.zhipuAiClient = zhipuAiClient;
         this.properties = properties;

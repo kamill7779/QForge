@@ -62,6 +62,12 @@ For the gaokao template flow only, rebuild and start the relevant stack with:
 ./scripts/docker-rebuild-gaokao.sh
 ```
 
+Startup note:
+
+- The full Docker Compose stack can start without `GLM_OCR_API_KEY` and `ZHIPUAI_API_KEY`.
+- OCR / AI dependent routes will require real upstream credentials to return successful results.
+- `docker compose` now waits for Nacos health before starting Nacos-dependent services, instead of only waiting for the Nacos container process to exist.
+
 Initialize schema before first startup:
 
 ```bash
