@@ -30,7 +30,7 @@ spring:
       port: ${REDIS_PORT:6379}
 
 server:
-  port: 8095
+  port: ${SERVER_PORT:8095}
 
 security:
   swagger-public: false

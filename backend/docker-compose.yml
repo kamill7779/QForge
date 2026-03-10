@@ -9,6 +9,8 @@ services:
     pull_policy: if_not_present
     container_name: qforge-mysql
     networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 384m
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: qforge
@@ -34,6 +36,8 @@ services:
     pull_policy: if_not_present
     container_name: qforge-redis
     networks: [qforge-net]
+    mem_limit: 256m
+    mem_reservation: 128m
     ports:
       - "6379:6379"
 
@@ -43,6 +47,8 @@ services:
     pull_policy: if_not_present
     container_name: qforge-rabbitmq
     networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -53,6 +59,8 @@ services:
     pull_policy: if_not_present
     container_name: qforge-nacos
     networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 384m
     environment:
       MODE: standalone
       NACOS_AUTH_ENABLE: "false"
@@ -73,6 +81,8 @@ services:
     pull_policy: if_not_present
     container_name: qforge-qdrant
     networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 384m
     volumes:
       - qdrant-data:/qdrant/storage
     ports:
@@ -89,6 +99,8 @@ services:
         SERVICE_NAME: auth-service
     container_name: auth-service
     networks: [qforge-net]
+    mem_limit: 384m
+    mem_reservation: 256m
     logging:
       driver: "json-file"
       options:
@@ -98,18 +110,20 @@ services:
       - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8088
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
     ports:
       - "8088:8088"
@@ -124,6 +138,8 @@ services:
         SERVICE_NAME: gateway-service
     container_name: gateway-service
     networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
     logging:
       driver: "json-file"
       options:
@@ -133,13 +149,15 @@ services:
       - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      SERVER_PORT: 8080
+      JAVA_TOOL_OPTIONS: -Xms192m -Xmx384m
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
       JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
     ports:
       - "8080:8080"
@@ -167,6 +185,8 @@ services:
         SERVICE_NAME: question-service
     # container_name omitted — allows --scale
     networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 512m
     logging:
       driver: "json-file"
       options:
@@ -174,18 +194,20 @@ services:
         max-file: "3"
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8089
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
       OCR_SERVICE_BASE_URL: http://ocr-service:8090
     # No fixed host port — gateway routes via Nacos lb://, supports multi-instance
 
@@ -198,6 +220,8 @@ services:
       args:
         SERVICE_NAME: exam-service
     networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 512m
     logging:
       driver: "json-file"
       options:
@@ -205,18 +229,20 @@ services:
         max-file: "3"
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8093
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
       EXPORT_SIDECAR_DIRECT_URL: http://export-sidecar:8092
 
   question-basket-service:
@@ -228,6 +254,8 @@ services:
       args:
         SERVICE_NAME: question-basket-service
     networks: [qforge-net]
+    mem_limit: 384m
+    mem_reservation: 256m
     logging:
       driver: "json-file"
       options:
@@ -235,18 +263,20 @@ services:
         max-file: "3"
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8097
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
 
   exam-parse-service:
     pull_policy: never
@@ -257,6 +287,8 @@ services:
       args:
         SERVICE_NAME: exam-parse-service
     networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
     logging:
       driver: "json-file"
       options:
@@ -264,18 +296,20 @@ services:
         max-file: "3"
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8094
+      JAVA_TOOL_OPTIONS: -Xms192m -Xmx384m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
 
   persist-service:
     pull_policy: never
@@ -287,6 +321,8 @@ services:
         SERVICE_NAME: persist-service
     # container_name omitted — allows --scale persist-service=N
     networks: [qforge-net]
+    mem_limit: 384m
+    mem_reservation: 256m
     logging:
       driver: "json-file"
       options:
@@ -296,16 +332,18 @@ services:
       - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8091
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
     # No fixed host port — MQ-driven consumer, supports multi-instance
 
   ocr-service:
@@ -318,6 +356,8 @@ services:
         SERVICE_NAME: ocr-service
     # container_name omitted — allows --scale ocr-service=N
     networks: [qforge-net]
+    mem_limit: 1280m
+    mem_reservation: 768m
     logging:
       driver: "json-file"
       options:
@@ -327,23 +367,24 @@ services:
       - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8090
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
       GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
       GLM_OCR_MODEL: glm-ocr
       GLM_OCR_API_KEY: ${GLM_OCR_API_KEY:-}
       GLM_OCR_PREFER_IPV4: "true"
-      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
+      JAVA_TOOL_OPTIONS: -Xms384m -Xmx768m -Djava.net.preferIPv4Stack=true
       ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
       ZHIPUAI_MODEL: glm-5
       STEMXML_MODEL: glm-4-0520
@@ -360,6 +401,8 @@ services:
       args:
         SERVICE_NAME: gaokao-corpus-service
     networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 512m
     logging:
       driver: "json-file"
       options:
@@ -369,18 +412,20 @@ services:
       - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8095
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
 
   # ========================= Gaokao Analysis Service =========================
   gaokao-analysis-service:
@@ -392,6 +437,8 @@ services:
       args:
         SERVICE_NAME: gaokao-analysis-service
     networks: [qforge-net]
+    mem_limit: 1536m
+    mem_reservation: 1024m
     logging:
       driver: "json-file"
       options:
@@ -401,18 +448,20 @@ services:
       - ./.dev-logs:/app/logs
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MYSQL_HOST: 49.235.113.163
-      MYSQL_PORT: 13306
+      SERVER_PORT: 8096
+      JAVA_TOOL_OPTIONS: -Xms512m -Xmx1024m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
       MYSQL_DB: qforge
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
-      REDIS_HOST: 49.235.113.163
-      REDIS_PORT: 16379
-      RABBITMQ_HOST: 49.235.113.163
-      RABBITMQ_PORT: 15674
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6333
       ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
@@ -429,6 +478,8 @@ services:
       pull: false
     container_name: qforge-export-sidecar
     networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
     logging:
       driver: "json-file"
       options:
@@ -437,7 +488,7 @@ services:
     ports:
       - "8092:8092"
     environment:
-      NACOS_SERVER_ADDR: 49.235.113.163:8848
+      NACOS_SERVER_ADDR: nacos:8848
       SERVICE_PORT: 8092
       SERVICE_IP: export-sidecar
       NACOS_REGISTER_RETRIES: 30
@@ -452,6 +503,8 @@ services:
       pull: false
     container_name: qforge-web-exam
     networks: [qforge-net]
+    mem_limit: 256m
+    mem_reservation: 128m
     logging:
       driver: "json-file"
       options:
@@ -473,6 +526,8 @@ services:
         VITE_GAOKAO_MOCK: "false"
     container_name: qforge-gaokao-web
     networks: [qforge-net]
+    mem_limit: 256m
+    mem_reservation: 128m
     logging:
       driver: "json-file"
       options:

@@ -39,7 +39,7 @@ spring:
           max-interval: 10000ms
 
 server:
-  port: 8089
+  port: ${SERVER_PORT:8089}
 
 security:
   swagger-public: false

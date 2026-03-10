@@ -30,7 +30,7 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
 server:
-  port: 8088
+  port: ${SERVER_PORT:8088}
 
 security:
   swagger-public: false
