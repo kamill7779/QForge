@@ -1,1 +1,0 @@
-const {app,BrowserWindow}=require('electron');app.whenReady().then(()=>{const w=new BrowserWindow();w.loadURL('data:text/html,<h1>ok</h1>')});
