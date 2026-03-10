@@ -1,0 +1,545 @@
+networks:
+  qforge-net:
+    driver: bridge
+
+services:
+  mysql:
+    profiles: ["local-infra"]
+    image: mysql:8.4
+    pull_policy: if_not_present
+    container_name: qforge-mysql
+    networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 384m
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+    volumes:
+      # Named volume — survives docker compose down (data persists)
+      - mysql-data:/var/lib/mysql
+      # Init script — only runs once when the data directory is empty
+      - ./sql/init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
+      - ./sql/gaokao-schema.sql:/docker-entrypoint-initdb.d/02-gaokao-schema.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    profiles: ["local-infra"]
+    image: redis:7.4
+    pull_policy: if_not_present
+    container_name: qforge-redis
+    networks: [qforge-net]
+    mem_limit: 256m
+    mem_reservation: 128m
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    profiles: ["local-infra"]
+    image: rabbitmq:3.13-management
+    pull_policy: if_not_present
+    container_name: qforge-rabbitmq
+    networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  nacos:
+    profiles: ["local-infra"]
+    image: nacos/nacos-server:v2.4.1
+    pull_policy: if_not_present
+    container_name: qforge-nacos
+    networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 384m
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    volumes:
+      # Named volume — Nacos 热配置在 docker compose down 后不丢失
+      - nacos-data:/home/nacos/data
+    ports:
+      - "8848:8848"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8848/nacos/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    pull_policy: if_not_present
+    container_name: qforge-qdrant
+    networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 384m
+    volumes:
+      - qdrant-data:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+
+  auth-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: auth-service
+    container_name: auth-service
+    networks: [qforge-net]
+    mem_limit: 384m
+    mem_reservation: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    volumes:
+      - ./.dev-logs:/app/logs
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8088
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
+    ports:
+      - "8088:8088"
+
+  gateway-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: gateway-service
+    container_name: gateway-service
+    networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    volumes:
+      - ./.dev-logs:/app/logs
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8080
+      JAVA_TOOL_OPTIONS: -Xms192m -Xmx384m
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      JWT_SECRET: qforge-super-secret-key-please-change-in-production-1234567890
+    ports:
+      - "8080:8080"
+    depends_on:
+      auth-service:
+        condition: service_started
+      question-core-service:
+        condition: service_started
+      exam-service:
+        condition: service_started
+      question-basket-service:
+        condition: service_started
+      exam-parse-service:
+        condition: service_started
+      gaokao-corpus-service:
+        condition: service_started
+
+  question-core-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: question-service
+    # container_name omitted — allows --scale
+    networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8089
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      OCR_SERVICE_BASE_URL: http://ocr-service:8090
+    # No fixed host port — gateway routes via Nacos lb://, supports multi-instance
+
+  exam-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: exam-service
+    networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8093
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      EXPORT_SIDECAR_DIRECT_URL: http://export-sidecar:8092
+
+  question-basket-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: question-basket-service
+    networks: [qforge-net]
+    mem_limit: 384m
+    mem_reservation: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8097
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+
+  exam-parse-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: exam-parse-service
+    networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8094
+      JAVA_TOOL_OPTIONS: -Xms192m -Xmx384m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+
+  persist-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: persist-service
+    # container_name omitted — allows --scale persist-service=N
+    networks: [qforge-net]
+    mem_limit: 384m
+    mem_reservation: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    volumes:
+      - ./.dev-logs:/app/logs
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8091
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx256m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+    # No fixed host port — MQ-driven consumer, supports multi-instance
+
+  ocr-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: ocr-service
+    # container_name omitted — allows --scale ocr-service=N
+    networks: [qforge-net]
+    mem_limit: 1280m
+    mem_reservation: 768m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    volumes:
+      - ./.dev-logs:/app/logs
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8090
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      GLM_OCR_ENDPOINT: https://api.z.ai/api/paas/v4/layout_parsing
+      GLM_OCR_MODEL: glm-ocr
+      GLM_OCR_API_KEY: ${GLM_OCR_API_KEY:-}
+      GLM_OCR_PREFER_IPV4: "true"
+      JAVA_TOOL_OPTIONS: -Xms384m -Xmx768m -Djava.net.preferIPv4Stack=true
+      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
+      ZHIPUAI_MODEL: glm-5
+      STEMXML_MODEL: glm-4-0520
+      EXAMPARSE_AI_MODEL: glm-4-plus
+    # No fixed host port — supports multi-instance
+
+  # ========================= Gaokao Corpus Service =========================
+  gaokao-corpus-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: gaokao-corpus-service
+    networks: [qforge-net]
+    mem_limit: 768m
+    mem_reservation: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    volumes:
+      - ./.dev-logs:/app/logs
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8095
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+
+  # ========================= Gaokao Analysis Service =========================
+  gaokao-analysis-service:
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        SERVICE_NAME: gaokao-analysis-service
+    networks: [qforge-net]
+    mem_limit: 1536m
+    mem_reservation: 1024m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    volumes:
+      - ./.dev-logs:/app/logs
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: 8096
+      JAVA_TOOL_OPTIONS: -Xms512m -Xmx1024m
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: qforge
+      MYSQL_USER: qforge
+      MYSQL_PASSWORD: qforge
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      NACOS_SERVER_ADDR: nacos:8848
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
+    depends_on:
+      qdrant:
+        condition: service_started
+
+  # ========================= Export Sidecar (Python) =========================
+  export-sidecar:
+    pull_policy: never
+    build:
+      context: ./export-sidecar
+      dockerfile: Dockerfile
+      pull: false
+    container_name: qforge-export-sidecar
+    networks: [qforge-net]
+    mem_limit: 512m
+    mem_reservation: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "8092:8092"
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      SERVICE_PORT: 8092
+      SERVICE_IP: export-sidecar
+      NACOS_REGISTER_RETRIES: 30
+      NACOS_REGISTER_RETRY_INTERVAL_SECONDS: 2
+
+  # ========================= Web Exam Frontend (Vue + Nginx) =========================
+  web-exam:
+    pull_policy: never
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+      pull: false
+    container_name: qforge-web-exam
+    networks: [qforge-net]
+    mem_limit: 256m
+    mem_reservation: 128m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "5173:80"
+    depends_on:
+      gateway-service:
+        condition: service_started
+
+  gaokao-web:
+    pull_policy: never
+    build:
+      context: ../gaokao-web
+      dockerfile: Dockerfile
+      pull: false
+      args:
+        VITE_GAOKAO_MOCK: "false"
+    container_name: qforge-gaokao-web
+    networks: [qforge-net]
+    mem_limit: 256m
+    mem_reservation: 128m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "5175:80"
+    depends_on:
+      gateway-service:
+        condition: service_started
+
+volumes:
+  mysql-data:  # persistent: survives docker compose down; use down -v to wipe
+  nacos-data:  # Nacos 热配置持久化，目录 /home/nacos/data
+  qdrant-data: # Qdrant 向量数据持久化
