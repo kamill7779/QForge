@@ -40,6 +40,14 @@ export interface DraftQuestion {
   editVersion: number | null
 }
 
+export interface DraftQuestionAsset {
+  refKey: string | null
+  assetType: string | null
+  storageRef: string | null
+  sortOrder: number | null
+  imageBase64: string | null
+}
+
 export interface DraftSection {
   draftSectionUuid: string
   sectionCode: string | null

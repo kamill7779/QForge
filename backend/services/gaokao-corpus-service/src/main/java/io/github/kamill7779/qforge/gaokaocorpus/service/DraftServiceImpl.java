@@ -2,6 +2,10 @@ package io.github.kamill7779.qforge.gaokaocorpus.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.dto.DraftQuestionAssetDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.client.AnalyzePaperRequest;
 import io.github.kamill7779.qforge.gaokaocorpus.client.AnalyzeQuestionRequest;
 import io.github.kamill7779.qforge.gaokaocorpus.client.GaokaoAnalysisClient;
@@ -19,6 +23,7 @@ import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftQuestionAsset;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkDraftSection;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestOcrPage;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSession;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSplitQuestion;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSourceFile;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftAnswerAssetMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftAnswerMapper;
@@ -30,9 +35,15 @@ import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftQuestionAssetM
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkDraftSectionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestOcrPageMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSplitQuestionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSourceFileMapper;
+import io.github.kamill7779.qforge.storage.QForgeStorageService;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -58,7 +69,10 @@ public class DraftServiceImpl implements DraftService {
     private final GkIngestSessionMapper ingestSessionMapper;
     private final GkIngestSourceFileMapper ingestSourceFileMapper;
     private final GkIngestOcrPageMapper ingestOcrPageMapper;
+    private final GkIngestSplitQuestionMapper ingestSplitQuestionMapper;
     private final GaokaoAnalysisClient analysisClient;
+    private final QForgeStorageService storageService;
+    private final ObjectMapper objectMapper;
 
     public DraftServiceImpl(
             GkDraftPaperMapper draftPaperMapper,
@@ -72,7 +86,10 @@ public class DraftServiceImpl implements DraftService {
             GkIngestSessionMapper ingestSessionMapper,
             GkIngestSourceFileMapper ingestSourceFileMapper,
             GkIngestOcrPageMapper ingestOcrPageMapper,
-            GaokaoAnalysisClient analysisClient
+                GkIngestSplitQuestionMapper ingestSplitQuestionMapper,
+                GaokaoAnalysisClient analysisClient,
+                QForgeStorageService storageService,
+                ObjectMapper objectMapper
     ) {
         this.draftPaperMapper = draftPaperMapper;
         this.draftSectionMapper = draftSectionMapper;
@@ -85,7 +102,10 @@ public class DraftServiceImpl implements DraftService {
         this.ingestSessionMapper = ingestSessionMapper;
         this.ingestSourceFileMapper = ingestSourceFileMapper;
         this.ingestOcrPageMapper = ingestOcrPageMapper;
+        this.ingestSplitQuestionMapper = ingestSplitQuestionMapper;
         this.analysisClient = analysisClient;
+        this.storageService = storageService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -246,6 +266,24 @@ public class DraftServiceImpl implements DraftService {
         log.info("Confirmed profile for question: {}", draftQuestionUuid);
     }
 
+    @Override
+    public List<DraftQuestionAssetDTO> getQuestionAssets(String draftQuestionUuid) {
+        GkDraftQuestion question = draftQuestionMapper.selectOne(
+                new LambdaQueryWrapper<GkDraftQuestion>()
+                        .eq(GkDraftQuestion::getDraftQuestionUuid, draftQuestionUuid)
+                        .last("LIMIT 1"));
+        if (question == null) {
+            throw new IllegalArgumentException("Draft question not found: " + draftQuestionUuid);
+        }
+        return draftQuestionAssetMapper.selectList(
+                        new LambdaQueryWrapper<GkDraftQuestionAsset>()
+                                .eq(GkDraftQuestionAsset::getDraftQuestionId, question.getId())
+                                .orderByAsc(GkDraftQuestionAsset::getSortOrder, GkDraftQuestionAsset::getId))
+                .stream()
+                .map(this::toDraftQuestionAssetDTO)
+                .collect(Collectors.toList());
+    }
+
     private DraftPaperDTO toPaperDTO(GkDraftPaper paper) {
         DraftPaperDTO dto = new DraftPaperDTO();
         dto.setDraftPaperUuid(paper.getDraftPaperUuid());
@@ -333,6 +371,13 @@ public class DraftServiceImpl implements DraftService {
     }
 
     private GkDraftPaper bootstrapDraftPaperIfMissing(GkIngestSession session) {
+        List<GkIngestSplitQuestion> splitQuestions = ingestSplitQuestionMapper.selectList(
+            new LambdaQueryWrapper<GkIngestSplitQuestion>()
+                .eq(GkIngestSplitQuestion::getSessionId, session.getId())
+                .orderByAsc(GkIngestSplitQuestion::getSeq, GkIngestSplitQuestion::getId));
+        if (!splitQuestions.isEmpty()) {
+            return bootstrapDraftPaperFromSplitResults(session, splitQuestions);
+        }
         List<GkIngestOcrPage> ocrPages = ingestOcrPageMapper.selectList(
                 new LambdaQueryWrapper<GkIngestOcrPage>()
                         .eq(GkIngestOcrPage::getSessionId, session.getId())
@@ -408,6 +453,74 @@ public class DraftServiceImpl implements DraftService {
         return paper;
     }
 
+    private GkDraftPaper bootstrapDraftPaperFromSplitResults(
+            GkIngestSession session,
+            List<GkIngestSplitQuestion> splitQuestions) {
+        List<GkIngestSourceFile> sourceFiles = ingestSourceFileMapper.selectList(
+                new LambdaQueryWrapper<GkIngestSourceFile>()
+                        .eq(GkIngestSourceFile::getSessionId, session.getId())
+                        .orderByAsc(GkIngestSourceFile::getCreatedAt)
+                        .orderByAsc(GkIngestSourceFile::getId));
+        LocalDateTime now = LocalDateTime.now();
+
+        GkDraftPaper paper = new GkDraftPaper();
+        paper.setDraftPaperUuid(UUID.randomUUID().toString());
+        paper.setSessionId(session.getId());
+        paper.setPaperName(resolvePaperName(session, sourceFiles));
+        paper.setPaperTypeCode("GAOKAO_TEMPLATE");
+        paper.setExamYear(session.getExamYearGuess());
+        paper.setProvinceCode(session.getProvinceCodeGuess());
+        paper.setDurationMinutes(120);
+        paper.setStatus("EDITING");
+        paper.setCreatedAt(now);
+        paper.setUpdatedAt(now);
+        draftPaperMapper.insert(paper);
+
+        Map<String, GkDraftSection> sectionMap = new LinkedHashMap<>();
+        for (GkIngestSplitQuestion splitQuestion : splitQuestions) {
+            SectionSeed seed = resolveSectionSeed(splitQuestion.getQuestionTypeCode());
+            GkDraftSection section = sectionMap.computeIfAbsent(seed.code(), key -> {
+                GkDraftSection entity = new GkDraftSection();
+                entity.setDraftSectionUuid(UUID.randomUUID().toString());
+                entity.setDraftPaperId(paper.getId());
+                entity.setSectionCode(seed.code());
+                entity.setSectionTitle(seed.title());
+                entity.setSortOrder(sectionMap.size() + 1);
+                entity.setCreatedAt(now);
+                entity.setUpdatedAt(now);
+                draftSectionMapper.insert(entity);
+                return entity;
+            });
+
+            GkDraftQuestion question = new GkDraftQuestion();
+            question.setDraftQuestionUuid(UUID.randomUUID().toString());
+            question.setDraftPaperId(paper.getId());
+            question.setDraftSectionId(section.getId());
+            question.setQuestionNo(String.valueOf(splitQuestion.getSeq()));
+            question.setQuestionTypeCode(defaultString(splitQuestion.getQuestionTypeCode(), "UNCLASSIFIED"));
+            question.setAnswerMode(seed.answerMode());
+            question.setStemText(normalizeOcrText(splitQuestion.getRawStemText()));
+            question.setStemXml(resolveStemXml(splitQuestion));
+            question.setNormalizedStemText(normalizeOcrText(splitQuestion.getRawStemText()));
+            question.setHasAnswer(splitQuestion.getRawAnswerText() != null && !splitQuestion.getRawAnswerText().isBlank());
+            question.setEditVersion(1);
+            question.setCreatedAt(now);
+            question.setUpdatedAt(now);
+            draftQuestionMapper.insert(question);
+
+            persistStemAssets(question, splitQuestion, now);
+            persistAnswer(question, splitQuestion, now);
+        }
+
+        session.setStatus("EDITING");
+        session.setPaperNameGuess(paper.getPaperName());
+        session.setUpdatedAt(now);
+        ingestSessionMapper.updateById(session);
+        log.info("Bootstrapped split-based draft paper for session={}, questions={}, draftPaperUuid={}",
+                session.getSessionUuid(), splitQuestions.size(), paper.getDraftPaperUuid());
+        return paper;
+    }
+
     private String resolvePaperName(GkIngestSession session, List<GkIngestSourceFile> sourceFiles) {
         if (session.getPaperNameGuess() != null && !session.getPaperNameGuess().isBlank()) {
             return session.getPaperNameGuess();
@@ -454,6 +567,7 @@ public class DraftServiceImpl implements DraftService {
 
     private DraftQuestionDTO.DraftAssetDTO toDraftAssetDTO(GkDraftQuestionAsset asset) {
         DraftQuestionDTO.DraftAssetDTO dto = new DraftQuestionDTO.DraftAssetDTO();
+        dto.setRefKey(asset.getRefKey());
         dto.setAssetType(asset.getAssetType());
         dto.setStorageRef(asset.getStorageRef());
         dto.setSortOrder(asset.getSortOrder());
@@ -462,6 +576,7 @@ public class DraftServiceImpl implements DraftService {
 
     private DraftQuestionDTO.DraftAssetDTO toDraftAssetDTO(GkDraftAnswerAsset asset) {
         DraftQuestionDTO.DraftAssetDTO dto = new DraftQuestionDTO.DraftAssetDTO();
+        dto.setRefKey(asset.getRefKey());
         dto.setAssetType(asset.getAssetType());
         dto.setStorageRef(asset.getStorageRef());
         dto.setSortOrder(asset.getSortOrder());
@@ -531,12 +646,145 @@ public class DraftServiceImpl implements DraftService {
         for (UpdateDraftQuestionRequest.AssetPayload asset : assets) {
             GkDraftQuestionAsset entity = new GkDraftQuestionAsset();
             entity.setDraftQuestionId(draftQuestionId);
+            entity.setRefKey(asset.getRefKey());
             entity.setAssetType(asset.getAssetType());
             entity.setStorageRef(asset.getStorageRef());
             entity.setSortOrder(asset.getSortOrder());
             entity.setCreatedAt(now);
             draftQuestionAssetMapper.insert(entity);
         }
+    }
+
+    private DraftQuestionAssetDTO toDraftQuestionAssetDTO(GkDraftQuestionAsset asset) {
+        DraftQuestionAssetDTO dto = new DraftQuestionAssetDTO();
+        dto.setRefKey(asset.getRefKey());
+        dto.setAssetType(asset.getAssetType());
+        dto.setStorageRef(asset.getStorageRef());
+        dto.setSortOrder(asset.getSortOrder());
+        if (asset.getStorageRef() != null && !asset.getStorageRef().isBlank()) {
+            try {
+                dto.setImageBase64(storageService.getObjectBase64(asset.getStorageRef()));
+            } catch (IOException ex) {
+                log.warn("Failed to load draft asset content: {}", asset.getStorageRef(), ex);
+            }
+        }
+        return dto;
+    }
+
+    private void persistStemAssets(GkDraftQuestion question, GkIngestSplitQuestion splitQuestion, LocalDateTime now) {
+        Map<String, String> stemImages = readStringMap(splitQuestion.getStemImagesJson());
+        int sortOrder = 1;
+        for (Map.Entry<String, String> entry : stemImages.entrySet()) {
+            GkDraftQuestionAsset asset = new GkDraftQuestionAsset();
+            asset.setDraftQuestionId(question.getId());
+            asset.setRefKey(entry.getKey());
+            asset.setAssetType("REGION_CROP");
+            asset.setStorageRef(storeInlineImage(question.getDraftQuestionUuid(), "stem", entry.getKey(), entry.getValue()));
+            asset.setSortOrder(sortOrder++);
+            asset.setCreatedAt(now);
+            draftQuestionAssetMapper.insert(asset);
+        }
+    }
+
+    private void persistAnswer(GkDraftQuestion question, GkIngestSplitQuestion splitQuestion, LocalDateTime now) {
+        if ((splitQuestion.getRawAnswerText() == null || splitQuestion.getRawAnswerText().isBlank())
+                && (splitQuestion.getAnswerXml() == null || splitQuestion.getAnswerXml().isBlank())) {
+            return;
+        }
+        GkDraftAnswer answer = new GkDraftAnswer();
+        answer.setDraftAnswerUuid(UUID.randomUUID().toString());
+        answer.setDraftQuestionId(question.getId());
+        answer.setAnswerType("OFFICIAL");
+        answer.setAnswerText(normalizeOcrText(splitQuestion.getRawAnswerText()));
+        answer.setAnswerXml(splitQuestion.getAnswerXml());
+        answer.setIsOfficial(true);
+        answer.setSortOrder(1);
+        answer.setCreatedAt(now);
+        answer.setUpdatedAt(now);
+        draftAnswerMapper.insert(answer);
+
+        Map<String, String> answerImages = readStringMap(splitQuestion.getAnswerImagesJson());
+        int sortOrder = 1;
+        for (Map.Entry<String, String> entry : answerImages.entrySet()) {
+            GkDraftAnswerAsset asset = new GkDraftAnswerAsset();
+            asset.setDraftAnswerId(answer.getId());
+            asset.setRefKey(entry.getKey());
+            asset.setAssetType("REGION_CROP");
+            asset.setStorageRef(storeInlineImage(answer.getDraftAnswerUuid(), "answer", entry.getKey(), entry.getValue()));
+            asset.setSortOrder(sortOrder++);
+            asset.setCreatedAt(now);
+            draftAnswerAssetMapper.insert(asset);
+        }
+    }
+
+    private String resolveStemXml(GkIngestSplitQuestion splitQuestion) {
+        if (splitQuestion.getStemXml() != null && !splitQuestion.getStemXml().isBlank()) {
+            return splitQuestion.getStemXml();
+        }
+        return buildStemXml(splitQuestion.getRawStemText());
+    }
+
+    private String storeInlineImage(String ownerUuid, String bucket, String refKey, String base64) {
+        byte[] content = Base64.getDecoder().decode(base64);
+        String mimeType = resolveMimeType(base64);
+        String extension = mimeType.endsWith("jpeg") ? "jpg" : "png";
+        String objectKey = storageService.buildObjectKey(
+                "gaokao/draft-assets",
+                ownerUuid,
+                bucket,
+                sanitizeRefKey(refKey) + "." + extension);
+        try {
+            return storageService.putObject(
+                    objectKey,
+                    new ByteArrayInputStream(content),
+                    content.length,
+                    mimeType);
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to persist split image asset: " + refKey, ex);
+        }
+    }
+
+    private String resolveMimeType(String base64) {
+        if (base64 == null || base64.isBlank()) {
+            return "image/png";
+        }
+        if (base64.startsWith("/9j/")) {
+            return "image/jpeg";
+        }
+        return "image/png";
+    }
+
+    private String sanitizeRefKey(String refKey) {
+        return refKey == null ? UUID.randomUUID().toString() : refKey.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private Map<String, String> readStringMap(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, String>>() { });
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException("Failed to parse image map JSON", ex);
+        }
+    }
+
+    private String defaultString(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private SectionSeed resolveSectionSeed(String questionTypeCode) {
+        String type = defaultString(questionTypeCode, "UNCLASSIFIED");
+        return switch (type) {
+            case "SINGLE_CHOICE" -> new SectionSeed("SINGLE_CHOICE", "选择题", "OBJECTIVE");
+            case "MULTI_CHOICE" -> new SectionSeed("MULTI_CHOICE", "多选题", "OBJECTIVE");
+            case "FILL_BLANK" -> new SectionSeed("FILL_BLANK", "填空题", "SUBJECTIVE");
+            case "SHORT_ANSWER" -> new SectionSeed("SHORT_ANSWER", "解答题", "SUBJECTIVE");
+            default -> new SectionSeed("UNCLASSIFIED", "未分类题", "SUBJECTIVE");
+        };
+    }
+
+    private record SectionSeed(String code, String title, String answerMode) {
     }
 
     private String buildStemXml(String rawText) {

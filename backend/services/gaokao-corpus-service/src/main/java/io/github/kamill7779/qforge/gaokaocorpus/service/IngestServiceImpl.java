@@ -1,17 +1,21 @@
 package io.github.kamill7779.qforge.gaokaocorpus.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.kamill7779.qforge.internal.api.GaokaoSplitClient;
+import io.github.kamill7779.qforge.internal.api.GaokaoSplitRequest;
+import io.github.kamill7779.qforge.internal.api.GaokaoSplitResponse;
 import io.github.kamill7779.qforge.gaokaocorpus.client.GaokaoAnalysisClient;
-import io.github.kamill7779.qforge.gaokaocorpus.client.OcrRecognizeRequest;
-import io.github.kamill7779.qforge.gaokaocorpus.client.OcrRecognizeResponse;
-import io.github.kamill7779.qforge.gaokaocorpus.client.OcrServiceClient;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.IngestSessionDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestOcrPage;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSession;
+import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSplitQuestion;
 import io.github.kamill7779.qforge.gaokaocorpus.entity.GkIngestSourceFile;
 import io.github.kamill7779.qforge.gaokaocorpus.exception.BusinessValidationException;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestOcrPageMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
+import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSplitQuestionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSourceFileMapper;
 import io.github.kamill7779.qforge.storage.QForgeStorageService;
 import java.io.ByteArrayOutputStream;
@@ -51,10 +55,12 @@ public class IngestServiceImpl implements IngestService {
     private final GkIngestSessionMapper ingestSessionMapper;
     private final GkIngestSourceFileMapper ingestSourceFileMapper;
     private final GkIngestOcrPageMapper ingestOcrPageMapper;
+    private final GkIngestSplitQuestionMapper ingestSplitQuestionMapper;
     private final GaokaoAnalysisClient analysisClient;
-    private final OcrServiceClient ocrServiceClient;
+    private final GaokaoSplitClient gaokaoSplitClient;
     private final QForgeStorageService storageService;
     private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectMapper objectMapper;
     private final int maxUploadFiles;
     private final Set<String> allowedExtensions;
 
@@ -62,20 +68,24 @@ public class IngestServiceImpl implements IngestService {
             GkIngestSessionMapper ingestSessionMapper,
             GkIngestSourceFileMapper ingestSourceFileMapper,
             GkIngestOcrPageMapper ingestOcrPageMapper,
+            GkIngestSplitQuestionMapper ingestSplitQuestionMapper,
             GaokaoAnalysisClient analysisClient,
-            OcrServiceClient ocrServiceClient,
+            GaokaoSplitClient gaokaoSplitClient,
             QForgeStorageService storageService,
             StringRedisTemplate stringRedisTemplate,
+            ObjectMapper objectMapper,
             @org.springframework.beans.factory.annotation.Value("${qforge.gaokao.max-upload-files:20}") int maxUploadFiles,
             @org.springframework.beans.factory.annotation.Value("${qforge.gaokao.allowed-extensions:pdf,jpg,jpeg,png}") String allowedExtensions
     ) {
         this.ingestSessionMapper = ingestSessionMapper;
         this.ingestSourceFileMapper = ingestSourceFileMapper;
         this.ingestOcrPageMapper = ingestOcrPageMapper;
+        this.ingestSplitQuestionMapper = ingestSplitQuestionMapper;
         this.analysisClient = analysisClient;
-        this.ocrServiceClient = ocrServiceClient;
+        this.gaokaoSplitClient = gaokaoSplitClient;
         this.storageService = storageService;
         this.stringRedisTemplate = stringRedisTemplate;
+        this.objectMapper = objectMapper;
         this.maxUploadFiles = maxUploadFiles;
         this.allowedExtensions = Arrays.stream(allowedExtensions.split(","))
                 .map(item -> item.trim().toLowerCase(Locale.ROOT))
@@ -249,25 +259,42 @@ public class IngestServiceImpl implements IngestService {
                         .orderByAsc(GkIngestSourceFile::getId));
         ingestOcrPageMapper.delete(new LambdaQueryWrapper<GkIngestOcrPage>()
                 .eq(GkIngestOcrPage::getSessionId, session.getId()));
+        ingestSplitQuestionMapper.delete(new LambdaQueryWrapper<GkIngestSplitQuestion>()
+            .eq(GkIngestSplitQuestion::getSessionId, session.getId()));
 
         try {
-            int pageNo = 1;
-            for (GkIngestSourceFile sourceFile : sourceFiles) {
-                OcrRecognizeRequest request = new OcrRecognizeRequest();
-                request.setImageBase64(encodeFileAsBase64(sourceFile.getStorageRef()));
-                request.setFileType(sourceFile.getFileType());
-                OcrRecognizeResponse response = ocrServiceClient.recognize(request);
-
-                GkIngestOcrPage page = new GkIngestOcrPage();
-                page.setSessionId(session.getId());
-                page.setSourceFileId(sourceFile.getId());
-                page.setPageNo(pageNo++);
-                page.setFullText(response != null ? response.getFullText() : "");
-                page.setLayoutJson(response != null ? response.getLayoutJson() : "[]");
-                page.setFormulaJson(response != null ? response.getFormulaJson() : "[]");
-                page.setPageImageRef(sourceFile.getStorageRef());
-                page.setCreatedAt(LocalDateTime.now());
-                ingestOcrPageMapper.insert(page);
+            GaokaoSplitRequest splitRequest = new GaokaoSplitRequest(
+                sourceFiles.stream()
+                    .map(sourceFile -> new GaokaoSplitRequest.SourceFileEntry(
+                        sourceFile.getId() != null ? sourceFile.getId().intValue() : 0,
+                        sourceFile.getFileName(),
+                        sourceFile.getFileType(),
+                        encodeFileAsBase64(sourceFile.getStorageRef()),
+                        sourceFile.getStorageRef()))
+                    .collect(Collectors.toList()),
+                true);
+            GaokaoSplitResponse response = gaokaoSplitClient.splitExam(splitRequest);
+            LocalDateTime now = LocalDateTime.now();
+            if (response != null && response.questions() != null) {
+            for (GaokaoSplitResponse.SplitQuestionEntry entry : response.questions()) {
+                GkIngestSplitQuestion question = new GkIngestSplitQuestion();
+                question.setSessionId(session.getId());
+                question.setSeq(entry.seq());
+                question.setQuestionTypeCode(entry.questionTypeCode());
+                question.setSourcePagesJson(writeJson(entry.sourcePages()));
+                question.setRawStemText(entry.rawStemText());
+                question.setStemXml(entry.stemXml());
+                question.setRawAnswerText(entry.rawAnswerText());
+                question.setAnswerXml(entry.answerXml());
+                question.setStemImageRefsJson(writeJson(entry.stemImageRefs()));
+                question.setAnswerImageRefsJson(writeJson(entry.answerImageRefs()));
+                question.setStemImagesJson(writeJson(entry.stemImages()));
+                question.setAnswerImagesJson(writeJson(entry.answerImages()));
+                question.setParseError(entry.parseError());
+                question.setErrorMsg(entry.errorMsg());
+                question.setCreatedAt(now);
+                ingestSplitQuestionMapper.insert(question);
+            }
             }
             session.setStatus("SPLIT_READY");
             session.setErrorMsg(null);
@@ -385,6 +412,14 @@ public class IngestServiceImpl implements IngestService {
             return baos.toString(java.nio.charset.StandardCharsets.ISO_8859_1);
         } catch (IOException ex) {
             throw new RuntimeException("Failed to read source file for OCR: " + storageRef, ex);
+        }
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException("Failed to serialize split result JSON", ex);
         }
     }
 

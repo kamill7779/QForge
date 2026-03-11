@@ -65,6 +65,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.kamill7779</groupId>
+            <artifactId>internal-api-contract</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.kamill7779</groupId>
             <artifactId>storage-support</artifactId>
             <version>${project.version}</version>
         </dependency>

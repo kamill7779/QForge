@@ -13,10 +13,16 @@ const props = withDefaults(
     xml: string
     placeholder?: string
     compact?: boolean
+    imageResolver?: (ref: string) => string
+    mode?: 'stem' | 'answer'
+    renderKey?: number
   }>(),
   {
     placeholder: '暂无内容',
-    compact: false
+    compact: false,
+    imageResolver: undefined,
+    mode: 'stem',
+    renderKey: 0
   }
 )
 
@@ -26,12 +32,15 @@ const { render } = useLatexRender()
 let timer: ReturnType<typeof setTimeout> | null = null
 
 watch(
-  () => props.xml,
+  () => [props.xml, props.renderKey, props.mode],
   () => {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
       if (!containerRef.value) return
-      render(containerRef.value, props.xml)
+      render(containerRef.value, props.xml, {
+        imageResolver: props.imageResolver,
+        mode: props.mode
+      })
     }, 40)
   },
   { immediate: true }
@@ -62,7 +71,74 @@ onBeforeUnmount(() => {
   color: var(--color-text-muted);
 }
 
-.latex-preview :deep(.latex-p) {
+.latex-preview :deep(.stem-p) {
   margin: 0.4rem 0;
+}
+
+.latex-preview :deep(.stem-image) {
+  display: block;
+  max-width: 100%;
+  margin: 0.75rem 0;
+  border-radius: 12px;
+}
+
+.latex-preview :deep(.image-placeholder) {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--color-text-secondary);
+}
+
+.latex-preview :deep(.choices-container) {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+}
+
+.latex-preview :deep(.choice-item) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.latex-preview :deep(.choice-key) {
+  font-weight: 700;
+}
+
+.latex-preview :deep(.blanks-container) {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.6rem 0;
+}
+
+.latex-preview :deep(.blank-item) {
+  letter-spacing: 0.1em;
+}
+
+.latex-preview :deep(.answer-area) {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+}
+
+.latex-preview :deep(.answer-area-label) {
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+}
+
+.latex-preview :deep(.stem-table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.latex-preview :deep(.stem-th),
+.latex-preview :deep(.stem-td) {
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.65rem;
 }
 </style>

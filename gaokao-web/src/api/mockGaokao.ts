@@ -1,6 +1,7 @@
 import type {
   DraftPaper,
   GkPaper,
+  DraftQuestionAsset,
   IngestSession,
   PageResponse,
   PhotoQueryRequest,
@@ -100,6 +101,16 @@ const mockCorpusPaper: GkPaper = {
   ]
 }
 
+const mockDraftQuestionAssets: DraftQuestionAsset[] = [
+  {
+    refKey: 'img-1',
+    assetType: 'REGION_CROP',
+    storageRef: 'mock://draft-question-001/stem/img-1.png',
+    sortOrder: 1,
+    imageBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jk1sAAAAASUVORK5CYII='
+  }
+]
+
 function delay<T>(payload: T, timeout = 240): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(payload), timeout))
 }
@@ -124,6 +135,7 @@ export const mockGaokaoApi = {
     }
     return delay(draft.sections.flatMap((item) => item.questions).find((item) => item.draftQuestionUuid === draftQuestionUuid)!)
   },
+  getDraftQuestionAssets: async (_draftQuestionUuid: string) => delay(mockDraftQuestionAssets),
   analyzeQuestion: async () => delay(undefined),
   analyzePaper: async () => delay(undefined),
   confirmQuestion: async () => delay(undefined),

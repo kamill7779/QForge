@@ -109,7 +109,12 @@
           <h2>题干预览</h2>
           <span class="chip">编辑版本 {{ questionForm?.editVersion ?? '-' }}</span>
         </div>
-        <LatexPreview :xml="questionForm?.stemXml || ''" placeholder="当前题目暂无可渲染 XML" />
+        <LatexPreview
+          :xml="questionForm?.stemXml || ''"
+          :image-resolver="resolverFor(gaokao.activeDraftQuestionUuid || '')"
+          :render-key="assetVersion"
+          placeholder="当前题目暂无可渲染 XML"
+        />
       </div>
     </section>
 
@@ -153,6 +158,7 @@
 import { computed, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LatexPreview from '@/components/LatexPreview.vue'
+import { useQuestionAssets } from '@/composables/useQuestionAssets'
 import { toXmlPayload } from '@/lib/stemXml'
 import { useGaokaoStore } from '@/stores/gaokao'
 import { useNotificationStore } from '@/stores/notification'
@@ -161,6 +167,7 @@ const route = useRoute()
 const router = useRouter()
 const gaokao = useGaokaoStore()
 const notif = useNotificationStore()
+const { loadAssets, resolverFor, assetVersion } = useQuestionAssets()
 
 const paperForm = reactive({
   paperName: '',
@@ -208,6 +215,15 @@ watch(
     questionForm.stemXml = question.stemXml || toXmlPayload(question.stemText || '', 'stem')
     questionForm.score = question.score || null
     questionForm.editVersion = question.editVersion || null
+  },
+  { immediate: true }
+)
+
+watch(
+  () => gaokao.activeDraftQuestionUuid,
+  (draftQuestionUuid) => {
+    if (!draftQuestionUuid) return
+    loadAssets(draftQuestionUuid).catch(() => undefined)
   },
   { immediate: true }
 )

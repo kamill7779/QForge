@@ -109,9 +109,13 @@ public class UpdateDraftQuestionRequest {
     }
 
     public static class AssetPayload {
+        private String refKey;
         private String assetType;
         private String storageRef;
         private Integer sortOrder;
+
+        public String getRefKey() { return refKey; }
+        public void setRefKey(String refKey) { this.refKey = refKey; }
 
         public String getAssetType() { return assetType; }
         public void setAssetType(String assetType) { this.assetType = assetType; }

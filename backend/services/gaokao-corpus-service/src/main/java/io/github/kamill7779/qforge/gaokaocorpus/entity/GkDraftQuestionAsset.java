@@ -18,6 +18,9 @@ public class GkDraftQuestionAsset {
     @TableField("asset_type")
     private String assetType;
 
+    @TableField("ref_key")
+    private String refKey;
+
     @TableField("storage_ref")
     private String storageRef;
 
@@ -35,6 +38,9 @@ public class GkDraftQuestionAsset {
 
     public String getAssetType() { return assetType; }
     public void setAssetType(String assetType) { this.assetType = assetType; }
+
+    public String getRefKey() { return refKey; }
+    public void setRefKey(String refKey) { this.refKey = refKey; }
 
     public String getStorageRef() { return storageRef; }
     public void setStorageRef(String storageRef) { this.storageRef = storageRef; }

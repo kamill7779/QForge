@@ -1,6 +1,7 @@
 package io.github.kamill7779.qforge.gaokaocorpus.controller;
 
 import io.github.kamill7779.qforge.gaokaocorpus.dto.DraftPaperDTO;
+import io.github.kamill7779.qforge.gaokaocorpus.dto.DraftQuestionAssetDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.DraftQuestionDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.GkPaperDTO;
 import io.github.kamill7779.qforge.gaokaocorpus.dto.UpdateDraftPaperRequest;
@@ -8,6 +9,8 @@ import io.github.kamill7779.qforge.gaokaocorpus.dto.UpdateDraftQuestionRequest;
 import io.github.kamill7779.qforge.gaokaocorpus.service.DraftService;
 import io.github.kamill7779.qforge.gaokaocorpus.service.PublishService;
 import jakarta.validation.Valid;
+import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +46,12 @@ public class DraftController {
             @Valid @RequestBody UpdateDraftQuestionRequest request,
             @RequestHeader(value = "X-Auth-User", defaultValue = "anonymous") String requestUser) {
         return ResponseEntity.ok(draftService.updateDraftQuestion(uuid, request));
+    }
+
+    @GetMapping("/draft-questions/{uuid}/assets")
+    public ResponseEntity<List<DraftQuestionAssetDTO>> listQuestionAssets(
+            @PathVariable("uuid") String uuid) {
+        return ResponseEntity.ok(draftService.getQuestionAssets(uuid));
     }
 
     @PostMapping("/draft-questions/{uuid}/analyze")

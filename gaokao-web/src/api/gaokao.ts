@@ -2,6 +2,7 @@ import { apiRequest, apiUpload } from './client'
 import { mockGaokaoApi } from './mockGaokao'
 import type {
   DraftPaper,
+  DraftQuestionAsset,
   DraftQuestion,
   GkPaper,
   GkQuestion,
@@ -95,6 +96,10 @@ export const gaokaoApi = {
   updateDraftQuestion(draftQuestionUuid: string, request: UpdateDraftQuestionRequest) {
     if (useMock) return mockGaokaoApi.updateDraftQuestion(draftQuestionUuid, request)
     return apiRequest<DraftQuestion>('PUT', `/api/gaokao/draft-questions/${draftQuestionUuid}`, request).then(normalizeDraftQuestion)
+  },
+  getDraftQuestionAssets(draftQuestionUuid: string) {
+    if (useMock) return mockGaokaoApi.getDraftQuestionAssets(draftQuestionUuid)
+    return apiRequest<DraftQuestionAsset[]>('GET', `/api/gaokao/draft-questions/${draftQuestionUuid}/assets`)
   },
   analyzeQuestion(draftQuestionUuid: string) {
     if (useMock) return mockGaokaoApi.analyzeQuestion()

@@ -58,6 +58,28 @@ CREATE TABLE IF NOT EXISTS gk_ingest_ocr_page (
     CONSTRAINT fk_gk_iop_file    FOREIGN KEY (source_file_id) REFERENCES gk_ingest_source_file(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='OCR 页级原始结果';
 
+-- 5.3b 分题结果
+CREATE TABLE IF NOT EXISTS gk_ingest_split_question (
+    id                    BIGINT PRIMARY KEY AUTO_INCREMENT,
+    session_id            BIGINT       NOT NULL,
+    seq                   INT          NOT NULL,
+    question_type_code    VARCHAR(64)  NULL,
+    source_pages_json     JSON         NULL,
+    raw_stem_text         LONGTEXT     NULL,
+    stem_xml              LONGTEXT     NULL,
+    raw_answer_text       LONGTEXT     NULL,
+    answer_xml            LONGTEXT     NULL,
+    stem_image_refs_json  JSON         NULL,
+    answer_image_refs_json JSON        NULL,
+    stem_images_json      LONGTEXT     NULL,
+    answer_images_json    LONGTEXT     NULL,
+    parse_error           BOOLEAN      NOT NULL DEFAULT FALSE,
+    error_msg             VARCHAR(2048) NULL,
+    created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_gk_isq_session_seq (session_id, seq),
+    CONSTRAINT fk_gk_isq_session FOREIGN KEY (session_id) REFERENCES gk_ingest_session(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='整卷分题结果';
+
 -- 5.4 草稿试卷
 CREATE TABLE IF NOT EXISTS gk_draft_paper (
     id                  BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -153,6 +175,7 @@ CREATE TABLE IF NOT EXISTS gk_draft_question_asset (
     id                    BIGINT PRIMARY KEY AUTO_INCREMENT,
     draft_question_id     BIGINT       NOT NULL,
     asset_type            VARCHAR(32)  NOT NULL COMMENT 'IMAGE / FORMULA_IMAGE / REGION_CROP',
+    ref_key               VARCHAR(128) NULL COMMENT '对应 stem XML 中的 image ref',
     storage_ref           VARCHAR(1024) NOT NULL,
     sort_order            INT          NOT NULL DEFAULT 0,
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -165,6 +188,7 @@ CREATE TABLE IF NOT EXISTS gk_draft_answer_asset (
     id                    BIGINT PRIMARY KEY AUTO_INCREMENT,
     draft_answer_id       BIGINT       NOT NULL,
     asset_type            VARCHAR(32)  NOT NULL COMMENT 'IMAGE / FORMULA_IMAGE',
+    ref_key               VARCHAR(128) NULL COMMENT '对应 answer XML 中的 image ref',
     storage_ref           VARCHAR(1024) NOT NULL,
     sort_order            INT          NOT NULL DEFAULT 0,
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
