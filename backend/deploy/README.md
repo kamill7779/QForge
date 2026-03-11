@@ -4,9 +4,8 @@
 
 ## 目标
 
-- 所有后端服务向 Nacos 注册公网 IP:PORT
-- 同机进程和 Docker bridge 容器访问本机公网地址时，通过在 `lo` 绑定公网 IP 完成本地回环
-- 远程部署不再依赖 `enable-public-hairpin-nat.sh` 的 iptables DNAT/SNAT 规则
+- 所有后端服务向 Nacos 注册宿主机内网 IP:PORT
+- 宿主机之间通过云内网直接互通，服务间默认走内网地址，不再依赖公网访问回流
 - 使用 `docker-compose.remote.yml` + `hosts/*.env.example` 管理多机部署分组
 
 ## 文件说明
@@ -14,7 +13,7 @@
 - `docker-compose.remote.yml`
   - 远程部署 compose，按 `core`、`ai`、`sidecar`、`frontend`、`infra` 分 profile
 - `setup-host.sh`
-  - 为当前宿主机绑定公网 IP 到 `lo`，并安装 systemd oneshot 服务持久化
+  - 清理旧的 loopback 公网 IP 绑定与 systemd 遗留，仅用于从历史公网方案迁移
 - `deploy.sh`
   - 以指定 env 文件执行远程 compose
 - `hosts/*.env.example`
@@ -29,7 +28,7 @@
 ## 推荐工作流
 
 1. 复制一个 env 模板并填入真实公网 IP、凭据和中间件地址
-2. 在目标机器运行 `sudo ./setup-host.sh hosts/<your-host>.env`
+2. 如机器曾经使用过公网 loopback 方案，先运行 `sudo ./setup-host.sh hosts/<your-host>.env cleanup`
 3. 用 `./deploy.sh hosts/<your-host>.env up -d --build` 启动该机 profile 对应服务
 4. 用 `./deploy.sh hosts/<your-host>.env ps` / `logs -f <service>` 排查问题
 
@@ -40,7 +39,7 @@
 所有 env 模板都分成两段：
 
 - `Fill These First`
-  - 只填写这一段，包括本机公网/私网 IP、角色相关的对端公网 IP、凭据和端口
+  - 只填写这一段，包括本机内网 IP、角色相关的对端内网 IP、凭据和端口
 - `Derived Variables`
   - 由上方变量自动拼装，通常不需要改
 
@@ -84,12 +83,12 @@
 ## 地址占位规则
 
 - `hosts/*.env.example` 中出现的 URL 和 IP 现在只表示“应该填什么类型的地址”，不是固定拓扑。
-- 新增机器时必须复制模板并替换顶部填写区中的主机 IP、凭据和对端地址变量。
+- 新增机器时必须复制模板并替换顶部填写区中的内网主机 IP、凭据和对端地址变量。
 - 只要这些地址来自 env，而不是写死在 compose 或 Dockerfile 中，就不会影响后续横向扩容。
 
-## 为什么需要 GATEWAY_PUBLIC_IP
+## 为什么需要 GATEWAY_PRIVATE_IP
 
-- `GATEWAY_PUBLIC_IP` 是合理依赖，因为两个前端容器里的 Nginx 是静态反向代理，不接入 Nacos，也不会使用 Spring Cloud 服务发现。
+- `GATEWAY_PRIVATE_IP` 是合理依赖，因为两个前端容器里的 Nginx 是静态反向代理，不接入 Nacos，也不会使用 Spring Cloud 服务发现。
 - 前端要把 `/api/` 和 `/ws/` 转发到哪个网关实例，只能在启动时通过 `GATEWAY_UPSTREAM` 这种静态变量注入。
 
 ## 为什么不再需要 OCR_PUBLIC_IP
@@ -101,8 +100,10 @@
 ## 注意事项
 
 - 远程前端容器仍使用 bridge + 端口映射；只有后端服务和 sidecar 使用 host 网络
-- 前端容器代理网关时使用 `${APP_PUBLIC_HOST}:${GATEWAY_PORT}`，因此远程场景不依赖 Docker DNS
+- 后端服务注册到 Nacos 时统一广播 `${APP_NODE_IP}`，默认应是宿主机内网 IP
+- 前端容器代理网关时使用内网网关地址，例如 `${GATEWAY_PRIVATE_IP}:${GATEWAY_PORT}`，因此远程场景不依赖 Docker DNS
 - 如果 `exam-service` 和 `export-sidecar` 不在同一台机器，需在 env 中显式设置 `EXAM_EXPORT_SIDECAR_BASE_URL`
 - 如果 `gaokao-analysis-service` 和 `qdrant` 不在同一台机器，需在 env 中显式设置 `QDRANT_HOST`
 - `export-sidecar` 使用 `nacos-sdk-python==1.0.0` 时必须保持心跳开启；远程 compose 已默认注入 `NACOS_HEARTBEAT_INTERVAL_SECONDS=5`。如果去掉这个参数，sidecar 可能会打印注册成功，但 Nacos `instance/list` 的 `hosts` 仍为空，`exam-service` 会退回 direct-url fallback
 - `export-sidecar` 的健康检查路径是 `/api/export/health`，不是 `/health`
+- 旧的公网 loopback / hairpin NAT 方案已经废弃；迁移完成后应清理 `qforge-loopback-ip.service`、`/usr/local/bin/qforge-bind-loopback-ip.sh` 和 `lo` 上残留的公网 `/32`

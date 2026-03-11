@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Legacy helper for the retired public-IP hairpin NAT deployment path.
+# The default remote deployment now uses private-IP registration and does not require this script.
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="${1:-$SCRIPT_DIR/remote-stack.env}"
 

@@ -40,4 +40,4 @@ echo "[restart] starting all services except gateway-service and auth-service"
 bash "$SCRIPT_DIR/deploy.sh" "$ENV_FILE" up -d --build "${SERVICES[@]}"
 
 echo "[restart] started services: ${SERVICES[*]}"
-echo "[restart] note: web-exam and gaokao-web will start, but their /api proxy still points to ${SELF_PUBLIC_IP:-the configured gateway host}:8080; without gateway-service, frontend API calls will fail as expected"
+echo "[restart] note: web-exam and gaokao-web will start, but their /api proxy still points to ${GATEWAY_PRIVATE_IP:-the configured gateway host}:8080; without gateway-service, frontend API calls will fail as expected"

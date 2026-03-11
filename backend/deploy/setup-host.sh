@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="${1:-$SCRIPT_DIR/hosts/core-frontend.env.example}"
-ACTION="${2:-install}"
+ACTION="${2:-cleanup}"
 SERVICE_NAME="qforge-loopback-ip.service"
 INSTALL_SCRIPT_PATH="/usr/local/bin/qforge-bind-loopback-ip.sh"
 SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}"
@@ -22,75 +22,44 @@ set -a
 . "$ENV_FILE"
 set +a
 
-PUBLIC_IP="${APP_PUBLIC_HOST:?APP_PUBLIC_HOST is required}"
+LEGACY_IP="${LEGACY_LOOPBACK_IP:-${APP_PUBLIC_HOST:-}}"
 
-bind_ip() {
-  if ip addr show lo | grep -q "${PUBLIC_IP}/32"; then
-    echo "Loopback already contains ${PUBLIC_IP}/32"
-    return
+cleanup() {
+  if systemctl list-unit-files | grep -q "^${SERVICE_NAME}"; then
+    systemctl disable --now "$SERVICE_NAME" || true
   fi
-  ip addr add "${PUBLIC_IP}/32" dev lo
-  echo "Bound ${PUBLIC_IP}/32 to lo"
-}
 
-remove_ip() {
-  if ip addr show lo | grep -q "${PUBLIC_IP}/32"; then
-    ip addr del "${PUBLIC_IP}/32" dev lo
-    echo "Removed ${PUBLIC_IP}/32 from lo"
-    return
-  fi
-  echo "Loopback does not contain ${PUBLIC_IP}/32"
-}
-
-install_service() {
-  cat > "$INSTALL_SCRIPT_PATH" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-ip addr show lo | grep -q '${PUBLIC_IP}/32' || ip addr add '${PUBLIC_IP}/32' dev lo
-EOF
-  chmod 755 "$INSTALL_SCRIPT_PATH"
-
-  cat > "$SERVICE_PATH" <<EOF
-[Unit]
-Description=Bind QForge public IP to loopback
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=${INSTALL_SCRIPT_PATH}
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
+  rm -f "$SERVICE_PATH" "$INSTALL_SCRIPT_PATH"
   systemctl daemon-reload
-  systemctl enable --now "$SERVICE_NAME"
-  echo "Installed and started ${SERVICE_NAME}"
+
+  if [[ -n "$LEGACY_IP" ]] && ip addr show lo | grep -q "${LEGACY_IP}/32"; then
+    ip addr del "${LEGACY_IP}/32" dev lo
+    echo "Removed legacy loopback IP ${LEGACY_IP}/32"
+  else
+    echo "No legacy loopback IP found on lo"
+  fi
+
+  echo "Legacy loopback cleanup complete"
 }
 
 status() {
-  ip addr show lo | grep -n "$PUBLIC_IP" || true
+  if [[ -n "$LEGACY_IP" ]]; then
+    ip addr show lo | grep -n "$LEGACY_IP" || true
+  else
+    ip -4 addr show lo
+  fi
   systemctl status "$SERVICE_NAME" --no-pager || true
 }
 
 case "$ACTION" in
-  apply)
-    bind_ip
-    ;;
-  remove)
-    remove_ip
-    ;;
-  install)
-    bind_ip
-    install_service
+  cleanup)
+    cleanup
     ;;
   status)
     status
     ;;
   *)
-    echo "Usage: $0 <env-file> [install|apply|remove|status]" >&2
+    echo "Usage: $0 <env-file> [cleanup|status]" >&2
     exit 1
     ;;
 esac

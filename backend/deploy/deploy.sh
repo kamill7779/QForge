@@ -15,19 +15,16 @@ set -a
 set +a
 
 export COMPOSE_PROFILES="${COMPOSE_PROFILES:?COMPOSE_PROFILES is required}"
+export APP_NODE_IP="${APP_NODE_IP:?APP_NODE_IP is required}"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.remote.yml"
 
 if [[ $# -eq 0 ]]; then
   set -- up -d --build
 fi
 
-if [[ "${SKIP_LOOPBACK_CHECK:-false}" != "true" ]] && ! ip addr show lo | grep -q "${APP_PUBLIC_HOST}/32"; then
-  echo "Loopback does not contain ${APP_PUBLIC_HOST}/32. Run sudo ./setup-host.sh $ENV_FILE first." >&2
-  exit 1
-fi
-
 echo "Using env: $ENV_FILE"
 echo "Profiles: $COMPOSE_PROFILES"
+echo "Node IP: $APP_NODE_IP"
 echo "Compose file: $COMPOSE_FILE"
 
 docker compose -f "$COMPOSE_FILE" "$@"

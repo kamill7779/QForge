@@ -18,10 +18,11 @@
 3. 不要随意改 `Derived Variables`，除非你明确知道自己在调整派生关系。
 4. 按真实部署调整 `COMPOSE_PROFILES`。
 5. 如果只是扩一台机器并承载已有服务，不需要改 `docker-compose.remote.yml`，通常只需要新增一份 env。
-6. 复制出来的真实 env 往往包含公网 IP、数据库密码和 API key，默认应保留在本机或部署系统中，不要直接提交到仓库。
+6. 复制出来的真实 env 往往包含内网 IP、数据库密码和 API key，默认应保留在本机或部署系统中，不要直接提交到仓库。
 
 补充说明：
 
-- `GATEWAY_PUBLIC_IP` 是给前端容器内 Nginx 用的静态上游地址，不走 Nacos，属于必要配置。
+- `GATEWAY_PRIVATE_IP` 是给前端容器内 Nginx 用的静态上游地址，不走 Nacos，属于必要配置。
+- `APP_NODE_IP` 是当前宿主机要向 Nacos 广播的地址，默认应直接等于本机内网 IP。
 - OCR 相关直连地址已从远程模板移除；后端当前通过 Nacos 获取 `ocr-service`。
 - `export-sidecar` 依赖 Nacos 心跳维持临时实例，通常不需要手改 `NACOS_HEARTBEAT_INTERVAL_SECONDS`，保持默认 5 秒即可。
