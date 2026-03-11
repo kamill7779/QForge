@@ -45,4 +45,15 @@ public interface ExamParseTaskRepository extends BaseMapper<ExamParseTask> {
         }
         return entity;
     }
+
+    default boolean markCancelled(String taskUuid, String ownerUser) {
+        return this.update(
+                null,
+                Wrappers.<ExamParseTask>lambdaUpdate()
+                        .eq(ExamParseTask::getTaskUuid, taskUuid)
+                        .eq(ExamParseTask::getOwnerUser, ownerUser)
+                        .ne(ExamParseTask::getStatus, "CANCELLED")
+                        .set(ExamParseTask::getStatus, "CANCELLED")
+        ) > 0;
+    }
 }

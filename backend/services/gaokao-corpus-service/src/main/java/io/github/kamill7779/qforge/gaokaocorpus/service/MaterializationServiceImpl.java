@@ -15,11 +15,15 @@ import io.github.kamill7779.qforge.gaokaocorpus.repository.GkQuestionProfileMapp
 import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoRequest;
 import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoResponse;
 import io.github.kamill7779.qforge.internal.api.QuestionCoreClient;
+import io.github.kamill7779.qforge.storage.QForgeStorageService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
+import java.security.MessageDigest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,7 @@ public class MaterializationServiceImpl implements MaterializationService {
     private final GkQuestionMaterializationMapper materializationMapper;
     private final QuestionCoreClient questionCoreClient;
     private final ObjectMapper objectMapper;
+    private final QForgeStorageService storageService;
 
     public MaterializationServiceImpl(
             GkQuestionMapper questionMapper,
@@ -48,7 +53,8 @@ public class MaterializationServiceImpl implements MaterializationService {
             GkQuestionProfileMapper questionProfileMapper,
             GkQuestionMaterializationMapper materializationMapper,
             QuestionCoreClient questionCoreClient,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            QForgeStorageService storageService
     ) {
         this.questionMapper = questionMapper;
         this.questionAnswerMapper = questionAnswerMapper;
@@ -58,6 +64,7 @@ public class MaterializationServiceImpl implements MaterializationService {
         this.materializationMapper = materializationMapper;
         this.questionCoreClient = questionCoreClient;
         this.objectMapper = objectMapper;
+        this.storageService = storageService;
     }
 
     @Override
@@ -79,6 +86,21 @@ public class MaterializationServiceImpl implements MaterializationService {
         applyAnswerPayload(question, req);
         applyTagPayload(question, req);
         applyAssetPayload(question, req);
+        String sourceHash = buildSourceHash(req);
+
+        GkQuestionMaterialization existing = materializationMapper.selectOne(
+                new LambdaQueryWrapper<GkQuestionMaterialization>()
+                        .eq(GkQuestionMaterialization::getGkQuestionId, question.getId())
+                        .eq(GkQuestionMaterialization::getOwnerUser, ownerUser)
+                        .eq(GkQuestionMaterialization::getMode, "COPY")
+                        .eq(GkQuestionMaterialization::getStatus, "ACTIVE")
+                        .eq(GkQuestionMaterialization::getSourceHash, sourceHash)
+                        .last("LIMIT 1"));
+        if (existing != null) {
+            log.info("Skip duplicate materialization for gkQuestion={} ownerUser={} sourceHash={}",
+                    question.getId(), ownerUser, sourceHash);
+            return;
+        }
 
         CreateQuestionFromGaokaoResponse resp = questionCoreClient.createFromGaokao(req);
 
@@ -89,6 +111,7 @@ public class MaterializationServiceImpl implements MaterializationService {
             mat.setOwnerUser(ownerUser);
             mat.setMode("COPY");
             mat.setStatus("ACTIVE");
+            mat.setSourceHash(sourceHash);
             mat.setCreatedAt(LocalDateTime.now());
             mat.setUpdatedAt(LocalDateTime.now());
             materializationMapper.insert(mat);
@@ -159,6 +182,7 @@ public class MaterializationServiceImpl implements MaterializationService {
             CreateQuestionFromGaokaoRequest.AssetEntry entry = new CreateQuestionFromGaokaoRequest.AssetEntry();
             entry.setAssetType(asset.getAssetType());
             entry.setStorageRef(asset.getStorageRef());
+            entry.setDataUri(resolveDataUri(asset.getStorageRef()));
             entry.setRefKey("stem-" + asset.getId());
             return entry;
         }).toList());
@@ -182,10 +206,51 @@ public class MaterializationServiceImpl implements MaterializationService {
                     CreateQuestionFromGaokaoRequest.AssetEntry entry = new CreateQuestionFromGaokaoRequest.AssetEntry();
                     entry.setAssetType(asset.getAssetType());
                     entry.setStorageRef(asset.getStorageRef());
+                    entry.setDataUri(resolveDataUri(asset.getStorageRef()));
                     entry.setRefKey("answer-" + asset.getId());
                     return entry;
                 })
                 .toList());
+    }
+
+    private String resolveDataUri(String storageRef) {
+        if (storageRef == null || storageRef.isBlank()) {
+            return null;
+        }
+        if (storageRef.startsWith("data:")) {
+            return storageRef;
+        }
+        if (!storageRef.startsWith("cos://")) {
+            return null;
+        }
+        try {
+            String mimeType = detectMimeType(storageRef);
+            return "data:" + mimeType + ";base64," + storageService.getObjectBase64(storageRef);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to load gaokao asset from storage: " + storageRef, ex);
+        }
+    }
+
+    private String detectMimeType(String storageRef) {
+        String lower = storageRef.toLowerCase();
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lower.endsWith(".gif")) {
+            return "image/gif";
+        }
+        return "image/png";
+    }
+
+    private String buildSourceHash(CreateQuestionFromGaokaoRequest request) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(
+                    digest.digest(objectMapper.writeValueAsString(request).getBytes(StandardCharsets.UTF_8))
+            );
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to build materialization source hash", ex);
+        }
     }
 
     private void appendMainTags(List<CreateQuestionFromGaokaoRequest.TagEntry> result, String categoryCode, String rawJson) {

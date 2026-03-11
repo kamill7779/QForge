@@ -18,6 +18,9 @@ public class GkPaper {
     @TableField("source_session_uuid")
     private String sourceSessionUuid;
 
+    @TableField("draft_paper_id")
+    private Long draftPaperId;
+
     @TableField("paper_name")
     private String paperName;
 
@@ -49,6 +52,9 @@ public class GkPaper {
 
     public String getSourceSessionUuid() { return sourceSessionUuid; }
     public void setSourceSessionUuid(String sourceSessionUuid) { this.sourceSessionUuid = sourceSessionUuid; }
+
+    public Long getDraftPaperId() { return draftPaperId; }
+    public void setDraftPaperId(Long draftPaperId) { this.draftPaperId = draftPaperId; }
 
     public String getPaperName() { return paperName; }
     public void setPaperName(String paperName) { this.paperName = paperName; }

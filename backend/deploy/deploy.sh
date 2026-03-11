@@ -12,6 +12,11 @@ fi
 
 set -a
 . "$ENV_FILE"
+DEFAULT_SECRETS_FILE="$SCRIPT_DIR/remote-stack.secrets.local.env"
+SECRETS_FILE="${QFORGE_DEPLOY_SECRETS_FILE:-$DEFAULT_SECRETS_FILE}"
+if [[ -f "$SECRETS_FILE" ]]; then
+  . "$SECRETS_FILE"
+fi
 set +a
 
 export COMPOSE_PROFILES="${COMPOSE_PROFILES:?COMPOSE_PROFILES is required}"
@@ -23,6 +28,9 @@ if [[ $# -eq 0 ]]; then
 fi
 
 echo "Using env: $ENV_FILE"
+if [[ -f "$SECRETS_FILE" ]]; then
+  echo "Loaded secrets: $SECRETS_FILE"
+fi
 echo "Profiles: $COMPOSE_PROFILES"
 echo "Node IP: $APP_NODE_IP"
 echo "Compose file: $COMPOSE_FILE"

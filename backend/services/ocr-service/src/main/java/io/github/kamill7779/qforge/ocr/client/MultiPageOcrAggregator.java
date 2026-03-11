@@ -1,7 +1,9 @@
 package io.github.kamill7779.qforge.ocr.client;
 
 import io.github.kamill7779.qforge.ocr.entity.ExamParseSourceFile;
+import io.github.kamill7779.qforge.storage.QForgeStorageService;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -39,13 +41,16 @@ public class MultiPageOcrAggregator {
     private final GlmOcrClient glmOcrClient;
     private final PdfPageRenderer pdfPageRenderer;
     private final ExamPagePreprocessor examPagePreprocessor;
+    private final QForgeStorageService storageService;
 
     public MultiPageOcrAggregator(GlmOcrClient glmOcrClient,
                                    PdfPageRenderer pdfPageRenderer,
-                                   ExamPagePreprocessor examPagePreprocessor) {
+                                   ExamPagePreprocessor examPagePreprocessor,
+                                   QForgeStorageService storageService) {
         this.glmOcrClient = glmOcrClient;
         this.pdfPageRenderer = pdfPageRenderer;
         this.examPagePreprocessor = examPagePreprocessor;
+        this.storageService = storageService;
     }
 
     /**
@@ -122,8 +127,9 @@ public class MultiPageOcrAggregator {
     }
 
     private List<PageEntry> expandToPages(ExamParseSourceFile sf) {
+        String filePayload = resolveFilePayload(sf);
         if ("PDF".equalsIgnoreCase(sf.getFileType())) {
-            List<PdfPageRenderer.PageImage> pdfPages = pdfPageRenderer.render(sf.getFileData());
+            List<PdfPageRenderer.PageImage> pdfPages = pdfPageRenderer.render(filePayload);
             List<PageEntry> entries = new ArrayList<>(pdfPages.size());
             for (PdfPageRenderer.PageImage pi : pdfPages) {
                 entries.add(new PageEntry(pi.pageIndex(), pi.imageBase64()));
@@ -131,6 +137,20 @@ public class MultiPageOcrAggregator {
             return entries;
         }
         // IMAGE type: 单张图片 = 单页
-        return List.of(new PageEntry(0, sf.getFileData()));
+        return List.of(new PageEntry(0, filePayload));
+    }
+
+    private String resolveFilePayload(ExamParseSourceFile sourceFile) {
+        if (sourceFile.getFileData() != null && !sourceFile.getFileData().isBlank()) {
+            return sourceFile.getFileData();
+        }
+        if (sourceFile.getStorageRef() == null || sourceFile.getStorageRef().isBlank()) {
+            throw new IllegalStateException("Missing parse source payload for file: " + sourceFile.getId());
+        }
+        try {
+            return Base64.getEncoder().encodeToString(storageService.getObjectBytes(sourceFile.getStorageRef()));
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Failed to load parse source from storage: " + sourceFile.getStorageRef(), ex);
+        }
     }
 }

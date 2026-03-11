@@ -9,10 +9,13 @@ import io.github.kamill7779.qforge.examparse.entity.ExamParseTask;
 import io.github.kamill7779.qforge.examparse.repository.ExamParseQuestionRepository;
 import io.github.kamill7779.qforge.examparse.repository.ExamParseSourceFileRepository;
 import io.github.kamill7779.qforge.examparse.repository.ExamParseTaskRepository;
+import io.github.kamill7779.qforge.storage.QForgeStorageService;
 import java.util.ArrayList;
-import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -37,17 +40,20 @@ public class ExamParseCommandService {
     private final ExamParseQuestionRepository questionRepository;
     private final RabbitTemplate rabbitTemplate;
     private final QForgeBusinessProperties bizProps;
+    private final QForgeStorageService storageService;
 
     public ExamParseCommandService(ExamParseTaskRepository taskRepository,
                                     ExamParseSourceFileRepository sourceFileRepository,
                                     ExamParseQuestionRepository questionRepository,
                                     RabbitTemplate rabbitTemplate,
-                                    QForgeBusinessProperties bizProps) {
+                                    QForgeBusinessProperties bizProps,
+                                    QForgeStorageService storageService) {
         this.taskRepository = taskRepository;
         this.sourceFileRepository = sourceFileRepository;
         this.questionRepository = questionRepository;
         this.rabbitTemplate = rabbitTemplate;
         this.bizProps = bizProps;
+        this.storageService = storageService;
     }
 
     /**
@@ -94,7 +100,17 @@ public class ExamParseCommandService {
 
             try {
                 byte[] fileBytes = file.getBytes();
-                String base64Data = Base64.getEncoder().encodeToString(fileBytes);
+                String objectKey = storageService.buildObjectKey(
+                        "exam-parse/source",
+                        taskUuid,
+                        i + "-" + (originalName != null ? originalName : ("file-" + i))
+                );
+                String storageRef = storageService.putObject(
+                        objectKey,
+                        new java.io.ByteArrayInputStream(fileBytes),
+                        fileBytes.length,
+                        file.getContentType()
+                );
 
                 ExamParseSourceFile sf = new ExamParseSourceFile();
                 sf.setTaskUuid(taskUuid);
@@ -102,7 +118,11 @@ public class ExamParseCommandService {
                 sf.setFileName(originalName != null ? originalName : "file-" + i);
                 sf.setFileType(fileType);
                 sf.setPageCount(pageCount);
-                sf.setFileData(base64Data);
+                sf.setFileData(null);
+                sf.setStorageRef(storageRef);
+                sf.setBlobKey(objectKey);
+                sf.setBlobSize((long) fileBytes.length);
+                sf.setChecksumSha256(calculateSha256(fileBytes));
                 sf.setOcrStatus("PENDING");
                 sourceFileRepository.save(sf);
 
@@ -177,15 +197,9 @@ public class ExamParseCommandService {
 
     @Transactional
     public void deleteTask(String taskUuid, String ownerUser) {
-        ExamParseTask task = getTask(taskUuid, ownerUser);
-        questionRepository.delete(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<ExamParseQuestion>lambdaQuery()
-                        .eq(ExamParseQuestion::getTaskUuid, taskUuid));
-        sourceFileRepository.delete(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<ExamParseSourceFile>lambdaQuery()
-                        .eq(ExamParseSourceFile::getTaskUuid, taskUuid));
-        taskRepository.deleteById(task.getId());
-        log.info("Exam parse task deleted: taskUuid={}", taskUuid);
+        getTask(taskUuid, ownerUser);
+        taskRepository.markCancelled(taskUuid, ownerUser);
+        log.info("Exam parse task cancelled: taskUuid={}", taskUuid);
     }
 
     private String extractExtension(String filename) {
@@ -193,5 +207,14 @@ public class ExamParseCommandService {
             return "";
         }
         return filename.substring(filename.lastIndexOf('.') + 1);
+    }
+
+    private String calculateSha256(byte[] content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(content));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("Failed to calculate file checksum", ex);
+        }
     }
 }

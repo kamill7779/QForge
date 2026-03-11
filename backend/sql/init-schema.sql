@@ -332,7 +332,7 @@ CREATE TABLE IF NOT EXISTS q_exam_parse_task (
     task_uuid       CHAR(36)     NOT NULL UNIQUE,
     owner_user      VARCHAR(128) NOT NULL,
     status          VARCHAR(32)  NOT NULL DEFAULT 'PENDING',
-    -- PENDING / OCR_PROCESSING / SPLITTING / GENERATING / SUCCESS / PARTIAL_FAILED / FAILED
+    -- PENDING / OCR_PROCESSING / SPLITTING / GENERATING / SUCCESS / PARTIAL_FAILED / FAILED / CANCELLED
     progress        TINYINT      NOT NULL DEFAULT 0,
     file_count      INT          NOT NULL DEFAULT 0,
     total_pages     INT          NOT NULL DEFAULT 0,
@@ -352,7 +352,11 @@ CREATE TABLE IF NOT EXISTS q_exam_parse_source_file (
     file_name       VARCHAR(255) NOT NULL,
     file_type       VARCHAR(16)  NOT NULL,
     page_count      INT          NOT NULL DEFAULT 1,
-    file_data       LONGTEXT     NOT NULL,
+    file_data       LONGTEXT     NULL,
+    storage_ref     VARCHAR(1024) NULL,
+    blob_key        VARCHAR(1024) NULL,
+    blob_size       BIGINT       NULL,
+    checksum_sha256 CHAR(64)     NULL,
     ocr_status      VARCHAR(32)  NOT NULL DEFAULT 'PENDING',
     INDEX idx_epsf_task_uuid (task_uuid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -377,7 +381,7 @@ CREATE TABLE IF NOT EXISTS q_exam_parse_question (
     secondary_tags_json     TEXT     NULL     COMMENT '副标签 JSON: ["tag1","tag2"]',
     difficulty              DECIMAL(3,2)  NULL COMMENT 'P-value difficulty 0.00-1.00',
     created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_epq_task_uuid_seq (task_uuid, seq_no)
+    UNIQUE KEY uk_epq_task_uuid_seq (task_uuid, seq_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- NOTE: main_tags_json, secondary_tags_json, difficulty are already in the CREATE TABLE above.

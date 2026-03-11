@@ -193,6 +193,9 @@ public class ExamParseTaskConsumer {
 
     private void updateTaskStatus(String taskUuid, String status, int progress, String errorMsg) {
         taskRepository.findByTaskUuid(taskUuid).ifPresent(task -> {
+            if ("CANCELLED".equals(task.getStatus())) {
+                return;
+            }
             task.setStatus(status);
             task.setProgress(progress);
             if (errorMsg != null) task.setErrorMsg(errorMsg);
@@ -202,6 +205,9 @@ public class ExamParseTaskConsumer {
 
     private void updateTotalPages(String taskUuid, int totalPages) {
         taskRepository.findByTaskUuid(taskUuid).ifPresent(task -> {
+            if ("CANCELLED".equals(task.getStatus())) {
+                return;
+            }
             task.setTotalPages(totalPages);
             taskRepository.save(task);
         });
@@ -209,6 +215,9 @@ public class ExamParseTaskConsumer {
 
     private void updateQuestionCount(String taskUuid, int questionCount) {
         taskRepository.findByTaskUuid(taskUuid).ifPresent(task -> {
+            if ("CANCELLED".equals(task.getStatus())) {
+                return;
+            }
             task.setQuestionCount(questionCount);
             taskRepository.save(task);
         });

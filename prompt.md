@@ -89,6 +89,8 @@ QForge 的核心业务可以概括为：
 - 当前远程部署默认假设多台宿主机之间的内网地址可互通，例如 `10.0.0.x`。
 - 涉及 Nacos 注册、Feign 调用、sidecar direct fallback、Qdrant 直连、前端代理网关时，优先使用宿主机内网 IP，而不是公网 IP。
 - 当前部署方案已经废弃“公网 IP 注册 + loopback IP 绑定”与 hairpin NAT 补丁；除非用户明确要求回滚到历史方案，否则不要再建议这两条路径。
+- 当前对象存储统一采用腾讯云 COS，默认桶名为 `qforge-2026-1304896342`，地域 `ap-shanghai`，服务通过 COS SDK + 环境变量凭证访问，不依赖宿主机挂载目录。
+- 不要把任何明文云凭证、登录密码、`SecretId`、`SecretKey` 写入受版本控制的文档、代码或 compose 文件；仓库内只保留环境变量名、桶名、endpoint、账号名等非敏感信息。
 
 ### 6.1 后端服务
 
@@ -156,6 +158,7 @@ QForge 的核心业务可以概括为：
 - RabbitMQ
 - Nacos
 - Qdrant（向量数据库，供 `gaokao-analysis-service` 使用）
+- 腾讯云 COS（对象存储，桶：`qforge-2026-1304896342`）
 
 ## 7. 当前技术栈
 
@@ -379,6 +382,17 @@ QForge 的核心业务可以概括为：
   - `question-basket-service.yml`
   - `gaokao-analysis-service.yml`
   - `gaokao-corpus-service.yml`
+
+### 12.5 COS 配置事实
+
+- COS 桶默认使用：
+  - `bucket = qforge-2026-1304896342`
+  - `region = ap-shanghai`
+  - `endpoint = https://qforge-2026-1304896342.cos.ap-shanghai.myqcloud.com`
+- 当前建议使用腾讯云子账号 `qforge-service` 作为存储访问身份。
+- 仓库和文档中只应出现以下环境变量名，不应出现明文值：
+  - `QFORGE_STORAGE_COS_SECRET_ID`
+  - `QFORGE_STORAGE_COS_SECRET_KEY`
 
 ## 13. 当前文档体系与阅读顺序
 

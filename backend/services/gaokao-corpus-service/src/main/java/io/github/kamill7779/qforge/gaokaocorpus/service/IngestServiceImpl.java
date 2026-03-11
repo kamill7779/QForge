@@ -13,6 +13,7 @@ import io.github.kamill7779.qforge.gaokaocorpus.exception.BusinessValidationExce
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestOcrPageMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSessionMapper;
 import io.github.kamill7779.qforge.gaokaocorpus.repository.GkIngestSourceFileMapper;
+import io.github.kamill7779.qforge.storage.QForgeStorageService;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,8 +36,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -45,15 +46,17 @@ import org.springframework.web.multipart.MultipartFile;
 public class IngestServiceImpl implements IngestService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestServiceImpl.class);
+    private static final String OCR_LOCK_PREFIX = "qforge:gaokao:ingest:ocr:";
 
     private final GkIngestSessionMapper ingestSessionMapper;
     private final GkIngestSourceFileMapper ingestSourceFileMapper;
     private final GkIngestOcrPageMapper ingestOcrPageMapper;
     private final GaokaoAnalysisClient analysisClient;
     private final OcrServiceClient ocrServiceClient;
+    private final QForgeStorageService storageService;
+    private final StringRedisTemplate stringRedisTemplate;
     private final int maxUploadFiles;
     private final Set<String> allowedExtensions;
-    private final Path uploadRootDir;
 
     public IngestServiceImpl(
             GkIngestSessionMapper ingestSessionMapper,
@@ -61,21 +64,23 @@ public class IngestServiceImpl implements IngestService {
             GkIngestOcrPageMapper ingestOcrPageMapper,
             GaokaoAnalysisClient analysisClient,
             OcrServiceClient ocrServiceClient,
-            @Value("${qforge.gaokao.max-upload-files:20}") int maxUploadFiles,
-            @Value("${qforge.gaokao.allowed-extensions:pdf,jpg,jpeg,png}") String allowedExtensions,
-            @Value("${qforge.gaokao.upload-root-dir:./data/gaokao/uploads}") String uploadRootDir
+            QForgeStorageService storageService,
+            StringRedisTemplate stringRedisTemplate,
+            @org.springframework.beans.factory.annotation.Value("${qforge.gaokao.max-upload-files:20}") int maxUploadFiles,
+            @org.springframework.beans.factory.annotation.Value("${qforge.gaokao.allowed-extensions:pdf,jpg,jpeg,png}") String allowedExtensions
     ) {
         this.ingestSessionMapper = ingestSessionMapper;
         this.ingestSourceFileMapper = ingestSourceFileMapper;
         this.ingestOcrPageMapper = ingestOcrPageMapper;
         this.analysisClient = analysisClient;
         this.ocrServiceClient = ocrServiceClient;
+        this.storageService = storageService;
+        this.stringRedisTemplate = stringRedisTemplate;
         this.maxUploadFiles = maxUploadFiles;
         this.allowedExtensions = Arrays.stream(allowedExtensions.split(","))
                 .map(item -> item.trim().toLowerCase(Locale.ROOT))
                 .filter(item -> !item.isBlank())
                 .collect(Collectors.toSet());
-        this.uploadRootDir = Path.of(uploadRootDir).toAbsolutePath().normalize();
     }
 
     @Override
@@ -144,13 +149,6 @@ public class IngestServiceImpl implements IngestService {
                     java.util.Map.of("maxUploadFiles", maxUploadFiles));
         }
 
-        Path sessionDir = uploadRootDir.resolve(sessionUuid);
-        try {
-            Files.createDirectories(sessionDir);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to prepare upload directory", e);
-        }
-
         for (MultipartFile file : files) {
             if (file == null || file.isEmpty()) {
                 throw new BusinessValidationException(
@@ -164,24 +162,34 @@ public class IngestServiceImpl implements IngestService {
             validateExtension(extension, originalFilename);
 
             String sourceFileUuid = UUID.randomUUID().toString();
-            Path targetPath = sessionDir.resolve(sourceFileUuid + (extension.isEmpty() ? "" : "." + extension));
 
             try {
-                Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+                byte[] content = file.getBytes();
+                String objectKey = storageService.buildObjectKey(
+                        "gaokao/ingest",
+                        sessionUuid,
+                        sourceFileUuid + (extension.isEmpty() ? "" : "." + extension)
+                );
+                String storageRef = storageService.putObject(
+                        objectKey,
+                        new java.io.ByteArrayInputStream(content),
+                        content.length,
+                        file.getContentType()
+                );
+
+                GkIngestSourceFile sourceFile = new GkIngestSourceFile();
+                sourceFile.setSourceFileUuid(sourceFileUuid);
+                sourceFile.setSessionId(session.getId());
+                sourceFile.setFileName(originalFilename);
+                sourceFile.setFileType(toFileType(extension));
+                sourceFile.setStorageRef(storageRef);
+                sourceFile.setPageCount(1);
+                sourceFile.setChecksumSha256(calculateSha256(content));
+                sourceFile.setCreatedAt(LocalDateTime.now());
+                ingestSourceFileMapper.insert(sourceFile);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to persist uploaded file: " + originalFilename, e);
             }
-
-            GkIngestSourceFile sourceFile = new GkIngestSourceFile();
-            sourceFile.setSourceFileUuid(sourceFileUuid);
-            sourceFile.setSessionId(session.getId());
-            sourceFile.setFileName(originalFilename);
-            sourceFile.setFileType(toFileType(extension));
-            sourceFile.setStorageRef(targetPath.toString().replace('\\', '/'));
-            sourceFile.setPageCount(1);
-            sourceFile.setChecksumSha256(calculateSha256(targetPath));
-            sourceFile.setCreatedAt(LocalDateTime.now());
-            ingestSourceFileMapper.insert(sourceFile);
         }
 
         session.setSourceKind(resolveSourceKind(files));
@@ -200,9 +208,39 @@ public class IngestServiceImpl implements IngestService {
         if (session == null) {
             throw new IllegalArgumentException("Session not found: " + sessionUuid);
         }
-        session.setStatus("OCRING");
-        session.setUpdatedAt(LocalDateTime.now());
-        ingestSessionMapper.updateById(session);
+        if ("SPLIT_READY".equals(session.getStatus())) {
+            log.info("Skip OCR trigger because session is already split-ready: uuid={}", sessionUuid);
+            return;
+        }
+        if ("OCRING".equals(session.getStatus())) {
+            throw new BusinessValidationException(
+                    "GAOKAO_OCR_ALREADY_RUNNING",
+                    "OCR is already running for session: " + sessionUuid,
+                    HttpStatus.CONFLICT);
+        }
+        if (!"UPLOADED".equals(session.getStatus()) && !"OCR_FAILED".equals(session.getStatus())) {
+            throw new BusinessValidationException(
+                    "GAOKAO_OCR_INVALID_STATUS",
+                    "Session status does not allow OCR trigger: " + session.getStatus(),
+                    HttpStatus.CONFLICT);
+        }
+        acquireOcrLock(sessionUuid);
+        boolean locked = true;
+        try {
+            int updated = ingestSessionMapper.update(
+                    null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<GkIngestSession>()
+                            .eq(GkIngestSession::getId, session.getId())
+                            .eq(GkIngestSession::getStatus, session.getStatus())
+                            .set(GkIngestSession::getStatus, "OCRING")
+                            .set(GkIngestSession::getUpdatedAt, LocalDateTime.now())
+            );
+            if (updated == 0) {
+                throw new BusinessValidationException(
+                        "GAOKAO_OCR_STATUS_CONFLICT",
+                        "Session status changed before OCR trigger: " + sessionUuid,
+                        HttpStatus.CONFLICT);
+            }
         log.info("Triggered OCR split for session: uuid={}", sessionUuid);
 
         List<GkIngestSourceFile> sourceFiles = ingestSourceFileMapper.selectList(
@@ -240,6 +278,11 @@ public class IngestServiceImpl implements IngestService {
         }
         session.setUpdatedAt(LocalDateTime.now());
         ingestSessionMapper.updateById(session);
+        } finally {
+            if (locked) {
+                releaseOcrLock(sessionUuid);
+            }
+        }
     }
 
     private IngestSessionDTO toDTO(GkIngestSession entity) {
@@ -313,7 +356,23 @@ public class IngestServiceImpl implements IngestService {
         }
     }
 
+    private String calculateSha256(byte[] content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(content));
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Failed to calculate sha256 for uploaded content", e);
+        }
+    }
+
     private String encodeFileAsBase64(String storageRef) {
+        if (storageRef != null && storageRef.startsWith("cos://")) {
+            try {
+                return storageService.getObjectBase64(storageRef);
+            } catch (IOException ex) {
+                throw new RuntimeException("Failed to read COS source file for OCR: " + storageRef, ex);
+            }
+        }
         try (InputStream in = Files.newInputStream(Path.of(storageRef));
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             OutputStream base64Out = Base64.getEncoder().wrap(baos);
@@ -326,6 +385,29 @@ public class IngestServiceImpl implements IngestService {
             return baos.toString(java.nio.charset.StandardCharsets.ISO_8859_1);
         } catch (IOException ex) {
             throw new RuntimeException("Failed to read source file for OCR: " + storageRef, ex);
+        }
+    }
+
+    private void acquireOcrLock(String sessionUuid) {
+        if (stringRedisTemplate == null) {
+            return;
+        }
+        Boolean locked = stringRedisTemplate.opsForValue().setIfAbsent(
+                OCR_LOCK_PREFIX + sessionUuid,
+                "1",
+                java.time.Duration.ofMinutes(10)
+        );
+        if (!Boolean.TRUE.equals(locked)) {
+            throw new BusinessValidationException(
+                    "GAOKAO_OCR_LOCKED",
+                    "OCR trigger is already in progress for session: " + sessionUuid,
+                    HttpStatus.CONFLICT);
+        }
+    }
+
+    private void releaseOcrLock(String sessionUuid) {
+        if (stringRedisTemplate != null) {
+            stringRedisTemplate.delete(OCR_LOCK_PREFIX + sessionUuid);
         }
     }
 }

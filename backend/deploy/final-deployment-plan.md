@@ -10,6 +10,7 @@
 - 所有 Spring 服务向 Nacos 注册宿主机内网 IP。
 - 远程部署继续使用 [backend/deploy/docker-compose.remote.yml](/home/ubuntu/QForge/backend/deploy/docker-compose.remote.yml)。
 - 不再使用公网 loopback / hairpin NAT 方案。
+- 高考语料与试卷解析文件统一走腾讯云 COS，默认桶为 `qforge-2026-1304896342`，服务通过环境变量凭证直连 COS，不依赖宿主机挂载目录。
 
 本文对应的默认硬件形态是：
 
@@ -276,7 +277,34 @@
 
 原因：
 
-- 这两条链路涉及上传文件、任务态和较重业务流程；在没有补充共享文件路径、对象存储或更完整的无状态验证前，不建议把它们当第一批扩容对象。
+- 这两条链路虽然已切到 COS，不再依赖宿主机本地路径，但仍涉及上传文件、任务态、异步结果和较重业务流程。多开前要先确认：
+- COS 凭证已正确注入
+- 新 DDL 已执行
+- 取消态和幂等约束已随当前代码一起上线
+
+## COS 凭证注入
+
+以下服务需要注入 COS 相关环境变量：
+
+- `gaokao-corpus-service`
+- `exam-parse-service`
+- `ocr-service`
+
+统一变量：
+
+```env
+QFORGE_STORAGE_COS_BUCKET=qforge-2026-1304896342
+QFORGE_STORAGE_COS_REGION=ap-shanghai
+QFORGE_STORAGE_COS_ENDPOINT=https://qforge-2026-1304896342.cos.ap-shanghai.myqcloud.com
+QFORGE_STORAGE_COS_SECRET_ID=
+QFORGE_STORAGE_COS_SECRET_KEY=
+```
+
+说明：
+
+- 推荐使用腾讯云子账号 `qforge-service`
+- 不要把明文 `SecretId` / `SecretKey` 写入受版本控制文件
+- 如需运维机临时保存，使用宿主机本地未跟踪 env 文件
 
 ### 当前不建议作为“高峰镜像”直接多开
 

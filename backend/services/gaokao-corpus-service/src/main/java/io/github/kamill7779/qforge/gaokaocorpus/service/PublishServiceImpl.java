@@ -125,6 +125,14 @@ public class PublishServiceImpl implements PublishService {
         if (draftPaper == null) {
             throw new IllegalArgumentException("Draft paper not found: " + draftPaperUuid);
         }
+        GkPaper existingPaper = paperMapper.selectOne(
+                new LambdaQueryWrapper<GkPaper>()
+                        .eq(GkPaper::getDraftPaperId, draftPaper.getId())
+                        .last("LIMIT 1"));
+        if (existingPaper != null) {
+            log.info("Skip duplicate publish for draftPaperUuid={}, paperUuid={}", draftPaperUuid, existingPaper.getPaperUuid());
+            return toPaperDTO(existingPaper);
+        }
 
         // Get session UUID
         GkIngestSession session = ingestSessionMapper.selectById(draftPaper.getSessionId());
@@ -134,6 +142,7 @@ public class PublishServiceImpl implements PublishService {
         GkPaper paper = new GkPaper();
         paper.setPaperUuid(UUID.randomUUID().toString());
         paper.setSourceSessionUuid(sessionUuid);
+        paper.setDraftPaperId(draftPaper.getId());
         paper.setPaperName(draftPaper.getPaperName());
         paper.setPaperTypeCode(draftPaper.getPaperTypeCode());
         paper.setExamYear(draftPaper.getExamYear());
@@ -364,6 +373,12 @@ public class PublishServiceImpl implements PublishService {
 
         log.info("Published paper complete: uuid={}, questions={}", paper.getPaperUuid(), questionDTOs.size());
 
+        GkPaperDTO dto = toPaperDTO(paper);
+        dto.setQuestions(questionDTOs);
+        return dto;
+    }
+
+    private GkPaperDTO toPaperDTO(GkPaper paper) {
         GkPaperDTO dto = new GkPaperDTO();
         dto.setPaperUuid(paper.getPaperUuid());
         dto.setPaperName(paper.getPaperName());
@@ -372,6 +387,24 @@ public class PublishServiceImpl implements PublishService {
         dto.setProvinceCode(paper.getProvinceCode());
         dto.setSubjectCode(paper.getSubjectCode());
         dto.setStatus(paper.getStatus());
+        List<GkQuestionDTO> questionDTOs = questionMapper.selectList(
+                        new LambdaQueryWrapper<GkQuestion>()
+                                .eq(GkQuestion::getPaperId, paper.getId())
+                                .orderByAsc(GkQuestion::getId))
+                .stream()
+                .map(question -> {
+                    GkQuestionDTO qDTO = new GkQuestionDTO();
+                    qDTO.setQuestionUuid(question.getQuestionUuid());
+                    qDTO.setPaperUuid(paper.getPaperUuid());
+                    qDTO.setQuestionNo(question.getQuestionNo());
+                    qDTO.setQuestionTypeCode(question.getQuestionTypeCode());
+                    qDTO.setStemText(question.getStemText());
+                    qDTO.setDifficultyScore(question.getDifficultyScore());
+                    qDTO.setDifficultyLevel(question.getDifficultyLevel());
+                    qDTO.setHasAnswer(question.getHasAnswer());
+                    return qDTO;
+                })
+                .toList();
         dto.setQuestions(questionDTOs);
         return dto;
     }

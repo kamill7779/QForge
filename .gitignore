@@ -41,6 +41,9 @@ replay_pid*
 .env.*
 !.env.example
 backend/.env
+backend/deploy/*.local.env
+backend/deploy/hosts/*.env
+!backend/deploy/hosts/*.env.example
 
 # Local worktrees
 .worktrees/

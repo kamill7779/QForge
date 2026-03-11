@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS gk_ingest_source_file (
     session_id          BIGINT       NOT NULL,
     file_name           VARCHAR(255) NOT NULL,
     file_type           VARCHAR(16)  NOT NULL COMMENT 'PDF / PNG / JPG',
-    storage_ref         VARCHAR(1024) NOT NULL COMMENT '文件存储引用 (OSS key / local path)',
+    storage_ref         VARCHAR(1024) NOT NULL COMMENT '文件存储引用 (COS URI / legacy local path)',
     page_count          INT          NOT NULL DEFAULT 1,
     checksum_sha256     CHAR(64)     NULL,
     created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS gk_draft_paper (
                         COMMENT 'EDITING / ANALYZING / READY_TO_PUBLISH',
     created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_gk_dp_session (session_id),
+    UNIQUE KEY uk_gk_dp_session (session_id),
     CONSTRAINT fk_gk_dp_session FOREIGN KEY (session_id) REFERENCES gk_ingest_session(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='草稿试卷';
 
@@ -203,6 +203,7 @@ CREATE TABLE IF NOT EXISTS gk_paper (
     id                    BIGINT PRIMARY KEY AUTO_INCREMENT,
     paper_uuid            CHAR(36)     NOT NULL UNIQUE,
     source_session_uuid   CHAR(36)     NULL     COMMENT '来源录入会话 UUID',
+    draft_paper_id        BIGINT       NULL     COMMENT '来源草稿试卷 ID, 用于发布幂等',
     paper_name            VARCHAR(512) NOT NULL,
     paper_type_code       VARCHAR(32)  NULL,
     exam_year             SMALLINT     NULL,
@@ -211,6 +212,7 @@ CREATE TABLE IF NOT EXISTS gk_paper (
     status                VARCHAR(16)  NOT NULL DEFAULT 'READY' COMMENT 'READY / ARCHIVED',
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_gk_paper_draft (draft_paper_id),
     INDEX idx_gk_paper_year (exam_year, province_code, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='高考数学正式试卷';
 
@@ -417,6 +419,7 @@ CREATE TABLE IF NOT EXISTS gk_question_materialization (
     created_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_gk_qm_gk_target (gk_question_id, target_question_uuid),
+    UNIQUE KEY uk_gk_qm_active_source (gk_question_id, owner_user, mode, status, source_hash),
     INDEX idx_gk_qm_target (target_question_uuid),
     CONSTRAINT fk_gk_qm_question FOREIGN KEY (gk_question_id) REFERENCES gk_question(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='高考题物化到正式题库的桥接';

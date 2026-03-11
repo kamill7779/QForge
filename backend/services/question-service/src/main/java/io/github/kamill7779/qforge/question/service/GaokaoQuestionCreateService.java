@@ -110,7 +110,7 @@ public class GaokaoQuestionCreateService {
             return;
         }
         for (CreateQuestionFromGaokaoRequest.AssetEntry entry : assets) {
-            if (entry == null || entry.getStorageRef() == null || entry.getStorageRef().isBlank()) {
+            if (entry == null || !hasAssetSource(entry)) {
                 continue;
             }
             QuestionAsset asset = new QuestionAsset();
@@ -118,8 +118,8 @@ public class GaokaoQuestionCreateService {
             asset.setQuestionId(question.getId());
             asset.setAssetType(firstNonBlank(entry.getAssetType(), "INLINE_IMAGE"));
             asset.setRefKey(firstNonBlank(entry.getRefKey(), "img-" + UUID.randomUUID()));
-            asset.setImageData(loadAssetData(entry.getStorageRef()));
-            asset.setMimeType(detectMimeType(entry.getStorageRef()));
+            asset.setImageData(loadAssetData(entry));
+            asset.setMimeType(detectMimeType(entry));
             asset.setDeleted(false);
             asset.setCreatedAt(LocalDateTime.now());
             asset.setUpdatedAt(LocalDateTime.now());
@@ -149,7 +149,7 @@ public class GaokaoQuestionCreateService {
             return;
         }
         for (CreateQuestionFromGaokaoRequest.AssetEntry entry : request.getAnswerAssets()) {
-            if (entry == null || entry.getStorageRef() == null || entry.getStorageRef().isBlank()) {
+            if (entry == null || !hasAssetSource(entry)) {
                 continue;
             }
             AnswerAsset asset = new AnswerAsset();
@@ -157,8 +157,8 @@ public class GaokaoQuestionCreateService {
             asset.setQuestionId(question.getId());
             asset.setAnswerId(answer.getId());
             asset.setRefKey(firstNonBlank(entry.getRefKey(), "ans-img-" + UUID.randomUUID()));
-            asset.setImageData(loadAssetData(entry.getStorageRef()));
-            asset.setMimeType(detectMimeType(entry.getStorageRef()));
+            asset.setImageData(loadAssetData(entry));
+            asset.setMimeType(detectMimeType(entry));
             asset.setDeleted(false);
             asset.setCreatedAt(LocalDateTime.now());
             asset.setUpdatedAt(LocalDateTime.now());
@@ -166,24 +166,40 @@ public class GaokaoQuestionCreateService {
         }
     }
 
-    private String loadAssetData(String storageRef) {
-        if (storageRef.startsWith("data:")) {
-            int index = storageRef.indexOf("base64,");
-            return index >= 0 ? storageRef.substring(index + 7) : storageRef;
+    private boolean hasAssetSource(CreateQuestionFromGaokaoRequest.AssetEntry entry) {
+        return (entry.getDataUri() != null && !entry.getDataUri().isBlank())
+                || (entry.getStorageRef() != null && !entry.getStorageRef().isBlank());
+    }
+
+    private String loadAssetData(CreateQuestionFromGaokaoRequest.AssetEntry entry) {
+        String source = firstNonBlank(entry.getDataUri(), entry.getStorageRef());
+        if (source == null || source.isBlank()) {
+            return source;
         }
-        Path path = Path.of(storageRef);
+        if (source.startsWith("data:")) {
+            int index = source.indexOf("base64,");
+            return index >= 0 ? source.substring(index + 7) : source;
+        }
+        Path path = Path.of(source);
         if (!Files.exists(path)) {
-            return storageRef;
+            return source;
         }
         try {
             return Base64.getEncoder().encodeToString(Files.readAllBytes(path));
         } catch (IOException ex) {
-            throw new IllegalStateException("Failed to read asset file: " + storageRef, ex);
+            throw new IllegalStateException("Failed to read asset file: " + source, ex);
         }
     }
 
-    private String detectMimeType(String storageRef) {
-        String lower = storageRef.toLowerCase();
+    private String detectMimeType(CreateQuestionFromGaokaoRequest.AssetEntry entry) {
+        String source = firstNonBlank(entry.getDataUri(), entry.getStorageRef());
+        if (source != null && source.startsWith("data:")) {
+            int end = source.indexOf(';');
+            if (end > "data:".length()) {
+                return source.substring("data:".length(), end);
+            }
+        }
+        String lower = source == null ? "" : source.toLowerCase();
         if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
             return "image/jpeg";
         }

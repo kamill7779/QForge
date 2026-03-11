@@ -39,12 +39,15 @@ public class CreateQuestionFromGaokaoRequest {
     public static class AssetEntry {
         private String assetType;
         private String storageRef;
+        private String dataUri;
         private String refKey;
 
         public String getAssetType() { return assetType; }
         public void setAssetType(String assetType) { this.assetType = assetType; }
         public String getStorageRef() { return storageRef; }
         public void setStorageRef(String storageRef) { this.storageRef = storageRef; }
+        public String getDataUri() { return dataUri; }
+        public void setDataUri(String dataUri) { this.dataUri = dataUri; }
         public String getRefKey() { return refKey; }
         public void setRefKey(String refKey) { this.refKey = refKey; }
     }

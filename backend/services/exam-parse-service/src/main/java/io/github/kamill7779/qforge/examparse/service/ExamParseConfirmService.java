@@ -52,8 +52,7 @@ public class ExamParseConfirmService {
      */
     @Transactional
     public int confirm(String taskUuid, String ownerUser) {
-        taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
-                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+        requireActiveTask(taskUuid, ownerUser);
 
         List<ExamParseQuestion> pendingQuestions =
                 examQuestionRepository.findPendingByTaskUuid(taskUuid);
@@ -112,8 +111,7 @@ public class ExamParseConfirmService {
      */
     @Transactional
     public String confirmSingle(String taskUuid, int seqNo, String ownerUser) {
-        taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
-                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+        requireActiveTask(taskUuid, ownerUser);
 
         ExamParseQuestion epq = examQuestionRepository.findByTaskUuidAndSeqNo(taskUuid, seqNo)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -138,8 +136,7 @@ public class ExamParseConfirmService {
      */
     @Transactional
     public void skipQuestion(String taskUuid, int seqNo, String ownerUser) {
-        taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
-                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+        requireActiveTask(taskUuid, ownerUser);
 
         ExamParseQuestion epq = examQuestionRepository.findByTaskUuidAndSeqNo(taskUuid, seqNo)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -159,8 +156,7 @@ public class ExamParseConfirmService {
      */
     @Transactional
     public void unskipQuestion(String taskUuid, int seqNo, String ownerUser) {
-        taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
-                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+        requireActiveTask(taskUuid, ownerUser);
 
         ExamParseQuestion epq = examQuestionRepository.findByTaskUuidAndSeqNo(taskUuid, seqNo)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -193,5 +189,14 @@ public class ExamParseConfirmService {
             log.warn("Failed to parse images JSON: {}", ex.getMessage());
             return Map.of();
         }
+    }
+
+    private ExamParseTask requireActiveTask(String taskUuid, String ownerUser) {
+        ExamParseTask task = taskRepository.findByTaskUuidAndOwnerUser(taskUuid, ownerUser)
+                .orElseThrow(() -> new IllegalArgumentException("任务不存在或无权访问: " + taskUuid));
+        if ("CANCELLED".equals(task.getStatus())) {
+            throw new IllegalStateException("任务已取消，无法继续操作: " + taskUuid);
+        }
+        return task;
     }
 }

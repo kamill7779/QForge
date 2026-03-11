@@ -51,7 +51,13 @@ public class ExamParseResultConsumer {
         log.info("Received exam parse question result: taskUuid={}, seq={}",
                 event.taskUuid(), event.seqNo());
         try {
-            ExamParseQuestion q = new ExamParseQuestion();
+            Optional<ExamParseTask> taskOpt = taskRepository.findByTaskUuid(event.taskUuid());
+            if (taskOpt.isEmpty() || "CANCELLED".equals(taskOpt.get().getStatus())) {
+                log.info("Drop late exam parse question result for taskUuid={}, seq={}", event.taskUuid(), event.seqNo());
+                return;
+            }
+            ExamParseQuestion q = questionRepository.findByTaskUuidAndSeqNo(event.taskUuid(), event.seqNo())
+                    .orElseGet(ExamParseQuestion::new);
             q.setTaskUuid(event.taskUuid());
             q.setSeqNo(event.seqNo());
             q.setQuestionType(event.questionType());
@@ -92,6 +98,10 @@ public class ExamParseResultConsumer {
                 event.taskUuid(), event.status(), event.questionCount());
         try {
             taskRepository.findByTaskUuid(event.taskUuid()).ifPresent(task -> {
+                if ("CANCELLED".equals(task.getStatus())) {
+                    log.info("Drop late exam parse completed event for cancelled taskUuid={}", event.taskUuid());
+                    return;
+                }
                 task.setStatus(event.status());
                 task.setProgress(100);
                 task.setQuestionCount(event.questionCount());

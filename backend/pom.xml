@@ -14,6 +14,7 @@
     <modules>
         <module>libs/common-contract</module>
         <module>libs/internal-api-contract</module>
+        <module>libs/storage-support</module>
         <module>services/gateway-service</module>
         <module>services/auth-service</module>
         <module>services/question-service</module>

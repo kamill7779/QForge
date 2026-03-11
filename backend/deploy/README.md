@@ -33,6 +33,7 @@
 4. 用 `./deploy.sh hosts/<your-host>.env ps` / `logs -f <service>` 排查问题
 
 复制出来的真实 host env 文件通常包含公网 IP、密码或 API key，应视为私有部署文件，不要直接提交到仓库。
+如果需要注入 COS 或其他云凭证，优先写入 `backend/deploy/remote-stack.secrets.local.env` 这类本地 secrets 文件，再通过 `deploy.sh` 自动加载；不要把明文密钥写进受版本控制的 env、compose 或文档。
 
 ## 填写方式
 
@@ -44,6 +45,19 @@
   - 由上方变量自动拼装，通常不需要改
 
 注意：这些模板包含变量引用，因此推荐始终通过 [backend/deploy/deploy.sh](backend/deploy/deploy.sh) 和 [backend/deploy/setup-host.sh](backend/deploy/setup-host.sh) 使用。它们会先用 shell 加载 env，再执行 compose。不要直接依赖 `docker compose --env-file` 去解析这些派生变量。
+
+## 本地 Secrets 文件
+
+- 默认路径：`backend/deploy/remote-stack.secrets.local.env`
+- 可选覆盖：设置 `QFORGE_DEPLOY_SECRETS_FILE=/path/to/your.secrets.local.env`
+- `deploy.sh` 会先加载主机 env，再自动加载 secrets 文件
+
+示例：
+
+```bash
+QFORGE_STORAGE_COS_SECRET_ID=replace-me
+QFORGE_STORAGE_COS_SECRET_KEY=replace-me
+```
 
 ## Profiles
 

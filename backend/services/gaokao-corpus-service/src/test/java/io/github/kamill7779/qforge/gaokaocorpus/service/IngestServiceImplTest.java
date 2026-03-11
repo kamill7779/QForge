@@ -15,7 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 class IngestServiceImplTest {
 
     private final IngestServiceImpl service = new IngestServiceImpl(
-            null, null, null, null, null, 20, "pdf,jpg,jpeg,png", "./data/test-uploads"
+            null, null, null, null, null, null, null, 20, "pdf,jpg,jpeg,png"
     );
 
     @TempDir

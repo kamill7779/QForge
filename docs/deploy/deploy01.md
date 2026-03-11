@@ -7,8 +7,8 @@
 - qforge.cn 和 www.qforge.cn 使用 HTTPS 正常访问
 - QForge Web 前端通过 Nginx 对外提供服务
 - gateway-service 和 auth-service 运行在 Docker 中
-- 服务通过 Nacos 使用公网地址注册，供其他服务器访问
-- 同一台机器上的容器在通过 Nacos 拿到公网地址后，也能正常回调本机服务
+- 服务通过 Nacos 使用宿主机内网地址注册，供其他服务器访问
+- 上传文件和重流程资产通过腾讯云 COS 存储桶 `qforge-2026-1304896342` 共享，而不是通过宿主机本地路径共享
 
 最终采用的运行模型是：
 

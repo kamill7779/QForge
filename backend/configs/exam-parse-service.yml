@@ -3,6 +3,14 @@
 # ============================================================
 
 qforge:
+  storage:
+    backend: cos
+    cos:
+      bucket: ${QFORGE_STORAGE_COS_BUCKET:qforge-2026-1304896342}
+      region: ${QFORGE_STORAGE_COS_REGION:ap-shanghai}
+      endpoint: ${QFORGE_STORAGE_COS_ENDPOINT:https://qforge-2026-1304896342.cos.ap-shanghai.myqcloud.com}
+      secret-id: ${QFORGE_STORAGE_COS_SECRET_ID:}
+      secret-key: ${QFORGE_STORAGE_COS_SECRET_KEY:}
   business:
     max-exam-upload-files: 10
     allowed-exam-extensions: pdf,jpg,jpeg,png
