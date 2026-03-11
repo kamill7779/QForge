@@ -33,6 +33,8 @@
 3. 用 `./deploy.sh hosts/<your-host>.env up -d --build` 启动该机 profile 对应服务
 4. 用 `./deploy.sh hosts/<your-host>.env ps` / `logs -f <service>` 排查问题
 
+复制出来的真实 host env 文件通常包含公网 IP、密码或 API key，应视为私有部署文件，不要直接提交到仓库。
+
 ## 填写方式
 
 所有 env 模板都分成两段：
@@ -102,3 +104,5 @@
 - 前端容器代理网关时使用 `${APP_PUBLIC_HOST}:${GATEWAY_PORT}`，因此远程场景不依赖 Docker DNS
 - 如果 `exam-service` 和 `export-sidecar` 不在同一台机器，需在 env 中显式设置 `EXAM_EXPORT_SIDECAR_BASE_URL`
 - 如果 `gaokao-analysis-service` 和 `qdrant` 不在同一台机器，需在 env 中显式设置 `QDRANT_HOST`
+- `export-sidecar` 使用 `nacos-sdk-python==1.0.0` 时必须保持心跳开启；远程 compose 已默认注入 `NACOS_HEARTBEAT_INTERVAL_SECONDS=5`。如果去掉这个参数，sidecar 可能会打印注册成功，但 Nacos `instance/list` 的 `hosts` 仍为空，`exam-service` 会退回 direct-url fallback
+- `export-sidecar` 的健康检查路径是 `/api/export/health`，不是 `/health`

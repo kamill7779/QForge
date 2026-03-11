@@ -70,13 +70,15 @@ def _try_register_nacos() -> None:
         config.SERVICE_NAME,
         config.SERVICE_IP,
         config.SERVICE_PORT,
+        heartbeat_interval=config.NACOS_HEARTBEAT_INTERVAL_SECONDS,
         metadata={"preserved.register.source": "PYTHON"},
     )
     _nacos_registered = True
     logger.info(
-        "Nacos registration OK -> %s:%s",
+        "Nacos registration OK -> %s:%s, heartbeat=%ss",
         config.SERVICE_IP,
         config.SERVICE_PORT,
+        config.NACOS_HEARTBEAT_INTERVAL_SECONDS,
     )
 
 
