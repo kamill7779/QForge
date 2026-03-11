@@ -236,7 +236,7 @@ services:
     ports:
       - "${PERSIST_PORT}:8091"
 
-  gaokao-corpus-service:
+  gaokao-corpus-service: 
     build:
       context: .
       dockerfile: Dockerfile

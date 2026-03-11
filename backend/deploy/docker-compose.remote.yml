@@ -1,0 +1,439 @@
+name: qforge-remote
+
+services:
+  mysql:
+    profiles: ["infra"]
+    image: mysql:8.4
+    container_name: qforge-mysql
+    restart: unless-stopped
+    mem_limit: 768m
+    mem_reservation: 384m
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../sql/init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
+      - ../sql/gaokao-schema.sql:/docker-entrypoint-initdb.d/02-gaokao-schema.sql:ro
+    ports:
+      - "${MYSQL_BIND_PORT:-13306}:3306"
+
+  redis:
+    profiles: ["infra"]
+    image: redis:7.4
+    container_name: qforge-redis
+    restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 128m
+    ports:
+      - "${REDIS_BIND_PORT:-16379}:6379"
+
+  rabbitmq:
+    profiles: ["infra"]
+    image: rabbitmq:3.13-management
+    container_name: qforge-rabbitmq
+    restart: unless-stopped
+    mem_limit: 512m
+    mem_reservation: 256m
+    ports:
+      - "${RABBITMQ_BIND_PORT:-15674}:5672"
+      - "${RABBITMQ_MANAGEMENT_BIND_PORT:-15673}:15672"
+
+  nacos:
+    profiles: ["infra"]
+    image: nacos/nacos-server:v2.4.1
+    container_name: qforge-nacos
+    restart: unless-stopped
+    mem_limit: 768m
+    mem_reservation: 384m
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "false"
+    volumes:
+      - nacos-data:/home/nacos/data
+    ports:
+      - "${NACOS_BIND_PORT:-8848}:8848"
+
+  auth-service:
+    profiles: ["core"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: auth-service
+    container_name: auth-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 384m
+    mem_reservation: 256m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${AUTH_PORT:-8088}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${AUTH_PORT:-8088}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_AUTH:--Xms128m -Xmx256m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+      JWT_SECRET: ${JWT_SECRET}
+
+  gateway-service:
+    profiles: ["core"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: gateway-service
+    container_name: gateway-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 512m
+    mem_reservation: 256m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${GATEWAY_PORT:-8080}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${GATEWAY_PORT:-8080}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_GATEWAY:--Xms128m -Xmx256m}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+      JWT_SECRET: ${JWT_SECRET}
+
+  question-core-service:
+    profiles: ["core"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: question-service
+    container_name: question-core-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 768m
+    mem_reservation: 384m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${QUESTION_CORE_PORT:-8089}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${QUESTION_CORE_PORT:-8089}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_QUESTION_CORE:--Xms128m -Xmx256m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+
+  question-basket-service:
+    profiles: ["core"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: question-basket-service
+    container_name: question-basket-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 384m
+    mem_reservation: 256m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${QUESTION_BASKET_PORT:-8097}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${QUESTION_BASKET_PORT:-8097}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_QUESTION_BASKET:--Xms96m -Xmx192m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+
+  exam-service:
+    profiles: ["core"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: exam-service
+    container_name: exam-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 768m
+    mem_reservation: 384m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${EXAM_PORT:-8093}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${EXAM_PORT:-8093}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_EXAM:--Xms128m -Xmx256m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+      EXPORT_SIDECAR_DIRECT_URL: ${EXAM_EXPORT_SIDECAR_BASE_URL:-http://127.0.0.1:8092}
+
+  exam-parse-service:
+    profiles: ["core"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: exam-parse-service
+    container_name: exam-parse-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 512m
+    mem_reservation: 256m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${EXAM_PARSE_PORT:-8094}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${EXAM_PARSE_PORT:-8094}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_EXAM_PARSE:--Xms128m -Xmx256m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+
+  persist-service:
+    profiles: ["core"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: persist-service
+    container_name: persist-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 384m
+    mem_reservation: 256m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${PERSIST_PORT:-8091}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${PERSIST_PORT:-8091}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_PERSIST:--Xms96m -Xmx192m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+
+  ocr-service:
+    profiles: ["ai"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: ocr-service
+    container_name: ocr-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 1280m
+    mem_reservation: 768m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${OCR_PORT:-8090}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${OCR_PORT:-8090}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_OCR:--Xms192m -Xmx384m -Djava.net.preferIPv4Stack=true}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+      GLM_OCR_ENDPOINT: ${GLM_OCR_ENDPOINT}
+      GLM_OCR_MODEL: ${GLM_OCR_MODEL}
+      GLM_OCR_API_KEY: ${GLM_OCR_API_KEY}
+      GLM_OCR_PREFER_IPV4: "true"
+      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY}
+      ZHIPUAI_MODEL: ${ZHIPUAI_MODEL}
+      STEMXML_MODEL: ${STEMXML_MODEL}
+      EXAMPARSE_AI_MODEL: ${EXAMPARSE_AI_MODEL}
+
+  gaokao-corpus-service:
+    profiles: ["ai"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: gaokao-corpus-service
+    container_name: gaokao-corpus-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 768m
+    mem_reservation: 512m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${GAOKAO_CORPUS_PORT:-8095}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${GAOKAO_CORPUS_PORT:-8095}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_GAOKAO_CORPUS:--Xms128m -Xmx256m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+
+  qdrant:
+    profiles: ["ai"]
+    image: qdrant/qdrant:v1.12.1
+    container_name: qforge-qdrant
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 768m
+    mem_reservation: 384m
+    volumes:
+      - qforge-qdrant-data:/qdrant/storage
+
+  gaokao-analysis-service:
+    profiles: ["ai"]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: gaokao-analysis-service
+    container_name: gaokao-analysis-service
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 1536m
+    mem_reservation: 1024m
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: ${GAOKAO_ANALYSIS_PORT:-8096}
+      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
+      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${GAOKAO_ANALYSIS_PORT:-8096}
+      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_GAOKAO_ANALYSIS:--Xms192m -Xmx384m}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+      QDRANT_HOST: ${QDRANT_HOST:-127.0.0.1}
+      QDRANT_PORT: ${QDRANT_PORT:-6333}
+      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY}
+    depends_on:
+      qdrant:
+        condition: service_started
+
+  export-sidecar:
+    profiles: ["sidecar"]
+    build:
+      context: ../export-sidecar
+      dockerfile: Dockerfile
+    container_name: qforge-export-sidecar
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 512m
+    mem_reservation: 256m
+    environment:
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+      NACOS_USERNAME: ${NACOS_USERNAME:-}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:-}
+      SERVICE_PORT: ${EXPORT_SIDECAR_PORT:-8092}
+      SERVICE_IP: ${APP_PUBLIC_HOST}
+      NACOS_REGISTER_RETRIES: ${NACOS_REGISTER_RETRIES:-30}
+      NACOS_REGISTER_RETRY_INTERVAL_SECONDS: ${NACOS_REGISTER_RETRY_INTERVAL_SECONDS:-2}
+
+  web-exam:
+    profiles: ["frontend"]
+    build:
+      context: ../../web
+      dockerfile: Dockerfile
+    container_name: qforge-web-exam
+    restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 128m
+    environment:
+      GATEWAY_UPSTREAM: ${FRONTEND_GATEWAY_UPSTREAM:-127.0.0.1:8080}
+    ports:
+      - "${WEB_EXAM_PORT:-5173}:80"
+
+  gaokao-web:
+    profiles: ["frontend"]
+    build:
+      context: ../../gaokao-web
+      dockerfile: Dockerfile
+      args:
+        VITE_GAOKAO_MOCK: "false"
+    container_name: qforge-gaokao-web
+    restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 128m
+    environment:
+      GATEWAY_UPSTREAM: ${GAOKAO_FRONTEND_GATEWAY_UPSTREAM:-127.0.0.1:8080}
+    ports:
+      - "${GAOKAO_WEB_PORT:-5175}:80"
+
+volumes:
+  mysql-data:
+  nacos-data:
+  qforge-qdrant-data:
