@@ -1,6 +1,6 @@
 # QForge Remote Deploy
 
-这套目录用于多台无内网互通的轻量云服务器部署。
+这套目录用于多台通过云内网互通的轻量云服务器部署。
 
 ## 目标
 
@@ -27,7 +27,7 @@
 
 ## 推荐工作流
 
-1. 复制一个 env 模板并填入真实公网 IP、凭据和中间件地址
+1. 复制一个 env 模板并填入真实内网 IP、凭据和中间件地址
 2. 如机器曾经使用过公网 loopback 方案，先运行 `sudo ./setup-host.sh hosts/<your-host>.env cleanup`
 3. 用 `./deploy.sh hosts/<your-host>.env up -d --build` 启动该机 profile 对应服务
 4. 用 `./deploy.sh hosts/<your-host>.env ps` / `logs -f <service>` 排查问题
@@ -68,6 +68,8 @@
 | `hosts/all-in-one.env.example` | 单机全量部署 | `mysql`、`redis`、`rabbitmq`、`nacos`、`auth-service`、`gateway-service`、`question-core-service`、`question-basket-service`、`exam-service`、`exam-parse-service`、`persist-service`、`ocr-service`、`gaokao-corpus-service`、`gaokao-analysis-service`、`qdrant`、`export-sidecar`、`web-exam`、`gaokao-web` |
 
 如果要新增机器但只承载部分服务，不需要改 compose 文件，可以直接复制其中一个 env 模板后，通过 `COMPOSE_PROFILES` 和 `./deploy.sh <env> up -d --build <service...>` 选择实际启动的服务。
+
+多机最终推荐落点、JVM 建议值、可加副本服务和高峰期扩容顺序，见 [backend/deploy/final-deployment-plan.md](/home/ubuntu/QForge/backend/deploy/final-deployment-plan.md)。
 
 ## 前端容器确认
 
