@@ -44,10 +44,6 @@ spring:
               uri: lb:ws://question-core-service
               predicates:
                 - Path=/ws/questions/**
-            - id: gaokao-corpus-route
-              uri: lb://gaokao-corpus-service
-              predicates:
-                - Path=/api/gaokao/**
   data:
     redis:
       host: ${REDIS_HOST:localhost}

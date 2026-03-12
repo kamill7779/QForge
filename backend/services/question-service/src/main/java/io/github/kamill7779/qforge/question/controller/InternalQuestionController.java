@@ -1,7 +1,5 @@
 package io.github.kamill7779.qforge.question.controller;
 
-import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoRequest;
-import io.github.kamill7779.qforge.internal.api.CreateQuestionFromGaokaoResponse;
 import io.github.kamill7779.qforge.internal.api.CreateQuestionFromParseRequest;
 import io.github.kamill7779.qforge.internal.api.CreateQuestionFromParseResponse;
 import io.github.kamill7779.qforge.internal.api.QuestionFullDTO;
@@ -20,7 +18,6 @@ import io.github.kamill7779.qforge.question.repository.QuestionRepository;
 import io.github.kamill7779.qforge.question.repository.QuestionTagRelRepository;
 import io.github.kamill7779.qforge.question.repository.TagCategoryRepository;
 import io.github.kamill7779.qforge.question.repository.TagRepository;
-import io.github.kamill7779.qforge.question.service.GaokaoQuestionCreateService;
 import io.github.kamill7779.qforge.question.service.ParsedQuestionCreateService;
 import io.github.kamill7779.qforge.question.service.QuestionSummaryQueryService;
 import java.util.ArrayList;
@@ -52,7 +49,6 @@ public class InternalQuestionController {
 
     private final QuestionSummaryQueryService questionSummaryQueryService;
     private final ParsedQuestionCreateService parsedQuestionCreateService;
-    private final GaokaoQuestionCreateService gaokaoQuestionCreateService;
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
     private final QuestionAssetRepository questionAssetRepository;
@@ -64,7 +60,6 @@ public class InternalQuestionController {
     public InternalQuestionController(
             QuestionSummaryQueryService questionSummaryQueryService,
             ParsedQuestionCreateService parsedQuestionCreateService,
-            GaokaoQuestionCreateService gaokaoQuestionCreateService,
             QuestionRepository questionRepository,
             AnswerRepository answerRepository,
             QuestionAssetRepository questionAssetRepository,
@@ -74,7 +69,6 @@ public class InternalQuestionController {
             TagCategoryRepository tagCategoryRepository) {
         this.questionSummaryQueryService = questionSummaryQueryService;
         this.parsedQuestionCreateService = parsedQuestionCreateService;
-        this.gaokaoQuestionCreateService = gaokaoQuestionCreateService;
         this.questionRepository = questionRepository;
         this.answerRepository = answerRepository;
         this.questionAssetRepository = questionAssetRepository;
@@ -208,16 +202,6 @@ public class InternalQuestionController {
             @RequestBody CreateQuestionFromParseRequest request) {
         CreateQuestionFromParseResponse response = parsedQuestionCreateService.create(request);
         log.info("Question created from parse: questionUuid={}", response.questionUuid());
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/from-gaokao")
-    public ResponseEntity<CreateQuestionFromGaokaoResponse> createFromGaokao(
-            @jakarta.validation.Valid @RequestBody CreateQuestionFromGaokaoRequest request) {
-        CreateQuestionFromGaokaoResponse response = gaokaoQuestionCreateService.create(request);
-        if (response.isSuccess()) {
-            log.info("Question created from gaokao: questionUuid={}", response.getQuestionUuid());
-        }
         return ResponseEntity.ok(response);
     }
 }

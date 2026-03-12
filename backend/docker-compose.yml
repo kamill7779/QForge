@@ -4,16 +4,6 @@ networks:
     driver: bridge
 
 services:
-  qdrant:
-    image: qdrant/qdrant:v1.12.1
-    container_name: qforge-qdrant
-    restart: unless-stopped
-    networks: [qforge-remote-net]
-    mem_limit: 768m
-    mem_reservation: 384m
-    volumes:
-      - qforge-qdrant-data:/qdrant/storage
-
   export-sidecar:
     build:
       context: ./export-sidecar
@@ -33,9 +23,6 @@ services:
       NACOS_REGISTER_RETRY_INTERVAL_SECONDS: 2
     ports:
       - "${EXPORT_SIDECAR_PORT}:8092"
-    depends_on:
-      qdrant:
-        condition: service_started
 
   question-core-service:
     build:
@@ -163,6 +150,11 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
+      QFORGE_STORAGE_COS_BUCKET: ${QFORGE_STORAGE_COS_BUCKET}
+      QFORGE_STORAGE_COS_REGION: ${QFORGE_STORAGE_COS_REGION}
+      QFORGE_STORAGE_COS_ENDPOINT: ${QFORGE_STORAGE_COS_ENDPOINT}
+      QFORGE_STORAGE_COS_SECRET_ID: ${QFORGE_STORAGE_COS_SECRET_ID}
+      QFORGE_STORAGE_COS_SECRET_KEY: ${QFORGE_STORAGE_COS_SECRET_KEY}
     ports:
       - "${EXAM_PARSE_PORT}:8094"
 
@@ -203,6 +195,11 @@ services:
       ZHIPUAI_MODEL: ${ZHIPUAI_MODEL}
       STEMXML_MODEL: ${STEMXML_MODEL}
       EXAMPARSE_AI_MODEL: ${EXAMPARSE_AI_MODEL}
+      QFORGE_STORAGE_COS_BUCKET: ${QFORGE_STORAGE_COS_BUCKET}
+      QFORGE_STORAGE_COS_REGION: ${QFORGE_STORAGE_COS_REGION}
+      QFORGE_STORAGE_COS_ENDPOINT: ${QFORGE_STORAGE_COS_ENDPOINT}
+      QFORGE_STORAGE_COS_SECRET_ID: ${QFORGE_STORAGE_COS_SECRET_ID}
+      QFORGE_STORAGE_COS_SECRET_KEY: ${QFORGE_STORAGE_COS_SECRET_KEY}
     ports:
       - "${OCR_PORT}:8090"
 
@@ -235,76 +232,6 @@ services:
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
     ports:
       - "${PERSIST_PORT}:8091"
-
-  gaokao-corpus-service: 
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: gaokao-corpus-service
-    container_name: gaokao-corpus-service
-    restart: unless-stopped
-    networks: [qforge-remote-net]
-    mem_limit: 768m
-    mem_reservation: 512m
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: 8095
-      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
-      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${GAOKAO_CORPUS_PORT}
-      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_GAOKAO_CORPUS}
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_PORT: ${MYSQL_PORT}
-      MYSQL_DB: ${MYSQL_DB}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      RABBITMQ_HOST: ${RABBITMQ_HOST}
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
-    ports:
-      - "${GAOKAO_CORPUS_PORT}:8095"
-
-  gaokao-analysis-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: gaokao-analysis-service
-    container_name: gaokao-analysis-service
-    restart: unless-stopped
-    networks: [qforge-remote-net]
-    mem_limit: 1536m
-    mem_reservation: 1024m
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: 8096
-      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_PUBLIC_HOST}
-      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${GAOKAO_ANALYSIS_PORT}
-      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_GAOKAO_ANALYSIS}
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_PORT: ${MYSQL_PORT}
-      MYSQL_DB: ${MYSQL_DB}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      RABBITMQ_HOST: ${RABBITMQ_HOST}
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6333
-      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY}
-    ports:
-      - "${GAOKAO_ANALYSIS_PORT}:8096"
-    depends_on:
-      qdrant:
-        condition: service_started
 
   gateway-service:
     build:
@@ -342,8 +269,3 @@ services:
         condition: service_started
       exam-parse-service:
         condition: service_started
-      gaokao-corpus-service:
-        condition: service_started
-
-volumes:
-  qforge-qdrant-data:

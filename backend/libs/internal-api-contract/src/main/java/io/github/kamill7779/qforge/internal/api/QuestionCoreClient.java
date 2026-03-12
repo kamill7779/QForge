@@ -55,11 +55,4 @@ public interface QuestionCoreClient {
             @RequestBody CreateQuestionFromParseRequest request
     );
 
-    /**
-     * 从高考数学语料库物化创建正式题目。gaokao-corpus-service 物化时调用。
-     */
-    @PostMapping("/internal/questions/from-gaokao")
-    CreateQuestionFromGaokaoResponse createFromGaokao(
-            @RequestBody CreateQuestionFromGaokaoRequest request
-    );
 }
