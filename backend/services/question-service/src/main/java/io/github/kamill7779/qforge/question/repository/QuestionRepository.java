@@ -38,10 +38,28 @@ public interface QuestionRepository extends BaseMapper<Question> {
         );
     }
 
+    default List<Question> findReadyPageByOwnerUser(String ownerUser, int offset, int limit) {
+        return this.selectList(
+                Wrappers.<Question>lambdaQuery()
+                        .eq(Question::getOwnerUser, ownerUser)
+                        .eq(Question::getStatus, "READY")
+                        .orderByDesc(Question::getUpdatedAt)
+                        .last("LIMIT " + Math.max(offset, 0) + ", " + Math.max(limit, 1))
+        );
+    }
+
     default long countByOwnerUser(String ownerUser) {
         return this.selectCount(
                 Wrappers.<Question>lambdaQuery()
                         .eq(Question::getOwnerUser, ownerUser)
+        );
+    }
+
+    default long countReadyByOwnerUser(String ownerUser) {
+        return this.selectCount(
+                Wrappers.<Question>lambdaQuery()
+                        .eq(Question::getOwnerUser, ownerUser)
+                        .eq(Question::getStatus, "READY")
         );
     }
 

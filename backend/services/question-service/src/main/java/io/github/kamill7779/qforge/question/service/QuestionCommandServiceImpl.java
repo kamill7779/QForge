@@ -448,13 +448,13 @@ public class QuestionCommandServiceImpl implements QuestionCommandService {
     public QuestionPageResponse pageUserQuestions(String requestUser, int page, int size) {
         int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), 200);
-        long total = questionRepository.countByOwnerUser(requestUser);
+        long total = questionRepository.countReadyByOwnerUser(requestUser);
         if (total == 0) {
             return new QuestionPageResponse(safePage, safeSize, 0, false, List.of());
         }
 
         int offset = (safePage - 1) * safeSize;
-        List<Question> questions = questionRepository.findPageByOwnerUser(requestUser, offset, safeSize);
+        List<Question> questions = questionRepository.findReadyPageByOwnerUser(requestUser, offset, safeSize);
         boolean hasMore = offset + questions.size() < total;
         return new QuestionPageResponse(
                 safePage,

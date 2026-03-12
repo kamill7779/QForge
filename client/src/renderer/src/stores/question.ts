@@ -405,7 +405,13 @@ export const useQuestionStore = defineStore('question', () => {
   ): Promise<void> {
     const res = await questionApi.complete(token, uuid)
     const entry = entries.value.get(uuid)
-    if (entry) entry.status = res.status
+    if (entry) {
+      entry.status = res.status
+    }
+    if (selectedQuestionUuid.value === uuid && entry && stageOf(entry) !== stageFilter.value) {
+      const nextVisible = filteredEntries.value[0]
+      selectedQuestionUuid.value = nextVisible?.questionUuid ?? ''
+    }
     markDirty()
     notif.log(`完成录入 ${uuid.slice(0, 8)}`)
   }
