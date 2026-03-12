@@ -17,11 +17,8 @@ services:
       MYSQL_USER: qforge
       MYSQL_PASSWORD: qforge
     volumes:
-      # Named volume — survives docker compose down (data persists)
       - mysql-data:/var/lib/mysql
-      # Init script — only runs once when the data directory is empty
       - ./sql/init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
-      - ./sql/gaokao-schema.sql:/docker-entrypoint-initdb.d/02-gaokao-schema.sql:ro
     ports:
       - "3306:3306"
     healthcheck:
@@ -65,7 +62,6 @@ services:
       MODE: standalone
       NACOS_AUTH_ENABLE: "false"
     volumes:
-      # Named volume — Nacos 热配置在 docker compose down 后不丢失
       - nacos-data:/home/nacos/data
     ports:
       - "8848:8848"
@@ -75,19 +71,6 @@ services:
       timeout: 5s
       retries: 24
       start_period: 30s
-
-  qdrant:
-    image: qdrant/qdrant:v1.12.1
-    pull_policy: if_not_present
-    container_name: qforge-qdrant
-    networks: [qforge-net]
-    mem_limit: 768m
-    mem_reservation: 384m
-    volumes:
-      - qdrant-data:/qdrant/storage
-    ports:
-      - "6333:6333"
-      - "6334:6334"
 
   auth-service:
     pull_policy: never
@@ -172,8 +155,6 @@ services:
         condition: service_started
       exam-parse-service:
         condition: service_started
-      gaokao-corpus-service:
-        condition: service_started
 
   question-core-service:
     pull_policy: never
@@ -183,7 +164,6 @@ services:
       pull: false
       args:
         SERVICE_NAME: question-service
-    # container_name omitted — allows --scale
     networks: [qforge-net]
     mem_limit: 768m
     mem_reservation: 512m
@@ -209,7 +189,6 @@ services:
       RABBITMQ_PASSWORD: guest
       NACOS_SERVER_ADDR: nacos:8848
       OCR_SERVICE_BASE_URL: http://ocr-service:8090
-    # No fixed host port — gateway routes via Nacos lb://, supports multi-instance
 
   exam-service:
     pull_policy: never
@@ -310,6 +289,11 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
       NACOS_SERVER_ADDR: nacos:8848
+      QFORGE_STORAGE_COS_BUCKET: ${QFORGE_STORAGE_COS_BUCKET:-qforge-2026-1304896342}
+      QFORGE_STORAGE_COS_REGION: ${QFORGE_STORAGE_COS_REGION:-ap-shanghai}
+      QFORGE_STORAGE_COS_ENDPOINT: ${QFORGE_STORAGE_COS_ENDPOINT:-https://qforge-2026-1304896342.cos.ap-shanghai.myqcloud.com}
+      QFORGE_STORAGE_COS_SECRET_ID: ${QFORGE_STORAGE_COS_SECRET_ID:-}
+      QFORGE_STORAGE_COS_SECRET_KEY: ${QFORGE_STORAGE_COS_SECRET_KEY:-}
 
   persist-service:
     pull_policy: never
@@ -319,7 +303,6 @@ services:
       pull: false
       args:
         SERVICE_NAME: persist-service
-    # container_name omitted — allows --scale persist-service=N
     networks: [qforge-net]
     mem_limit: 384m
     mem_reservation: 256m
@@ -344,7 +327,6 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: guest
       NACOS_SERVER_ADDR: nacos:8848
-    # No fixed host port — MQ-driven consumer, supports multi-instance
 
   ocr-service:
     pull_policy: never
@@ -354,7 +336,6 @@ services:
       pull: false
       args:
         SERVICE_NAME: ocr-service
-    # container_name omitted — allows --scale ocr-service=N
     networks: [qforge-net]
     mem_limit: 1280m
     mem_reservation: 768m
@@ -389,87 +370,12 @@ services:
       ZHIPUAI_MODEL: glm-5
       STEMXML_MODEL: glm-4-0520
       EXAMPARSE_AI_MODEL: glm-4-plus
-    # No fixed host port — supports multi-instance
+      QFORGE_STORAGE_COS_BUCKET: ${QFORGE_STORAGE_COS_BUCKET:-qforge-2026-1304896342}
+      QFORGE_STORAGE_COS_REGION: ${QFORGE_STORAGE_COS_REGION:-ap-shanghai}
+      QFORGE_STORAGE_COS_ENDPOINT: ${QFORGE_STORAGE_COS_ENDPOINT:-https://qforge-2026-1304896342.cos.ap-shanghai.myqcloud.com}
+      QFORGE_STORAGE_COS_SECRET_ID: ${QFORGE_STORAGE_COS_SECRET_ID:-}
+      QFORGE_STORAGE_COS_SECRET_KEY: ${QFORGE_STORAGE_COS_SECRET_KEY:-}
 
-  # ========================= Gaokao Corpus Service =========================
-  gaokao-corpus-service:
-    pull_policy: never
-    build:
-      context: .
-      dockerfile: Dockerfile
-      pull: false
-      args:
-        SERVICE_NAME: gaokao-corpus-service
-    networks: [qforge-net]
-    mem_limit: 768m
-    mem_reservation: 512m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "3"
-    volumes:
-      - ./.dev-logs:/app/logs
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: 8095
-      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DB: qforge
-      MYSQL_USER: qforge
-      MYSQL_PASSWORD: qforge
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: nacos:8848
-
-  # ========================= Gaokao Analysis Service =========================
-  gaokao-analysis-service:
-    pull_policy: never
-    build:
-      context: .
-      dockerfile: Dockerfile
-      pull: false
-      args:
-        SERVICE_NAME: gaokao-analysis-service
-    networks: [qforge-net]
-    mem_limit: 1536m
-    mem_reservation: 1024m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "3"
-    volumes:
-      - ./.dev-logs:/app/logs
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: 8096
-      JAVA_TOOL_OPTIONS: -Xms512m -Xmx1024m
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DB: qforge
-      MYSQL_USER: qforge
-      MYSQL_PASSWORD: qforge
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: guest
-      RABBITMQ_PASSWORD: guest
-      NACOS_SERVER_ADDR: nacos:8848
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6333
-      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
-    depends_on:
-      qdrant:
-        condition: service_started
-
-  # ========================= Export Sidecar (Python) =========================
   export-sidecar:
     pull_policy: never
     build:
@@ -494,7 +400,6 @@ services:
       NACOS_REGISTER_RETRIES: 30
       NACOS_REGISTER_RETRY_INTERVAL_SECONDS: 2
 
-  # ========================= Web Exam Frontend (Vue + Nginx) =========================
   web-exam:
     pull_policy: never
     build:
@@ -516,30 +421,6 @@ services:
       gateway-service:
         condition: service_started
 
-  gaokao-web:
-    pull_policy: never
-    build:
-      context: ../gaokao-web
-      dockerfile: Dockerfile
-      pull: false
-      args:
-        VITE_GAOKAO_MOCK: "false"
-    container_name: qforge-gaokao-web
-    networks: [qforge-net]
-    mem_limit: 256m
-    mem_reservation: 128m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    ports:
-      - "5175:80"
-    depends_on:
-      gateway-service:
-        condition: service_started
-
 volumes:
-  mysql-data:  # persistent: survives docker compose down; use down -v to wipe
-  nacos-data:  # Nacos 热配置持久化，目录 /home/nacos/data
-  qdrant-data: # Qdrant 向量数据持久化
+  mysql-data:
+  nacos-data:

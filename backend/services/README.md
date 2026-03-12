@@ -18,26 +18,27 @@
 - OCR/AI task hot state and WS relay.
 - Internal summary/full-data APIs for other backend services.
 
-## `exam-service`
-
-- Question type catalog.
-- Persisted exam paper composition and export orchestration.
-
 ## `question-basket-service`
 
 - Question basket item management.
 - Pre-confirm compose state.
 - Confirm compose into real exam papers through `exam-service`.
 
+## `exam-service`
+
+- Question type catalog.
+- Persisted exam paper composition and export orchestration.
+
 ## `exam-parse-service`
 
 - Exam upload and parse task lifecycle.
 - Parsed-question preview/edit/confirm flow.
 - Confirmation delegates formal creation to `question-core-service`.
+- Source files are stored in COS instead of large MySQL blobs.
 
 ## `ocr-service`
 
-- OCR and split pipeline.
+- OCR and split pipeline for parse tasks.
 - AI-assisted parse generation.
 - Publishes async result events.
 
@@ -46,21 +47,7 @@
 - Async OCR/AI task history write-back.
 - Should stay narrow in scope and not become a generic persistence facade.
 
-## `gaokao-corpus-service`
+## `export-sidecar`
 
-- Gaokao math corpus business main service (port 8095).
-- Ingest session management: upload, OCR split trigger, draft paper lifecycle.
-- Draft paper/question editing and AI analysis preview/confirm.
-- Formal corpus: published papers, questions, taxonomy, profiles.
-- Similar question query entry point.
-- Materialization bridge to `question-core-service` for formal exam composition.
-
-## `gaokao-analysis-service`
-
-- Gaokao math AI analysis service (port 8096).
-- Text cleansing and XML normalization for math stems/answers.
-- Knowledge tag, method tag, formula tag, difficulty analysis via LLM.
-- Vector embedding and Qdrant index building.
-- Similar question recall and reranking.
-- RAG recommendation reason generation.
-- Photo query orchestration (OCR → clean → analyze → search → rerank → RAG).
+- Internal Python docx rendering service.
+- Only accepts internal render payloads from `exam-service`.

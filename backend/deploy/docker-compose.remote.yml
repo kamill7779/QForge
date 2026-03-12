@@ -17,7 +17,6 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ../sql/init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
-      - ../sql/gaokao-schema.sql:/docker-entrypoint-initdb.d/02-gaokao-schema.sql:ro
     ports:
       - "${MYSQL_BIND_PORT:-13306}:3306"
 
@@ -315,90 +314,6 @@ services:
       STEMXML_MODEL: ${STEMXML_MODEL}
       EXAMPARSE_AI_MODEL: ${EXAMPARSE_AI_MODEL}
 
-  gaokao-corpus-service:
-    profiles: ["ai"]
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: gaokao-corpus-service
-    container_name: gaokao-corpus-service
-    restart: unless-stopped
-    network_mode: host
-    mem_limit: 768m
-    mem_reservation: 512m
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: ${GAOKAO_CORPUS_PORT:-8095}
-      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_NODE_IP}
-      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${GAOKAO_CORPUS_PORT:-8095}
-      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_GAOKAO_CORPUS:--Xms128m -Xmx256m}
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_PORT: ${MYSQL_PORT}
-      MYSQL_DB: ${MYSQL_DB}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      RABBITMQ_HOST: ${RABBITMQ_HOST}
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
-      QFORGE_STORAGE_COS_BUCKET: ${QFORGE_STORAGE_COS_BUCKET}
-      QFORGE_STORAGE_COS_REGION: ${QFORGE_STORAGE_COS_REGION}
-      QFORGE_STORAGE_COS_ENDPOINT: ${QFORGE_STORAGE_COS_ENDPOINT}
-      QFORGE_STORAGE_COS_SECRET_ID: ${QFORGE_STORAGE_COS_SECRET_ID}
-      QFORGE_STORAGE_COS_SECRET_KEY: ${QFORGE_STORAGE_COS_SECRET_KEY}
-
-  qdrant:
-    profiles: ["ai"]
-    image: qdrant/qdrant:v1.12.1
-    container_name: qforge-qdrant
-    restart: unless-stopped
-    network_mode: host
-    mem_limit: 768m
-    mem_reservation: 384m
-    volumes:
-      - qforge-qdrant-data:/qdrant/storage
-
-  gaokao-analysis-service:
-    profiles: ["ai"]
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      args:
-        SERVICE_NAME: gaokao-analysis-service
-    container_name: gaokao-analysis-service
-    restart: unless-stopped
-    network_mode: host
-    mem_limit: 1536m
-    mem_reservation: 1024m
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: ${GAOKAO_ANALYSIS_PORT:-8096}
-      SPRING_CLOUD_NACOS_DISCOVERY_IP: ${APP_NODE_IP}
-      SPRING_CLOUD_NACOS_DISCOVERY_PORT: ${GAOKAO_ANALYSIS_PORT:-8096}
-      JAVA_TOOL_OPTIONS: ${JAVA_OPTS_GAOKAO_ANALYSIS:--Xms192m -Xmx384m}
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_PORT: ${MYSQL_PORT}
-      MYSQL_DB: ${MYSQL_DB}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      RABBITMQ_HOST: ${RABBITMQ_HOST}
-      RABBITMQ_PORT: ${RABBITMQ_PORT}
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR}
-      QDRANT_HOST: ${QDRANT_HOST:-127.0.0.1}
-      QDRANT_PORT: ${QDRANT_PORT:-6333}
-      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY}
-    depends_on:
-      qdrant:
-        condition: service_started
-
   export-sidecar:
     profiles: ["sidecar"]
     build:
@@ -433,23 +348,6 @@ services:
     ports:
       - "${WEB_EXAM_PORT:-5173}:80"
 
-  gaokao-web:
-    profiles: ["frontend"]
-    build:
-      context: ../../gaokao-web
-      dockerfile: Dockerfile
-      args:
-        VITE_GAOKAO_MOCK: "false"
-    container_name: qforge-gaokao-web
-    restart: unless-stopped
-    mem_limit: 256m
-    mem_reservation: 128m
-    environment:
-      GATEWAY_UPSTREAM: ${GAOKAO_FRONTEND_GATEWAY_UPSTREAM:-127.0.0.1:8080}
-    ports:
-      - "${GAOKAO_WEB_PORT:-5175}:80"
-
 volumes:
   mysql-data:
   nacos-data:
-  qforge-qdrant-data:

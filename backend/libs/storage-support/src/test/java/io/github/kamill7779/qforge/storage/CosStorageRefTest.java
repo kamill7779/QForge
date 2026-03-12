@@ -9,9 +9,9 @@ class CosStorageRefTest {
 
     @Test
     void buildShouldCreateCanonicalCosUri() {
-        String uri = CosStorageRef.build("qforge-2026-1304896342", "ap-shanghai", "gaokao/ingest/s1/f1.pdf");
+        String uri = CosStorageRef.build("qforge-2026-1304896342", "ap-shanghai", "exam-parse/source/t1/0.pdf");
 
-        assertEquals("cos://qforge-2026-1304896342/ap-shanghai/gaokao/ingest/s1/f1.pdf", uri);
+        assertEquals("cos://qforge-2026-1304896342/ap-shanghai/exam-parse/source/t1/0.pdf", uri);
     }
 
     @Test
